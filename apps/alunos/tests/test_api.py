@@ -54,7 +54,7 @@ class A01TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(len(body), 1)
-        self.assertEqual(body[0]["codigoAluno"], "1234567")
+        self.assertEqual(body[0]["codigoAluno"], 1234567)
         self.assertEqual(body[0]["codigoTurma"], 12345)
         # Campos out-of-scope NÃO devem aparecer
         for campo in (
@@ -286,6 +286,23 @@ class A27FiliacaoApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["codigoAluno"], 1234567)
+
+
+class A12AlunosPorCodigosApiTestCase(TestCase):
+    def test_retorna_alunos(self) -> None:
+        seed_matriculas()
+        url = reverse("alunos-por-codigos")
+        resp = _autenticado().get(url + "?codigosAluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigoAluno"], 1234567)
+
+    def test_sem_codigos_retorna_vazio(self) -> None:
+        url = reverse("alunos-por-codigos")
+        resp = _autenticado().get(url + "?codigosAluno=")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
 
 
 class MatriculasApiTestCase(TestCase):

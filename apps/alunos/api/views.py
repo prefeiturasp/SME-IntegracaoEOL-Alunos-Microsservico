@@ -86,6 +86,8 @@ def _query_int_list(request: Request, nome: str) -> list[int]:
     raw = request.query_params.getlist(nome)
     saida: list[int] = []
     for v in raw:
+        if v == "":
+            continue
         try:
             saida.append(int(v))
         except (TypeError, ValueError) as exc:
@@ -915,10 +917,6 @@ class ResponsavelAlunoView(APIView):
             email=body.get("email"),
             ddd_celular=body.get("ddd_celular"),
             numero_celular=body.get("numero_celular"),
-            ddd_residencial=body.get("ddd_residencial"),
-            numero_residencial=body.get("numero_residencial"),
-            ddd_comercial=body.get("ddd_comercial"),
-            numero_comercial=body.get("numero_comercial"),
         )
         return Response(DadosResponsavelResumidoSerializer(resumo).data)
 
@@ -952,8 +950,6 @@ class ResponsavelAlunoView(APIView):
             nome=body.get("nome", ""),
             email=body.get("email", ""),
             tipo_responsavel=body.get("tipo_responsavel"),
-            data_nascimento=body.get("data_nascimento"),
-            nome_mae=body.get("nome_mae", ""),
             ddd_celular=body.get("ddd_celular", ""),
             numero_celular=body.get("numero_celular", ""),
         )

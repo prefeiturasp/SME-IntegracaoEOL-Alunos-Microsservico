@@ -6,6 +6,7 @@ from datetime import date
 
 from django.test import TestCase
 
+from apps.alunos.enums import SituacaoMatricula
 from apps.alunos.models import (
     Aluno,
     Matricula,
@@ -81,3 +82,23 @@ class ResponsavelAlunoTestCase(TestCase):
             nome="João Exemplo",
         )
         self.assertEqual(str(r), "João Exemplo (Aluno: 1234567)")
+
+
+class SituacaoMatriculaTestCase(TestCase):
+    def test_descricao_none(self) -> None:
+        self.assertEqual(SituacaoMatricula.get_descricao(None), "Não Informada")
+
+    def test_descricao_int_valido(self) -> None:
+        self.assertEqual(SituacaoMatricula.get_descricao(1), "Ativo")
+        self.assertEqual(SituacaoMatricula.get_descricao(5), "Concluído")
+
+    def test_descricao_string_numerica(self) -> None:
+        self.assertEqual(SituacaoMatricula.get_descricao("2"), "Desistente")
+
+    def test_descricao_codigo_fora_do_dominio(self) -> None:
+        resultado = SituacaoMatricula.get_descricao(99)
+        self.assertIn("PRODAM", resultado)
+
+    def test_descricao_string_invalida(self) -> None:
+        resultado = SituacaoMatricula.get_descricao("abc")
+        self.assertIn("PRODAM", resultado)

@@ -31,11 +31,10 @@ class TurmasDoAlunoTestCase(TestCase):
             dados = services.buscar_turmas_do_aluno(codigo_aluno=1234567)
         self.assertEqual(len(dados), 1)
         d = dados[0]
-        self.assertEqual(d.codigo_aluno, "1234567")
+        self.assertEqual(d.codigo_aluno, 1234567)
         self.assertEqual(d.codigo_turma, 12345)
         self.assertEqual(d.codigo_situacao_matricula, 1)
         self.assertEqual(d.nome_aluno, "JOAO DA SILVA")
-        self.assertEqual(d.codigo_escola, "100001")
         self.assertEqual(d.numero_aluno_chamada, "12")
 
     def test_a01_aluno_inexistente_retorna_lista_vazia(self) -> None:
@@ -71,7 +70,7 @@ class A04AlunosDaUeTestCase(TestCase):
             codigo_eol="1234567",
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0].codigo_aluno, "1234567")
+        self.assertEqual(dados[0].codigo_aluno, 1234567)
 
     def test_filtra_por_nome(self) -> None:
         seed_matriculas()
@@ -284,6 +283,29 @@ class A27FiliacaoTestCase(TestCase):
         self.assertIsNotNone(dado)
         assert dado is not None
         self.assertEqual(dado.codigo_aluno, 1234567)
+
+
+class A12AlunosPorCodigosTestCase(TestCase):
+    def test_lista_vazia_retorna_vazia(self) -> None:
+        dados = services.obter_alunos_por_codigos(codigos_aluno=[])
+        self.assertEqual(dados, [])
+
+    def test_codigo_invalido_busca_ue_retorna_vazio(self) -> None:
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001", ano_letivo=2026, codigo_eol="nao-e-numero"
+        )
+        self.assertEqual(dados, [])
+
+    def test_ue_sem_matriculas_retorna_vazio(self) -> None:
+        dados = services.buscar_alunos_da_ue(codigo_ue="999999", ano_letivo=2026)
+        self.assertEqual(dados, [])
+
+    def test_nome_sem_match_retorna_vazio(self) -> None:
+        seed_matriculas()
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001", ano_letivo=2026, nome_aluno="XXXXXXXXXX"
+        )
+        self.assertEqual(dados, [])
 
 
 class M01M02E05ConsolidacaoTestCase(TestCase):

@@ -126,8 +126,7 @@ python manage.py test --settings=config.settings_test
 ./executar_testes_docker.sh
 ```
 
-A cobertura mínima exigida é **80%** (regra institucional, ADR
-documentada em `CLAUDE_ProgramasEdu.md`).
+A cobertura mínima exigida é **80%**.
 
 ## Observações arquiteturais
 

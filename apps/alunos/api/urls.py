@@ -169,17 +169,17 @@ urlpatterns = [
         DadosResponsavelResumidoView.as_view(),
         name="dados-responsavel-resumido",
     ),
+    # A27 — deve vir antes de A22/A23 para não ser capturado pelo <str:cpfResponsavel>
+    path(
+        "alunos/<str:codigoAluno>/responsaveis/filiacao",
+        FiliacaoAlunoView.as_view(),
+        name="filiacao-aluno",
+    ),
     # A22 (PUT) e A23 (POST) — mesmo path, métodos diferentes
     path(
         "alunos/<str:codigoAluno>/responsaveis/<str:cpfResponsavel>",
         ResponsavelAlunoView.as_view(),
         name="responsavel-aluno",
-    ),
-    # A27
-    path(
-        "alunos/<str:codigoAluno>/responsaveis/filiacao",
-        FiliacaoAlunoView.as_view(),
-        name="filiacao-aluno",
     ),
     # ------------------------------------------------------------------
     # MatriculaController do legado → /api/matriculas/...

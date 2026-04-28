@@ -27,7 +27,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any
 
-from django.db.models import Count
+from django.db.models import Count, Max
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -58,7 +58,7 @@ class TurmaDoAlunoDTO:
     dataAtualizacaoTabela.
     """
 
-    codigo_aluno: str
+    codigo_aluno: int
     ano_letivo: int
     nome_aluno: str
     nome_social_aluno: str | None
@@ -66,12 +66,8 @@ class TurmaDoAlunoDTO:
     situacao_matricula: str
     data_situacao: date | None
     data_nascimento: date | None
-    idade: int | None
-    documento_cpf: str | None
-    data_matricula: date | None
     numero_aluno_chamada: str | None
     codigo_turma: int
-    codigo_escola: str
     data_atualizacao_contato: date | None
 
 
@@ -496,7 +492,7 @@ def _consultar_turmas_do_aluno(
         mt = mts.get(m["codigo_matricula"], {})
         saida.append(
             TurmaDoAlunoDTO(
-                codigo_aluno=str(m["aluno_id"]),
+                codigo_aluno=m["aluno_id"],
                 ano_letivo=m["ano_letivo"],
                 nome_aluno=aluno.get("nome", ""),
                 nome_social_aluno=aluno.get("nome_social"),
@@ -504,12 +500,8 @@ def _consultar_turmas_do_aluno(
                 situacao_matricula=m["situacao_matricula"],
                 data_situacao=m["data_situacao_matricula"],
                 data_nascimento=aluno.get("data_nascimento"),
-                idade=_calcular_idade(aluno.get("data_nascimento")),
-                documento_cpf=aluno.get("cpf"),
-                data_matricula=m["data_situacao_matricula"],
                 numero_aluno_chamada=mt.get("numero_chamada"),
                 codigo_turma=mt.get("codigo_turma") or 0,
-                codigo_escola=m["codigo_ue"],
                 data_atualizacao_contato=aluno.get(
                     "data_atualizacao_contato"
                 ),
@@ -613,7 +605,7 @@ def buscar_alunos_da_ue(
 
     return [
         TurmaDoAlunoDTO(
-            codigo_aluno=str(m["aluno_id"]),
+            codigo_aluno=m["aluno_id"],
             ano_letivo=m["ano_letivo"],
             nome_aluno=alunos_idx.get(m["aluno_id"], {}).get("nome", ""),
             nome_social_aluno=alunos_idx.get(m["aluno_id"], {}).get(
@@ -625,11 +617,6 @@ def buscar_alunos_da_ue(
             data_nascimento=alunos_idx.get(m["aluno_id"], {}).get(
                 "data_nascimento"
             ),
-            idade=_calcular_idade(
-                alunos_idx.get(m["aluno_id"], {}).get("data_nascimento")
-            ),
-            documento_cpf=alunos_idx.get(m["aluno_id"], {}).get("cpf"),
-            data_matricula=m["data_situacao_matricula"],
             numero_aluno_chamada=mts.get(m["codigo_matricula"], {}).get(
                 "numero_chamada"
             ),
@@ -637,7 +624,6 @@ def buscar_alunos_da_ue(
                 "codigo_turma"
             )
             or 0,
-            codigo_escola=m["codigo_ue"],
             data_atualizacao_contato=alunos_idx.get(m["aluno_id"], {}).get(
                 "data_atualizacao_contato"
             ),
@@ -1510,7 +1496,14 @@ def cadastrar_dados_responsavel(
         # Criação só é válida em ambiente de teste/local. Em produção,
         # o cadastro do responsável é feito pelo EOL e replicado pelo
         # MS-ETL — esta API apenas aceita atualizações.
+        max_pk = (
+            ResponsavelAluno.objects.aggregate(m=Max("codigo_responsavel"))[
+                "m"
+            ]
+            or 0
+        )
         defaults: dict[str, Any] = {
+            "codigo_responsavel": max_pk + 1,
             "aluno_id": codigo_aluno,
             "cpf": cpf_responsavel,
             "nome": nome,

@@ -18,11 +18,11 @@ class ApiKeyAuthenticationTestCase(TestCase):
         request = self.factory.get("/api/alunos")
         self.assertIsNone(self.auth.authenticate(request))
 
-    def test_chave_invalida_lanca_authentication_failed(self) -> None:
+    def test_chave_invalida_lanca_permission_denied(self) -> None:
         request = self.factory.get(
             "/api/alunos", HTTP_X_API_KEY="chave-errada"
         )
-        with self.assertRaises(exceptions.AuthenticationFailed):
+        with self.assertRaises(exceptions.PermissionDenied):
             self.auth.authenticate(request)
 
     def test_chave_correta_retorna_usuario(self) -> None:
@@ -39,3 +39,10 @@ class ApiKeyAuthenticationTestCase(TestCase):
     def test_authenticate_header_retorna_nome_configurado(self) -> None:
         request = self.factory.get("/api/alunos")
         self.assertEqual(self.auth.authenticate_header(request), "X-API-Key")
+
+    def test_api_user_str(self) -> None:
+        request = self.factory.get("/api/alunos", HTTP_X_API_KEY="chave-correta")
+        result = self.auth.authenticate(request)
+        assert result is not None
+        usuario, _ = result
+        self.assertEqual(str(usuario), "api-user")

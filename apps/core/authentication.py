@@ -38,7 +38,7 @@ class ApiKeyAuthentication(BaseAuthentication):
         if key_fornecida is None:
             return None
         if key_fornecida != api_key:
-            raise exceptions.AuthenticationFailed("API Key inválida.")
+            raise exceptions.PermissionDenied("API Key inválida.")
         return (_ApiAuth(), None)
 
     def authenticate_header(self, request: Request) -> str:

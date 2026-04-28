@@ -14,7 +14,7 @@ from rest_framework import serializers
 class TurmaDoAlunoSerializer(serializers.Serializer):
     """A01/A02/A03/A04/A11/A12 — Turma do aluno (shape reduzido)."""
 
-    codigoAluno = serializers.CharField(source="codigo_aluno")
+    codigoAluno = serializers.IntegerField(source="codigo_aluno")
     anoLetivo = serializers.IntegerField(source="ano_letivo")
     nomeAluno = serializers.CharField(source="nome_aluno")
     nomeSocialAluno = serializers.CharField(
@@ -30,18 +30,10 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
     dataNascimento = serializers.DateField(
         source="data_nascimento", allow_null=True
     )
-    idade = serializers.IntegerField(allow_null=True)
-    documentoCpf = serializers.CharField(
-        source="documento_cpf", allow_null=True
-    )
-    dataMatricula = serializers.DateField(
-        source="data_matricula", allow_null=True
-    )
     numeroAlunoChamada = serializers.CharField(
         source="numero_aluno_chamada", allow_null=True
     )
     codigoTurma = serializers.IntegerField(source="codigo_turma")
-    codigoEscola = serializers.CharField(source="codigo_escola")
     dataAtualizacaoContato = serializers.DateField(
         source="data_atualizacao_contato", allow_null=True
     )
