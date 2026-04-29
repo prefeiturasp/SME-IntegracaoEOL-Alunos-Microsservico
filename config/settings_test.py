@@ -7,7 +7,11 @@ gerenciáveis antes do ``setup_databases`` para que o schema seja criado
 em SQLite e os testes possam manipular dados normalmente.
 """
 
-from config.settings import *  # noqa: F401,F403
+from config import settings as base_settings
+
+for name in dir(base_settings):
+    if name.isupper():
+        globals()[name] = getattr(base_settings, name)
 
 DATABASES = {
     "default": {

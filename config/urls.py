@@ -5,12 +5,10 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
-_API = "api/"
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path(
-        f"{_API}schema/",
+        "alunos/api/v1/schema/",
         SpectacularAPIView.as_view(
             authentication_classes=[],
             permission_classes=[AllowAny],
@@ -18,7 +16,7 @@ urlpatterns = [
         name="schema",
     ),
     path(
-        f"{_API}docs/",
+        "alunos/api/v1/docs/",
         SpectacularSwaggerView.as_view(
             url_name="schema",
             authentication_classes=[],
@@ -26,5 +24,5 @@ urlpatterns = [
         ),
         name="swagger-ui",
     ),
-    path(_API, include("apps.alunos.api.urls")),
+    path("api/v1/", include("apps.alunos.api.urls")),
 ]
