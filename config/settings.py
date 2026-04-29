@@ -55,7 +55,9 @@ if not SECRET_KEY:
         raise ImproperlyConfigured(
             "A variável DJANGO_SECRET_KEY é obrigatória em produção."
         )
-    SECRET_KEY = os.getenv("HOSTNAME", "dev-secret-key-alunos")
+    raise ImproperlyConfigured(
+        "A variável DJANGO_SECRET_KEY é obrigatória."
+    )
 
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [

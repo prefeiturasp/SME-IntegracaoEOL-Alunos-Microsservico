@@ -45,51 +45,51 @@ requirements/            # base.txt + local.txt
 
 ## Endpoints implementados
 
-> Todos os paths preservam o contrato legado.
+> Todos os paths preservam o contrato legado. Documentação interativa disponível em `/api/docs/` (Swagger UI).
 
 ### `/api/alunos` (AlunoController)
 
-| ID  | Verbo | Path                                                                                                                                       |
-|-----|-------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| A01 | GET   | `/api/alunos/{codigoAluno}/turmas/`                                                                                                         |
-| A02 | GET   | `/api/alunos/{codigoAluno}/turmas/anosLetivos/{anoLetivo}/historico/{historico}/filtrar-situacao/{filtrarSituacao}/tipo-turma/{tipoTurma}`  |
-| A03 | GET   | `/api/alunos/{codigoAluno}/turmas/anosLetivos/{anoLetivo}/matriculaTurma/{filtrarSituacaoMatricula}/tipoTurma/{tipoTurma}`                  |
-| A04 | GET   | `/api/alunos/ues/{codigoUe}/anosLetivos/{anoLetivo}`                                                                                        |
-| A05 | GET   | `/api/alunos/ues/{codigoUe}/anosLetivos/{anoLetivo}/autocomplete`                                                                           |
-| A06 | GET   | `/api/alunos/ues/{ueCodigo}/autocomplete/ativos`                                                                                            |
-| A07 | GET   | `/api/alunos/ativos/anos/{anoTurma}/anos-letivos/{anoLetivo}/inicio/{dataInicio}/fim/{dataFim}`                                             |
-| A08 | GET   | `/api/alunos/turmas/{codigoTurma}/ativos/{dataReferenciaFim}`                                                                               |
-| A09 | GET   | `/api/alunos/turmas/{codigoTurma}/ativos`                                                                                                   |
-| A10 | GET   | `/api/alunos/{codigoAluno}/necessidades-especiais`                                                                                          |
-| A11 | GET   | `/api/alunos/anoLetivo/{anoLetivo}/alunos`                                                                                                  |
-| A12 | GET   | `/api/alunos/alunos`                                                                                                                        |
-| A13 | GET   | `/api/alunos/{codigoAluno}/informacoes`                                                                                                     |
-| A14 | GET   | `/api/alunos/{codigoTurma}/turma/informacoes`                                                                                               |
-| A15 | GET   | `/api/alunos/ano-letivo/{anoLetivo}/matriculados`                                                                                           |
-| A16 | GET   | `/api/alunos/ano-letivo/{anoLetivo}/matriculados/quantidade`                                                                                |
-| A18 | GET   | `/api/alunos/dados-acompanhamento-escolar`                                                                                                  |
-| A19 | GET   | `/api/alunos/responsaveis`                                                                                                                  |
-| A20 | GET   | `/api/alunos/responsaveis/{cpfResponsavel}`                                                                                                 |
-| A21 | GET   | `/api/alunos/responsaveis/{cpfResponsavel}/resumido`                                                                                        |
-| A22 | PUT   | `/api/alunos/{codigoAluno}/responsaveis/{cpfResponsavel}`                                                                                   |
-| A23 | POST  | `/api/alunos/{codigoAluno}/responsaveis/{cpfResponsavel}`                                                                                   |
-| A27 | GET   | `/api/alunos/{codigoAluno}/responsaveis/filiacao`                                                                                           |
+| ID  | Verbo | Path                                                                                                                                        | Descrição                                              |
+|-----|-------|---------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------|
+| A01 | GET   | `/api/alunos/{codigoAluno}/turmas/`                                                                                                         | Turmas do aluno                                        |
+| A02 | GET   | `/api/alunos/{codigoAluno}/turmas/anosLetivos/{anoLetivo}/historico/{historico}/filtrar-situacao/{filtrarSituacao}/tipo-turma/{tipoTurma}`  | Turmas com filtro de situação e tipo                   |
+| A03 | GET   | `/api/alunos/{codigoAluno}/turmas/anosLetivos/{anoLetivo}/matriculaTurma/{filtrarSituacaoMatricula}/tipoTurma/{tipoTurma}`                  | Turmas filtradas por situação de matrícula             |
+| A04 | GET   | `/api/alunos/ues/{codigoUe}/anosLetivos/{anoLetivo}`                                                                                        | Alunos de uma UE em determinado ano letivo             |
+| A05 | GET   | `/api/alunos/ues/{codigoUe}/anosLetivos/{anoLetivo}/autocomplete`                                                                           | Autocomplete de alunos por UE e ano letivo             |
+| A06 | GET   | `/api/alunos/ues/{ueCodigo}/autocomplete/ativos`                                                                                            | Autocomplete de alunos ativos por UE                   |
+| A07 | GET   | `/api/alunos/ativos/anos/{anoTurma}/anos-letivos/{anoLetivo}/inicio/{dataInicio}/fim/{dataFim}`                                             | Total de alunos ativos em um período                   |
+| A08 | GET   | `/api/alunos/turmas/{codigoTurma}/ativos/{dataReferenciaFim}`                                                                               | Alunos ativos na turma até uma data de corte           |
+| A09 | GET   | `/api/alunos/turmas/{codigoTurma}/ativos`                                                                                                   | Alunos ativos na turma                                 |
+| A10 | GET   | `/api/alunos/{codigoAluno}/necessidades-especiais`                                                                                          | Necessidades especiais (deficiências) do aluno         |
+| A11 | GET   | `/api/alunos/anoLetivo/{anoLetivo}/alunos`                                                                                                  | Alunos em lote por lista de códigos e ano letivo       |
+| A12 | GET   | `/api/alunos/alunos`                                                                                                                        | Alunos em lote por lista de códigos                    |
+| A13 | GET   | `/api/alunos/{codigoAluno}/informacoes`                                                                                                     | Dados cadastrais do aluno                              |
+| A14 | GET   | `/api/alunos/{codigoTurma}/turma/informacoes`                                                                                               | Dados de todos os alunos de uma turma                  |
+| A15 | GET   | `/api/alunos/ano-letivo/{anoLetivo}/matriculados`                                                                                           | Alunos matriculados por CC e ano letivo                |
+| A16 | GET   | `/api/alunos/ano-letivo/{anoLetivo}/matriculados/quantidade`                                                                                | Total de alunos matriculados por CC e ano letivo       |
+| A18 | GET   | `/api/alunos/dados-acompanhamento-escolar`                                                                                                  | Dados de acompanhamento escolar                        |
+| A19 | GET   | `/api/alunos/responsaveis`                                                                                                                  | Responsáveis filtrados por DRE / UE / turma            |
+| A20 | GET   | `/api/alunos/responsaveis/{cpfResponsavel}`                                                                                                 | Dados completos de um responsável                      |
+| A21 | GET   | `/api/alunos/responsaveis/{cpfResponsavel}/resumido`                                                                                        | Resumo de um responsável                               |
+| A22 | PUT   | `/api/alunos/{codigoAluno}/responsaveis/{cpfResponsavel}`                                                                                   | Atualiza responsável (busca ativa)                     |
+| A23 | POST  | `/api/alunos/{codigoAluno}/responsaveis/{cpfResponsavel}`                                                                                   | Cadastra novo responsável                              |
+| A27 | GET   | `/api/alunos/{codigoAluno}/responsaveis/filiacao`                                                                                           | Filiação / vínculo dos responsáveis do aluno           |
 
 ### `/api/matriculas` (MatriculaController)
 
-| ID  | Verbo | Path                                                |
-|-----|-------|-----------------------------------------------------|
-| M01 | GET   | `/api/matriculas`                                   |
-| M02 | GET   | `/api/matriculas/anos-anteriores`                   |
-| M03 | GET   | `/api/matriculas/escolas/{ueCodigo}/quantidades`    |
-| M04 | GET   | `/api/matriculas/escolas/dre/{dreCodigo}/quantidades` |
+| ID  | Verbo | Path                                                  | Descrição                                     |
+|-----|-------|-------------------------------------------------------|-----------------------------------------------|
+| M01 | GET   | `/api/matriculas`                                     | Matrículas do ano corrente                    |
+| M02 | GET   | `/api/matriculas/anos-anteriores`                     | Matrículas de anos anteriores                 |
+| M03 | GET   | `/api/matriculas/escolas/{ueCodigo}/quantidades`      | Quantitativo de matrículas por turno na UE    |
+| M04 | GET   | `/api/matriculas/escolas/dre/{dreCodigo}/quantidades` | Quantitativo de matrículas por turno na DRE   |
 
 ### `/api/escolas` (EscolaController — apenas E05 e E24)
 
-| ID  | Verbo | Path                                                                  |
-|-----|-------|-----------------------------------------------------------------------|
-| E05 | GET   | `/api/escolas/{codigoEscola}/alunos/quantidade`                       |
-| E24 | GET   | `/api/escolas/{codigoEscola}/aluno/{codigoAluno}/matriculas`          |
+| ID  | Verbo | Path                                                         | Descrição                                     |
+|-----|-------|--------------------------------------------------------------|-----------------------------------------------|
+| E05 | GET   | `/api/escolas/{codigoEscola}/alunos/quantidade`              | Quantidade de alunos por turma na escola      |
+| E24 | GET   | `/api/escolas/{codigoEscola}/aluno/{codigoAluno}/matriculas` | Matrículas de um aluno em uma escola          |
 
 ## Variáveis de ambiente
 
