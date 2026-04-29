@@ -95,26 +95,31 @@ requirements/            # base.txt + local.txt
 
 Veja [`.env.example`](./.env.example).
 
-| Variável                 | Default                                                                 | Descrição                                |
-|--------------------------|-------------------------------------------------------------------------|------------------------------------------|
-| `URL_BANCO_ALUNOS`       | `postgresql://postgres:postgres@.../alunos_db`                          | Connection string do `alunos_db`         |
-| `DJANGO_SECRET_KEY`      | obrigatório em produção                                                 | Secret do Django                         |
-| `DJANGO_DEBUG`           | `1`                                                                     | Modo debug                               |
-| `DJANGO_ALLOWED_HOSTS`   | `*`                                                                     | Lista CSV de hosts                       |
-| `API_KEY`                | `dev-key-default`                                                       | Chave usada para autenticar consumidores |
-| `API_KEY_HEADER`         | `X-API-Key`                                                             | Header da API Key                        |
-| `DB_POOL_SIZE`           | `5`                                                                     | Pool size do datasource                  |
-| `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                                       | Portas em dev                            |
+| Variável                    | Default                                            | Descrição                                |
+|-----------------------------|----------------------------------------------------|------------------------------------------|
+| `URL_BANCO_ALUNOS`          | `postgresql://postgres:postgres@.../alunos_db`     | Connection string do `alunos_db`         |
+| `DJANGO_SECRET_KEY`         | obrigatório em produção                            | Secret do Django                         |
+| `DJANGO_DEBUG`              | `1`                                                | Modo debug (`0` em produção)             |
+| `DJANGO_ALLOWED_HOSTS`      | `*`                                                | Lista CSV de hosts permitidos            |
+| `API_KEY`                   | `dev-key-default`                                  | Chave usada para autenticar consumidores |
+| `API_KEY_HEADER`            | `X-API-Key`                                        | Header da API Key                        |
+| `DB_POOL_SIZE`              | `5`                                                | Pool size do datasource                  |
+| `NOME_APLICACAO`            | `SME-IntegracaoEOL-Alunos-Microsservico`           | Nome da aplicação (logs / health)        |
+| `AMBIENTE_APLICACAO`        | `local`                                            | Ambiente (`local`, `staging`, `prod`)    |
+| `NIVEL_LOG`                 | `INFO`                                             | Nível de log                             |
+| `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                    | Portas em dev                            |
 
 ## Como rodar
 
 ```bash
-# Build + subir a aplicação no docker (modo dev, com debugpy)
+# Desenvolvimento — hot reload + debugpy (porta 5679)
 docker compose -f docker-compose-dev.yml up --build
 
-# Acessar swagger UI
-# http://localhost:8002/api/docs/
+# Produção — gunicorn (3 workers)
+docker compose up --build
 ```
+
+Swagger UI disponível em `http://localhost:8002/alunos/api/v1/docs/`.
 
 ## Testes
 
