@@ -628,6 +628,28 @@ def buscar_alunos_da_ue(
 # ---------------------------------------------------------------------------
 
 
+def _resolver_matriculas_e_mts_idx(
+    matriculas: list[dict],
+    codigo_turmas: Sequence[int] | None,
+) -> tuple[list[dict], dict]:
+    """Resolve o índice mts; quando há filtro por turma, filtra matriculas."""
+    codigos_matricula = [m["codigo_matricula"] for m in matriculas]
+    if not codigo_turmas:
+        return matriculas, _matricula_turma_por_matricula(codigos_matricula)
+
+    mts = list(
+        MatriculaTurma.objects.filter(
+            codigo_matricula__in=codigos_matricula,
+            codigo_turma__in=list(codigo_turmas),
+        ).values("codigo_matricula", "codigo_turma", "numero_chamada")
+    )
+    codigos_match = {mt["codigo_matricula"] for mt in mts}
+    matriculas = [
+        m for m in matriculas if m["codigo_matricula"] in codigos_match
+    ]
+    return matriculas, {mt["codigo_matricula"]: mt for mt in mts}
+
+
 def _autocomplete_base(
     codigo_ue: str,
     ano_letivo: int | None = None,
@@ -638,17 +660,17 @@ def _autocomplete_base(
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """Uma Base compartilhada entre A05 e A06 para autocomplete de alunos."""
-    qs = Matricula.objects.filter(codigo_ue=codigo_ue)
+    situacoes = (
+        SITUACOES_MATRICULA_ATIVAS
+        if somente_ativos
+        else SITUACOES_MATRICULA_VALIDAS
+    )
+    qs = Matricula.objects.filter(
+        codigo_ue=codigo_ue,
+        codigo_situacao_matricula__in=situacoes,
+    )
     if ano_letivo is not None:
         qs = qs.filter(ano_letivo=ano_letivo)
-    if somente_ativos:
-        qs = qs.filter(
-            codigo_situacao_matricula__in=SITUACOES_MATRICULA_ATIVAS
-        )
-    else:
-        qs = qs.filter(
-            codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
-        )
     if codigo_eol:
         try:
             qs = qs.filter(aluno_id=int(codigo_eol))
@@ -661,25 +683,9 @@ def _autocomplete_base(
     if not matriculas:
         return []
 
-    if codigo_turmas:
-        mts = list(
-            MatriculaTurma.objects.filter(
-                codigo_matricula__in=[
-                    m["codigo_matricula"] for m in matriculas
-                ],
-                codigo_turma__in=list(codigo_turmas),
-            ).values("codigo_matricula", "codigo_turma", "numero_chamada")
-        )
-        codigos_match = {mt["codigo_matricula"] for mt in mts}
-        matriculas = [
-            m for m in matriculas if m["codigo_matricula"] in codigos_match
-        ]
-        mts_idx = {mt["codigo_matricula"]: mt for mt in mts}
-    else:
-        mts_idx = _matricula_turma_por_matricula(
-            [m["codigo_matricula"] for m in matriculas]
-        )
-
+    matriculas, mts_idx = _resolver_matriculas_e_mts_idx(
+        matriculas, codigo_turmas
+    )
     alunos_idx = _alunos_indexados([m["aluno_id"] for m in matriculas])
 
     nome_l = (nome_aluno or "").strip().lower()
@@ -711,7 +717,6 @@ def buscar_alunos_autocomplete(
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
     somente_ativos: bool = False,
-    eh_historico: bool = False,
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A05 — Alunos para autocomplete, filtrável por turmas/nome/código."""
@@ -729,7 +734,6 @@ def buscar_alunos_autocomplete(
 def buscar_alunos_ativos_autocomplete(
     ue_codigo: str,
     aluno_nome: str | None = None,
-    data_referencia: datetime | date | None = None,  # noqa: ARG001
     aluno_codigo: int = 0,
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
@@ -755,13 +759,10 @@ def buscar_alunos_ativos_autocomplete(
 
 
 def obter_total_alunos_ativos_periodo(
-    ano_turma: str,  # noqa: ARG001
     ano_letivo: int,
     data_inicio: datetime | date,
     data_fim: datetime | date,
     ue_id: str | None = None,
-    dre_id: str | None = None,  # noqa: ARG001
-    modalidades: Sequence[int] | None = None,  # noqa: ARG001
 ) -> TotalAlunosAtivosPeriodoDTO:
     """A07 — Quantidade de alunos ativos no período.
 
@@ -1044,8 +1045,6 @@ def obter_informacoes_alunos_da_turma(
 
 def obter_quantidade_matriculados_por_ano_e_cc(
     ano_letivo: int,
-    componentes_curriculares: Sequence[int] | None = None,  # noqa: ARG001
-    dre_id: str | None = None,  # noqa: ARG001
     ue_id: str | None = None,
 ) -> list[QuantidadeMatriculadosCCDTO]:
     """A15 — Agrupa matrículas por turma (shape reduzido).
@@ -1084,11 +1083,7 @@ def obter_quantidade_matriculados_por_ano_e_cc(
 
 def obter_quantidade_matriculados(
     ano_letivo: int,
-    dre_codigo: str = "",  # noqa: ARG001
     ue_codigo: str = "",
-    modalidade: Sequence[int] | None = None,  # noqa: ARG001
-    ano: Sequence[int] | None = None,  # noqa: ARG001
-    turma: Sequence[str] | None = None,  # noqa: ARG001
 ) -> list[QuantidadeMatriculadosDTO]:
     """A16 — Agregado por (UE, turma) (shape reduzido).
 
@@ -1140,11 +1135,8 @@ def obter_quantidade_matriculados(
 
 
 def obter_dados_acompanhamento_escolar(
-    codigo_dre: str | None = None,  # noqa: ARG001
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
-    modalidade: int | None = None,  # noqa: ARG001
-    semestre: int | None = None,  # noqa: ARG001
     turma_codigo: str | None = None,
 ) -> list[DadosAcompanhamentoEscolarDTO]:
     """A18 — Linhas para acompanhamento escolar (shape reduzido).
@@ -1234,7 +1226,6 @@ def obter_dados_acompanhamento_escolar(
 
 
 def obter_responsaveis_dre_ue_turma(
-    codigo_dre: str | None = None,  # noqa: ARG001
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
 ) -> list[ResponsavelTurmaDTO]:

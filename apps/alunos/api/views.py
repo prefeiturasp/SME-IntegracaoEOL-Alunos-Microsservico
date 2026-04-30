@@ -41,6 +41,8 @@ _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
 _TAG_MATRICULA = ["Matrículas"]
 _TAG_ESCOLA = ["Escolas"]
 
+ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
+CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = "Código da UE e ano letivo são obrigatórios."
 
 # ---------------------------------------------------------------------------
 # Helpers de parsing
@@ -92,7 +94,7 @@ def _query_int_list(request: Request, nome: str) -> list[int]:
             saida.append(int(v))
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                f"Parâmetro '{nome}' deve conter inteiros: recebido" f" {v!r}."
+                f"Parâmetro '{nome}' deve conter inteiros: recebido {v!r}."
             ) from exc
     return saida
 
@@ -170,7 +172,7 @@ class BuscaTurmasDoAlunoView(APIView):
         )
         if not dados:
             return Response(
-                {"detail": "Não foram encontradas turmas para o aluno."},
+                {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(TurmaDoAlunoSerializer(dados, many=True).data)
@@ -225,7 +227,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
         )
         if not dados:
             return Response(
-                {"detail": "Não foram encontradas turmas para o aluno."},
+                {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(TurmaDoAlunoSerializer(dados, many=True).data)
@@ -250,7 +252,7 @@ class BuscarAlunosDaUeView(APIView):
     )
     def get(self, request: Request, codigoUe: str, anoLetivo: str) -> Response:
         if not codigoUe or not anoLetivo:
-            return _erro_400("Código da UE e ano letivo obrigatório.")
+            return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
             ano = _to_int(anoLetivo, "anoLetivo")
         except ValueError as exc:
@@ -264,7 +266,7 @@ class BuscarAlunosDaUeView(APIView):
         )
         if not dados:
             return Response(
-                {"detail": "Não foram encontradas turmas para o aluno."},
+                {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(TurmaDoAlunoSerializer(dados, many=True).data)
@@ -295,7 +297,7 @@ class AutocompleteAlunosUeView(APIView):
     )
     def get(self, request: Request, codigoUe: str, anoLetivo: str) -> Response:
         if not codigoUe:
-            return _erro_400("Código da UE e ano letivo obrigatório.")
+            return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
             ano = _to_int(anoLetivo, "anoLetivo")
             codigos_turmas = _query_int_list(request, "codigoTurmas")
@@ -323,7 +325,7 @@ class AutocompleteAlunosUeView(APIView):
         )
         if not dados:
             return Response(
-                {"detail": "Não foram encontradas turmas para o aluno."},
+                {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(AlunoAutocompleteSerializer(dados, many=True).data)
@@ -349,7 +351,7 @@ class AutocompleteAlunosAtivosView(APIView):
     )
     def get(self, request: Request, ueCodigo: str) -> Response:
         if not ueCodigo:
-            return _erro_400("Código da UE e ano letivo obrigatório.")
+            return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
 
         aluno_nome = request.query_params.get("alunoNome")
         try:
@@ -374,7 +376,7 @@ class AutocompleteAlunosAtivosView(APIView):
         )
         if not dados:
             return Response(
-                {"detail": "Não foram encontradas turmas para o aluno."},
+                {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(AlunoAutocompleteSerializer(dados, many=True).data)
