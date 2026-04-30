@@ -112,7 +112,12 @@ class AlunoAtivoTurmaDTO:
 
 @dataclass(frozen=True)
 class NecessidadeEspecialDTO:
-    """A10 — Necessidade especial do aluno."""
+    """A10 — Necessidade especial vinculada ao aluno.
+
+    Junta o vínculo (``NecessidadeEspecialAluno``) com o catálogo
+    (``TipoNecessidadeEspecial``) num único registro, expondo código e
+    descrição da NEE.
+    """
 
     codigo_aluno: int
     tipo_necessidade_especial: int
@@ -258,7 +263,13 @@ class DadosResponsavelDTO:
 
 @dataclass(frozen=True)
 class DadosResponsavelResumidoDTO:
-    """A21/A22/A23 — Dados resumidos do responsável."""
+    """A21/A22/A23 — Versão enxuta dos dados do responsável.
+
+    Reaproveitado por três endpoints: A21 (consulta resumida pelo
+    CPF), A22 (retorno do PUT de busca ativa) e A23 (retorno do POST
+    de cadastro). Contém o vínculo mínimo (responsável + aluno) e os
+    contatos (e-mail, celular).
+    """
 
     codigo_responsavel: int
     cpf: str | None
@@ -272,14 +283,24 @@ class DadosResponsavelResumidoDTO:
 
 @dataclass(frozen=True)
 class TotalAlunosAtivosPeriodoDTO:
-    """A07 — Total de alunos ativos por período."""
+    """A07 — Total de alunos distintos ativos no intervalo informado.
+
+    Conta cada ``aluno_id`` uma única vez, mesmo que o aluno tenha mais
+    de uma matrícula ativa no período (ex.: dupla matrícula em UEs
+    distintas).
+    """
 
     quantidade: int
 
 
 @dataclass(frozen=True)
 class ConsolidacaoMatriculaDTO:
-    """M01/M02 / E05 — Consolidação por turma."""
+    """M01/M02/E05 — Total de matrículas válidas agrupadas por turma.
+
+    Compartilhado entre M01 (ano atual), M02 (anos anteriores) e E05
+    (último ano disponível para a escola). A diferença entre eles está
+    apenas no critério de seleção do ano letivo na função chamadora.
+    """
 
     turma_codigo: str
     quantidade: int
@@ -287,7 +308,13 @@ class ConsolidacaoMatriculaDTO:
 
 @dataclass(frozen=True)
 class MatriculaEscolaAlunoDTO:
-    """E24 — Matrícula de aluno em escola."""
+    """E24 — Matrícula do aluno em uma escola específica.
+
+    Cada registro representa uma matrícula vinculada à escola
+    informada, com a turma corrente (quando há) e o estado da
+    matrícula (situação + data). Pode haver múltiplas linhas por
+    aluno quando ele teve matrículas em anos letivos distintos.
+    """
 
     codigo_aluno: int
     nome_aluno: str
@@ -323,7 +350,13 @@ def _calcular_idade(
 def _alunos_indexados(
     codigos_alunos: Sequence[int],
 ) -> dict[int, dict[str, Any]]:
-    """Indexa dados básicos do aluno (codigo, nome, social, sexo etc.)."""
+    """Indexa dados básicos do aluno por ``codigo_aluno``.
+
+    Resolve em uma única consulta os campos cadastrais usados pelos
+    services (nome, sexo, raça/cor, mãe etc.), evitando o N+1 que
+    surgiria ao buscar Aluno individualmente para cada matrícula.
+    Retorna dicionário vazio quando ``codigos_alunos`` é vazio.
+    """
     if not codigos_alunos:
         return {}
     return {
@@ -348,7 +381,13 @@ def _alunos_indexados(
 def _matricula_turma_por_matricula(
     codigos_matricula: Sequence[int],
 ) -> dict[int, dict[str, Any]]:
-    """Indexa MatriculaTurma por codigo_matricula."""
+    """Indexa ``MatriculaTurma`` por ``codigo_matricula``.
+
+    Quando uma matrícula está vinculada a mais de uma turma (ex.:
+    transferência interna no ano letivo), preserva apenas o primeiro
+    vínculo encontrado — comportamento alinhado à semântica do
+    contrato legado.
+    """
     if not codigos_matricula:
         return {}
     saida: dict[int, dict[str, Any]] = {}
@@ -360,8 +399,6 @@ def _matricula_turma_por_matricula(
         "numero_chamada",
         "data_situacao_aluno",
     ):
-        # Quando há múltiplas turmas para a mesma matrícula, prioriza a
-        # primeira encontrada — alinhada à semântica do legado.
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
 
@@ -369,7 +406,14 @@ def _matricula_turma_por_matricula(
 def _matriculas_por_codigos_turma(
     codigos_turma: Sequence[int],
 ) -> list[dict[str, Any]]:
-    """Retorna MatriculaTurma + Matricula correspondentes às turmas."""
+    """Resolve o JOIN ``MatriculaTurma`` ↔ ``Matricula`` para as turmas.
+
+    Faz a consulta em duas etapas (turma → matrícula) e mescla os dois
+    dicionários por linha, devolvendo uma lista de registros com os
+    campos de ambas as tabelas. Útil para endpoints que precisam dos
+    dados de matrícula (ano letivo, situação, UE) a partir de uma
+    seleção por turma.
+    """
     if not codigos_turma:
         return []
     mts = list(
@@ -410,7 +454,14 @@ def _matriculas_por_codigos_turma(
 def _responsavel_principal(
     codigo_aluno: int,
 ) -> dict[str, Any] | None:
-    """Retorna o responsável principal vigente do aluno (menor tipo)."""
+    """Retorna o responsável vigente prioritário do aluno.
+
+    Considera apenas vínculos com ``data_fim_vinculo`` nulo (ativos)
+    e usa o menor ``tipo_responsavel`` como critério de prioridade —
+    convenção do contrato legado em que tipos menores correspondem a
+    mãe/pai/guardião principal. Devolve ``None`` quando não há
+    responsável ativo.
+    """
     return (
         ResponsavelAluno.objects.filter(
             aluno_id=codigo_aluno,
@@ -441,7 +492,20 @@ def _consultar_turmas_do_aluno(
     historico: bool = False,
     filtrar_situacao: bool = True,
 ) -> list[TurmaDoAlunoDTO]:
-    """Um Helper compartilhado entre A01, A02 e A03."""
+    """Resolve as turmas/matrículas do aluno aplicando filtros do legado.
+
+    Compartilhado por A01, A02 e A03. Concentra a lógica comum:
+
+    * filtra por ``ano_letivo`` quando informado;
+    * mantém apenas situações de matrícula válidas quando
+      ``filtrar_situacao=True``;
+    * limita ao ano corrente quando ``historico=False`` (modo padrão
+      de A01/A02).
+
+    Ordena por ano letivo decrescente e situação ascendente, espelhando
+    o ordering do contrato legado. Retorna lista vazia quando não há
+    matrícula correspondente.
+    """
     qs = Matricula.objects.filter(aluno_id=codigo_aluno)
     if ano_letivo is not None:
         qs = qs.filter(ano_letivo=ano_letivo)
@@ -552,7 +616,15 @@ def buscar_alunos_da_ue(
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
 ) -> list[TurmaDoAlunoDTO]:
-    """A04 — Alunos de uma UE em um ano letivo, com filtro nome/código."""
+    """A04 — Lista alunos da UE no ano letivo, filtrável por nome/código.
+
+    Considera apenas matrículas em situação válida. Quando
+    ``codigo_eol`` é informado mas não pode ser convertido para
+    inteiro, devolve lista vazia (espelho do contrato legado para
+    entradas inválidas). O filtro por ``nome_aluno`` é aplicado em
+    Python sobre o índice de alunos para evitar ``ILIKE`` na consulta
+    principal.
+    """
     qs = Matricula.objects.filter(
         codigo_ue=codigo_ue,
         ano_letivo=ano_letivo,
@@ -659,7 +731,24 @@ def _autocomplete_base(
     somente_ativos: bool = False,
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
-    """Uma Base compartilhada entre A05 e A06 para autocomplete de alunos."""
+    """Resolve o autocomplete de alunos a partir de filtros opcionais.
+
+    Compartilhado por A05 e A06. O fluxo é:
+
+    1. seleciona matrículas da UE filtrando por situação
+       (ATIVAS quando ``somente_ativos=True``, VALIDAS caso contrário)
+       e, opcionalmente, por ano letivo e código EOL do aluno;
+    2. aplica recorte de ``limite + 200`` registros para reduzir o
+       custo da query antes do filtro por nome (que é feito em
+       Python sobre o nome já indexado);
+    3. resolve a turma de cada matrícula via
+       :func:`_resolver_matriculas_e_mts_idx`, podendo restringir
+       a ``codigo_turmas`` quando informado;
+    4. monta os DTOs até atingir ``limite``.
+
+    Quando ``codigo_eol`` não pode ser convertido para inteiro, retorna
+    lista vazia (espelho do contrato legado em entradas inválidas).
+    """
     situacoes = (
         SITUACOES_MATRICULA_ATIVAS
         if somente_ativos
@@ -801,7 +890,14 @@ def _consultar_alunos_ativos_turma(
     data_referencia_inicio: datetime | date | None = None,
     data_referencia_fim: datetime | date | None = None,
 ) -> list[AlunoAtivoTurmaDTO]:
-    """Um Helper compartilhado entre A08 e A09."""
+    """Lista alunos da turma com filtragem opcional por janela de datas.
+
+    Compartilhado por A08 (com período) e A09 (sem período). Carrega a
+    matrícula correspondente a cada vínculo de turma, aplica o recorte
+    por ``data_situacao_matricula`` quando ``data_referencia_inicio``
+    e/ou ``data_referencia_fim`` são informadas, e enriquece o DTO com
+    os dados do aluno indexados em uma única consulta.
+    """
     mts = list(
         MatriculaTurma.objects.filter(codigo_turma=codigo_turma).values(
             "codigo_matricula",
@@ -914,7 +1010,13 @@ def obter_alunos_ativos_por_turma(
 def obter_necessidades_especiais_por_aluno(
     codigo_aluno: int,
 ) -> list[NecessidadeEspecialDTO]:
-    """A10 — Necessidades especiais cadastradas para o aluno."""
+    """A10 — Lista as necessidades especiais cadastradas para o aluno.
+
+    Junta os vínculos em ``NecessidadeEspecialAluno`` com o catálogo
+    ``TipoNecessidadeEspecial`` para devolver descrição e código de
+    cada NEE. Retorna lista vazia quando não há nenhum vínculo, ainda
+    que o aluno exista.
+    """
     rows = list(
         NecessidadeEspecialAluno.objects.filter(aluno_id=codigo_aluno).values(
             "aluno_id", "necessidade_especial_id"
@@ -951,7 +1053,13 @@ def obter_necessidades_especiais_por_aluno(
 def obter_alunos_por_codigos_e_ano(
     codigos_aluno: Sequence[int], ano_letivo: int
 ) -> list[TurmaDoAlunoDTO]:
-    """A11 — Lista turmas dos alunos informados, filtrando por ano letivo."""
+    """A11 — Lista turmas dos alunos informados, restrita ao ano letivo.
+
+    Itera sobre ``codigos_aluno`` e concatena o resultado de
+    :func:`_consultar_turmas_do_aluno` para cada um, sempre em modo
+    histórico (todos os anos do código retornado pelo legado) e com
+    filtro de situação válida.
+    """
     if not codigos_aluno:
         return []
     saida: list[TurmaDoAlunoDTO] = []
@@ -970,7 +1078,12 @@ def obter_alunos_por_codigos_e_ano(
 def obter_alunos_por_codigos(
     codigos_aluno: Sequence[int],
 ) -> list[TurmaDoAlunoDTO]:
-    """A12 — Lista turmas dos alunos informados (sem filtro de ano)."""
+    """A12 — Lista turmas dos alunos informados sem filtro de ano.
+
+    Mesma estratégia de A11, porém sem restrição de ``ano_letivo``:
+    devolve todo o histórico de turmas para cada código de aluno em
+    ``codigos_aluno``.
+    """
     if not codigos_aluno:
         return []
     saida: list[TurmaDoAlunoDTO] = []
@@ -994,7 +1107,14 @@ def obter_alunos_por_codigos(
 def obter_informacoes_aluno(
     codigo_aluno: int,
 ) -> InformacoesAlunoDTO | None:
-    """A13 — Informações do aluno (shape reduzido aos campos do domínio)."""
+    """A13 — Retorna informações cadastrais do aluno.
+
+    Devolve apenas os campos presentes em ``alunos_db`` (ver
+    :class:`InformacoesAlunoDTO`). Atributos legados que pertencem a
+    outros domínios (endereço completo, etnia, imigração, CNS, TEG,
+    nacionalidade do responsável) ficam para o Transition Gateway.
+    Retorna ``None`` quando o aluno não existe.
+    """
     aluno = Aluno.objects.filter(codigo_aluno=codigo_aluno).first()
     if aluno is None:
         return None
@@ -1021,7 +1141,13 @@ def obter_informacoes_aluno(
 def obter_informacoes_alunos_da_turma(
     codigo_turma: int,
 ) -> list[InformacoesAlunoTurmaDTO]:
-    """A14 — Lista enxuta dos alunos de uma turma para chamada/diário."""
+    """A14 — Lista os alunos de uma turma no formato chamada/diário.
+
+    Considera apenas matrículas em situação válida. Inclui o
+    ``numero_chamada`` e o subconjunto cadastral (sexo, raça/cor) que
+    o diário escolar consome diretamente. Retorna lista vazia quando
+    a turma não tem alunos válidos.
+    """
     rows = _matriculas_por_codigos_turma([codigo_turma])
     rows_validas = [
         r
@@ -1364,7 +1490,13 @@ def obter_dados_responsavel(
 def obter_dados_responsavel_resumido(
     cpf_responsavel: str,
 ) -> DadosResponsavelResumidoDTO | None:
-    """A21 — Versão resumida da A20 (1 registro)."""
+    """A21 — Versão enxuta de A20: um único responsável pelo CPF.
+
+    Diferente de A20, retorna apenas o vínculo com menor
+    ``tipo_responsavel`` (responsável principal segundo a convenção
+    do legado) e usa :class:`DadosResponsavelResumidoDTO` em vez do
+    DTO completo. Retorna ``None`` quando o CPF não está cadastrado.
+    """
     cpf = (cpf_responsavel or "").strip()
     if not cpf:
         return None
@@ -1410,12 +1542,19 @@ def atualizar_dados_responsavel_busca_ativa(
     ddd_celular: str | None = None,
     numero_celular: str | None = None,
 ) -> DadosResponsavelResumidoDTO:
-    """A22 — Atualiza contatos do responsável (modo busca ativa).
+    """A22 — Atualiza contatos do responsável no fluxo de busca ativa.
 
-    Como o domínio não possui telefone fixo/comercial separados, os
-    campos ``ddd_residencial``, ``numero_residencial``, ``ddd_comercial``
-    e ``numero_comercial`` do contrato legado são ignorados e ficarão
-    a cargo de um futuro domínio de Contatos.
+    Atualiza apenas os campos passados como não-``None`` (e-mail, DDD
+    e número de celular), preservando os demais. Quando não existe
+    vínculo prévio entre o ``cpf_responsavel`` e o ``codigo_aluno``,
+    devolve um DTO ecoando os dados recebidos com
+    ``codigo_responsavel=0`` — comportamento exigido pelo contrato
+    legado, que sempre responde 200 nesse endpoint.
+
+    Os campos ``ddd_residencial``/``numero_residencial`` e
+    ``ddd_comercial``/``numero_comercial`` do contrato legado não são
+    persistidos: o domínio Alunos só armazena o celular. Telefone fixo
+    e comercial ficarão a cargo de um futuro domínio de Contatos.
     """
     resp = ResponsavelAluno.objects.filter(
         cpf=cpf_responsavel, aluno_id=codigo_aluno
@@ -1469,13 +1608,17 @@ def cadastrar_dados_responsavel(
     ddd_celular: str = "",
     numero_celular: str = "",
 ) -> DadosResponsavelResumidoDTO:
-    """A23 — Cria/atualiza vínculo responsável-aluno.
+    """A23 — Cria ou atualiza um vínculo responsável-aluno.
 
-    O ``codigo_responsavel`` é gerado pelo MS-ETL (vem do EOL) — em uma
-    criação manual via API usamos ``BigAutoField`` quando a tabela
-    estiver com ``managed=True`` em testes; em produção, o campo PK
-    deve vir do payload via ``id``. Sem isso, só atualiza vínculos
-    existentes.
+    Quando há vínculo prévio (mesmo CPF + ``codigo_aluno``), atualiza
+    apenas os campos enviados não vazios. Quando não há, cria um novo
+    registro reaproveitando o maior ``codigo_responsavel`` + 1 como PK.
+
+    Em produção o ``codigo_responsavel`` é determinado pelo EOL e
+    replicado pelo MS-ETL — ou seja, o ramo de criação só faz sentido
+    em ambiente de testes/local, onde a tabela está sob controle do
+    Django (``managed=True``). Em produção, este endpoint efetivamente
+    apenas atualiza vínculos já existentes.
     """
     resp = ResponsavelAluno.objects.filter(
         cpf=cpf_responsavel, aluno_id=codigo_aluno
@@ -1535,7 +1678,13 @@ def cadastrar_dados_responsavel(
 def obter_dados_responsavel_filiacao(
     codigo_aluno: int,
 ) -> InformacoesAlunoDTO | None:
-    """A27 — Retorna dados de filiação do aluno (mesmo shape de A13)."""
+    """A27 — Retorna os dados de filiação do aluno.
+
+    Reaproveita exatamente o shape e a query do A13 — a filiação
+    (``nome_mae`` e ``cpf`` do aluno) já vive em ``Aluno`` e é parte do
+    DTO de informações. O endpoint dedicado é mantido para preservar
+    a URL do contrato legado.
+    """
     return obter_informacoes_aluno(codigo_aluno=codigo_aluno)
 
 
@@ -1547,7 +1696,14 @@ def obter_dados_responsavel_filiacao(
 def _consolidacao_por_turma(
     ano_letivo: int, ue_codigo: str
 ) -> list[ConsolidacaoMatriculaDTO]:
-    """Conta matrículas válidas por turma para uma UE e ano letivo."""
+    """Conta matrículas válidas por turma em uma UE e ano letivo.
+
+    Compartilhado por M01, M02 e E05. Filtra ``Matricula`` por situação
+    válida (vide ``SITUACOES_MATRICULA_VALIDAS``) e agrega
+    ``MatriculaTurma`` por ``codigo_turma``, ordenando o resultado pelo
+    código da turma. Retorna lista vazia quando não há matrícula
+    correspondente.
+    """
     qs = Matricula.objects.filter(
         ano_letivo=ano_letivo,
         codigo_ue=ue_codigo,
@@ -1575,21 +1731,37 @@ def _consolidacao_por_turma(
 def obter_matriculas_ano_atual(
     ano_letivo: int, ue_codigo: str
 ) -> list[ConsolidacaoMatriculaDTO]:
-    """M01 — Consolidações de matrícula do ano atual."""
+    """M01 — Consolida matrículas válidas do ano atual por turma.
+
+    Endpoint distinto de M02 apenas no contrato — internamente
+    delega à mesma agregação. A diferenciação entre ano atual e
+    anos anteriores fica a cargo do caller (gateway/UI), que escolhe
+    qual rota chamar.
+    """
     return _consolidacao_por_turma(ano_letivo=ano_letivo, ue_codigo=ue_codigo)
 
 
 def obter_matriculas_anos_anteriores(
     ano_letivo: int, ue_codigo: str
 ) -> list[ConsolidacaoMatriculaDTO]:
-    """M02 — Consolidações de matrícula de anos anteriores."""
+    """M02 — Consolida matrículas válidas de um ano anterior por turma.
+
+    Mesma agregação de M01; o endpoint separado existe para preservar
+    o contrato legado.
+    """
     return _consolidacao_por_turma(ano_letivo=ano_letivo, ue_codigo=ue_codigo)
 
 
 def obter_quantidade_alunos_por_turma_da_escola(
     codigo_escola: str,
 ) -> list[ConsolidacaoMatriculaDTO]:
-    """E05 — Total por turma de uma escola (último ano disponível)."""
+    """E05 — Total de matrículas por turma da escola.
+
+    Identifica automaticamente o ano letivo mais recente que tem
+    matrículas associadas à UE informada e devolve a consolidação por
+    turma para esse ano. Retorna lista vazia quando a UE não possui
+    nenhuma matrícula registrada.
+    """
     ultimo_ano = (
         Matricula.objects.filter(codigo_ue=codigo_escola)
         .order_by("-ano_letivo")
@@ -1633,7 +1805,13 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[Any]:
 def obter_matriculas_aluno_na_escola(
     codigo_escola: str, codigo_aluno: int
 ) -> list[MatriculaEscolaAlunoDTO]:
-    """E24 — Matrículas do aluno na escola informada."""
+    """E24 — Lista as matrículas do aluno na escola informada.
+
+    Devolve uma linha por matrícula (sem filtro de situação),
+    ordenada por ano letivo decrescente. Inclui a turma corrente
+    quando há vínculo em ``MatriculaTurma`` — caso contrário retorna
+    ``codigo_turma=0``, preservando o contrato legado.
+    """
     matriculas = list(
         Matricula.objects.filter(
             codigo_ue=codigo_escola, aluno_id=codigo_aluno
@@ -1683,7 +1861,12 @@ def obter_matriculas_aluno_na_escola(
 
 
 def dto_to_dict(dto: Any) -> dict[str, Any]:
-    """Faz a conversão de DTO em dict (suporta dataclasses aninhadas)."""
+    """Converte um DTO em ``dict``, com suporte a dataclasses aninhadas.
+
+    Usa ``dataclasses.asdict`` internamente. Aceita ``None`` (devolve
+    dict vazio) para callers que querem normalizar respostas
+    opcionais sem ramificações condicionais.
+    """
     return asdict(dto) if dto is not None else {}
 
 
