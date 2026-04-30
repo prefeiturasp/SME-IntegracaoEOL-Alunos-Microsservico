@@ -717,9 +717,14 @@ def buscar_alunos_autocomplete(
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
     somente_ativos: bool = False,
+    eh_historico: bool = False,  # NOSONAR — aceito do contrato legado, ignorado aqui
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
-    """A05 — Alunos para autocomplete, filtrável por turmas/nome/código."""
+    """A05 — Alunos para autocomplete, filtrável por turmas/nome/código.
+
+    ``eh_historico`` é aceito do contrato legado mas ignorado: o domínio
+    Alunos não materializa estado histórico de matrícula.
+    """
     return _autocomplete_base(
         codigo_ue=codigo_ue,
         ano_letivo=ano_letivo,
@@ -735,6 +740,7 @@ def buscar_alunos_ativos_autocomplete(
     ue_codigo: str,
     aluno_nome: str | None = None,
     aluno_codigo: int = 0,
+    data_referencia: datetime | date | None = None,  # NOSONAR — ignorado, ver docstring
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A06 — Alunos ativos para autocomplete por data de referência.
@@ -763,6 +769,9 @@ def obter_total_alunos_ativos_periodo(
     data_inicio: datetime | date,
     data_fim: datetime | date,
     ue_id: str | None = None,
+    ano_turma: str | None = None,  # NOSONAR — ignorado, ver docstring
+    dre_id: str | None = None,  # NOSONAR — ignorado, ver docstring
+    modalidades: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> TotalAlunosAtivosPeriodoDTO:
     """A07 — Quantidade de alunos ativos no período.
 
@@ -1046,6 +1055,8 @@ def obter_informacoes_alunos_da_turma(
 def obter_quantidade_matriculados_por_ano_e_cc(
     ano_letivo: int,
     ue_id: str | None = None,
+    componentes_curriculares: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
+    dre_id: str | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> list[QuantidadeMatriculadosCCDTO]:
     """A15 — Agrupa matrículas por turma (shape reduzido).
 
@@ -1084,6 +1095,10 @@ def obter_quantidade_matriculados_por_ano_e_cc(
 def obter_quantidade_matriculados(
     ano_letivo: int,
     ue_codigo: str = "",
+    dre_codigo: str = "",  # NOSONAR — ignorado, ver docstring
+    modalidade: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
+    ano: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
+    turma: list[str] | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> list[QuantidadeMatriculadosDTO]:
     """A16 — Agregado por (UE, turma) (shape reduzido).
 
@@ -1138,6 +1153,9 @@ def obter_dados_acompanhamento_escolar(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
     turma_codigo: str | None = None,
+    codigo_dre: str | None = None,  # NOSONAR — ignorado, ver docstring
+    modalidade: int | None = None,  # NOSONAR — ignorado, ver docstring
+    semestre: int | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> list[DadosAcompanhamentoEscolarDTO]:
     """A18 — Linhas para acompanhamento escolar (shape reduzido).
 
@@ -1228,6 +1246,7 @@ def obter_dados_acompanhamento_escolar(
 def obter_responsaveis_dre_ue_turma(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
+    codigo_dre: str | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> list[ResponsavelTurmaDTO]:
     """A19 — Lista responsáveis vigentes agrupados por UE/turma.
 
