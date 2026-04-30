@@ -86,7 +86,9 @@ class ResponsavelAlunoTestCase(TestCase):
 
 class SituacaoMatriculaTestCase(TestCase):
     def test_descricao_none(self) -> None:
-        self.assertEqual(SituacaoMatricula.get_descricao(None), "Não Informada")
+        self.assertEqual(
+            SituacaoMatricula.get_descricao(None), "Não Informada"
+        )
 
     def test_descricao_int_valido(self) -> None:
         self.assertEqual(SituacaoMatricula.get_descricao(1), "Ativo")

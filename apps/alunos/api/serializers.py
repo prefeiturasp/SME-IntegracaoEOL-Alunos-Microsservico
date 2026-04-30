@@ -233,9 +233,7 @@ class DadosResponsavelSerializer(serializers.Serializer):
     numeroCelular = serializers.CharField(
         source="numero_celular", allow_null=True
     )
-    autorizaSms = serializers.CharField(
-        source="autoriza_sms", allow_null=True
-    )
+    autorizaSms = serializers.CharField(source="autoriza_sms", allow_null=True)
     logradouro = serializers.CharField(allow_null=True)
     cep = serializers.IntegerField(allow_null=True)
     dataFimVinculo = serializers.DateField(
@@ -298,9 +296,7 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
 # ---------------------------------------------------------------------------
 
 
-class AtualizarResponsavelBuscaAtivaRequestSerializer(
-    serializers.Serializer
-):
+class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
     """A22 — Body do PUT /alunos/{codigoAluno}/responsaveis/{cpf}.
 
     Campos do contrato legado que não pertencem ao domínio Alunos
@@ -320,16 +316,10 @@ class AtualizarResponsavelBuscaAtivaRequestSerializer(
     numeroCelular = serializers.CharField(
         source="numero_celular", required=False, allow_blank=True
     )
-    dddResidencial = serializers.CharField(
-        required=False, allow_blank=True
-    )
-    numeroResidencial = serializers.CharField(
-        required=False, allow_blank=True
-    )
+    dddResidencial = serializers.CharField(required=False, allow_blank=True)
+    numeroResidencial = serializers.CharField(required=False, allow_blank=True)
     dddComercial = serializers.CharField(required=False, allow_blank=True)
-    numeroComercial = serializers.CharField(
-        required=False, allow_blank=True
-    )
+    numeroComercial = serializers.CharField(required=False, allow_blank=True)
 
 
 class CadastrarResponsavelRequestSerializer(serializers.Serializer):

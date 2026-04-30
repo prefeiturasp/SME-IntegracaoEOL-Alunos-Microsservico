@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from apps.alunos.models import (
     Aluno,
@@ -16,10 +16,12 @@ from apps.alunos.models import (
 
 def agora() -> datetime:
     """Datetime fixo (UTC) usado em testes."""
-    return datetime(2026, 4, 1, tzinfo=timezone.utc)
+    return datetime(2026, 4, 1, tzinfo=UTC)
 
 
 def seed_alunos() -> dict[int, Aluno]:
+    """Cria dois alunos de teste e retorna um dict
+    indexado por codigo_aluno."""
     a1 = Aluno.objects.create(
         codigo_aluno=1234567,
         nome="JOAO DA SILVA",
@@ -49,6 +51,7 @@ def seed_alunos() -> dict[int, Aluno]:
 
 
 def seed_matriculas() -> list[Matricula]:
+    """Cria alunos, matrículas e vínculos de turma para os testes."""
     seed_alunos()
     m1 = Matricula.objects.create(
         codigo_matricula=998877,
@@ -84,6 +87,7 @@ def seed_matriculas() -> list[Matricula]:
 
 
 def seed_responsaveis() -> ResponsavelAluno:
+    """Cria um responsável vinculado ao aluno 1234567 para os testes."""
     return ResponsavelAluno.objects.create(
         codigo_responsavel=5501,
         aluno_id=1234567,
@@ -102,6 +106,8 @@ def seed_responsaveis() -> ResponsavelAluno:
 def seed_necessidades(
     codigo_aluno: int = 1234567,
 ) -> NecessidadeEspecialAluno:
+    """Cria um tipo e um vínculo de necessidade especial
+    para o aluno informado (padrão: 1234567) e retorna o objeto criado."""
     tipo = TipoNecessidadeEspecial.objects.create(
         codigo_necessidade_especial=1,
         descricao="Deficiência Visual",

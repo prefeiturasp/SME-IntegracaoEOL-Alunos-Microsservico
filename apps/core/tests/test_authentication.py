@@ -41,7 +41,9 @@ class ApiKeyAuthenticationTestCase(TestCase):
         self.assertEqual(self.auth.authenticate_header(request), "X-API-Key")
 
     def test_api_user_str(self) -> None:
-        request = self.factory.get("/api/alunos", HTTP_X_API_KEY="chave-correta")
+        request = self.factory.get(
+            "/api/alunos", HTTP_X_API_KEY="chave-correta"
+        )
         result = self.auth.authenticate(request)
         assert result is not None
         usuario, _ = result

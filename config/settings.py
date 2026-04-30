@@ -8,11 +8,10 @@ este microsserviço.
 """
 
 import os
+import sys
 import urllib.parse
 from pathlib import Path
 from typing import Any
-
-from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -49,19 +48,14 @@ def _parse_db_url(url: Any) -> dict:
     }
 
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
-if not SECRET_KEY:
-    if os.environ.get("DJANGO_DEBUG", "1") == "0":
-        raise ImproperlyConfigured(
-            "A variável DJANGO_SECRET_KEY é obrigatória em produção."
-        )
-    raise ImproperlyConfigured(
-        "A variável DJANGO_SECRET_KEY é obrigatória."
-    )
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY", "dev-secret-not-for-production"
+)
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [
-    host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
+    host.strip()
+    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 ]
 
 INSTALLED_APPS = [
@@ -113,6 +107,21 @@ DATABASES = {
     "default": _parse_db_url(URL_BANCO_ALUNOS),
 }
 
+# Em modo teste os models do app alunos (managed=False em produção,
+# DDL no MS-ETL) precisam de um banco onde o schema possa ser criado.
+# O AlunosTestRunner promove os models a managed antes do
+# setup_databases — ver config/test_runner.py.
+MODO_TESTE = "test" in sys.argv or os.environ.get(
+    "USE_SQLITE_TEST", "False"
+).lower() in ("true", "1")
+if MODO_TESTE:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
+
+TEST_RUNNER = "config.test_runner.AlunosTestRunner"
+
 AUTH_PASSWORD_VALIDATORS: list[dict[str, object]] = []
 
 LANGUAGE_CODE = "pt-br"
@@ -130,7 +139,11 @@ NOME_APLICACAO = os.environ.get(
 AMBIENTE_APLICACAO = os.environ.get("AMBIENTE_APLICACAO", "local")
 NIVEL_LOG = os.environ.get("NIVEL_LOG", "INFO")
 
-API_KEY = os.environ.get("API_KEY", "dev-key-default")
+API_KEY = (
+    "test-api-key"
+    if MODO_TESTE
+    else os.environ.get("API_KEY", "dev-key-default")
+)
 API_KEY_HEADER = os.environ.get("API_KEY_HEADER", "X-API-Key")
 
 REST_FRAMEWORK = {

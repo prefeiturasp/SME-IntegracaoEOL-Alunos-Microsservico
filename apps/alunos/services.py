@@ -43,7 +43,6 @@ from apps.alunos.models import (
     TipoNecessidadeEspecial,
 )
 
-
 # ---------------------------------------------------------------------------
 # DTOs de saída (1 por endpoint ou família de endpoints)
 # ---------------------------------------------------------------------------
@@ -374,9 +373,7 @@ def _matriculas_por_codigos_turma(
     if not codigos_turma:
         return []
     mts = list(
-        MatriculaTurma.objects.filter(
-            codigo_turma__in=codigos_turma
-        ).values(
+        MatriculaTurma.objects.filter(codigo_turma__in=codigos_turma).values(
             "codigo_matricula",
             "codigo_turma",
             "numero_chamada",
@@ -444,7 +441,7 @@ def _consultar_turmas_do_aluno(
     historico: bool = False,
     filtrar_situacao: bool = True,
 ) -> list[TurmaDoAlunoDTO]:
-    """Helper compartilhado entre A01, A02 e A03."""
+    """Um Helper compartilhado entre A01, A02 e A03."""
     qs = Matricula.objects.filter(aluno_id=codigo_aluno)
     if ano_letivo is not None:
         qs = qs.filter(ano_letivo=ano_letivo)
@@ -502,9 +499,7 @@ def _consultar_turmas_do_aluno(
                 data_nascimento=aluno.get("data_nascimento"),
                 numero_aluno_chamada=mt.get("numero_chamada"),
                 codigo_turma=mt.get("codigo_turma") or 0,
-                data_atualizacao_contato=aluno.get(
-                    "data_atualizacao_contato"
-                ),
+                data_atualizacao_contato=aluno.get("data_atualizacao_contato"),
             )
         )
     return saida
@@ -593,9 +588,7 @@ def buscar_alunos_da_ue(
             for c, a in alunos_idx.items()
             if nome_l in (a.get("nome") or "").lower()
         }
-        matriculas = [
-            m for m in matriculas if m["aluno_id"] in codigos_alunos
-        ]
+        matriculas = [m for m in matriculas if m["aluno_id"] in codigos_alunos]
         if not matriculas:
             return []
 
@@ -620,9 +613,7 @@ def buscar_alunos_da_ue(
             numero_aluno_chamada=mts.get(m["codigo_matricula"], {}).get(
                 "numero_chamada"
             ),
-            codigo_turma=mts.get(m["codigo_matricula"], {}).get(
-                "codigo_turma"
-            )
+            codigo_turma=mts.get(m["codigo_matricula"], {}).get("codigo_turma")
             or 0,
             data_atualizacao_contato=alunos_idx.get(m["aluno_id"], {}).get(
                 "data_atualizacao_contato"
@@ -646,6 +637,7 @@ def _autocomplete_base(
     somente_ativos: bool = False,
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
+    """Uma Base compartilhada entre A05 e A06 para autocomplete de alunos."""
     qs = Matricula.objects.filter(codigo_ue=codigo_ue)
     if ano_letivo is not None:
         qs = qs.filter(ano_letivo=ano_letivo)
@@ -676,9 +668,7 @@ def _autocomplete_base(
                     m["codigo_matricula"] for m in matriculas
                 ],
                 codigo_turma__in=list(codigo_turmas),
-            ).values(
-                "codigo_matricula", "codigo_turma", "numero_chamada"
-            )
+            ).values("codigo_matricula", "codigo_turma", "numero_chamada")
         )
         codigos_match = {mt["codigo_matricula"] for mt in mts}
         matriculas = [
@@ -801,7 +791,7 @@ def _consultar_alunos_ativos_turma(
     data_referencia_inicio: datetime | date | None = None,
     data_referencia_fim: datetime | date | None = None,
 ) -> list[AlunoAtivoTurmaDTO]:
-    """Helper compartilhado entre A08 e A09."""
+    """Um Helper compartilhado entre A08 e A09."""
     mts = list(
         MatriculaTurma.objects.filter(codigo_turma=codigo_turma).values(
             "codigo_matricula",
@@ -816,9 +806,7 @@ def _consultar_alunos_ativos_turma(
     matriculas_idx = {
         m["codigo_matricula"]: m
         for m in Matricula.objects.filter(
-            codigo_matricula__in=[
-                mt["codigo_matricula"] for mt in mts
-            ]
+            codigo_matricula__in=[mt["codigo_matricula"] for mt in mts]
         ).values(
             "codigo_matricula",
             "aluno_id",
@@ -837,7 +825,8 @@ def _consultar_alunos_ativos_turma(
         if (
             data_referencia_inicio is not None
             and m["data_situacao_matricula"] is not None
-            and m["data_situacao_matricula"] < (
+            and m["data_situacao_matricula"]
+            < (
                 data_referencia_inicio.date()
                 if isinstance(data_referencia_inicio, datetime)
                 else data_referencia_inicio
@@ -847,7 +836,8 @@ def _consultar_alunos_ativos_turma(
         if (
             data_referencia_fim is not None
             and m["data_situacao_matricula"] is not None
-            and m["data_situacao_matricula"] > (
+            and m["data_situacao_matricula"]
+            > (
                 data_referencia_fim.date()
                 if isinstance(data_referencia_fim, datetime)
                 else data_referencia_fim
@@ -916,9 +906,7 @@ def obter_necessidades_especiais_por_aluno(
 ) -> list[NecessidadeEspecialDTO]:
     """A10 — Necessidades especiais cadastradas para o aluno."""
     rows = list(
-        NecessidadeEspecialAluno.objects.filter(
-            aluno_id=codigo_aluno
-        ).values(
+        NecessidadeEspecialAluno.objects.filter(aluno_id=codigo_aluno).values(
             "aluno_id", "necessidade_especial_id"
         )
     )
@@ -1028,8 +1016,7 @@ def obter_informacoes_alunos_da_turma(
     rows_validas = [
         r
         for r in rows
-        if r["codigo_situacao_matricula"]
-        in SITUACOES_MATRICULA_VALIDAS
+        if r["codigo_situacao_matricula"] in SITUACOES_MATRICULA_VALIDAS
     ]
     if not rows_validas:
         return []
@@ -1080,9 +1067,7 @@ def obter_quantidade_matriculados_por_ano_e_cc(
         return []
 
     agrupado = (
-        MatriculaTurma.objects.filter(
-            codigo_matricula__in=codigos_matricula
-        )
+        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
         .values("codigo_turma")
         .annotate(quantidade=Count("id"))
         .order_by("codigo_turma")
@@ -1125,12 +1110,9 @@ def obter_quantidade_matriculados(
     if not matriculas_por_ue:
         return []
 
-    agrupado = (
-        MatriculaTurma.objects.filter(
-            codigo_matricula__in=list(matriculas_por_ue.keys())
-        )
-        .values("codigo_turma", "codigo_matricula")
-    )
+    agrupado = MatriculaTurma.objects.filter(
+        codigo_matricula__in=list(matriculas_por_ue.keys())
+    ).values("codigo_turma", "codigo_matricula")
     grupos: dict[tuple[str, int], int] = {}
     for r in agrupado:
         ue = matriculas_por_ue.get(r["codigo_matricula"], "")
@@ -1270,9 +1252,7 @@ def obter_responsaveis_dre_ue_turma(
         matriculas_qs = matriculas_qs.filter(ano_letivo=ano_letivo)
 
     matriculas = list(
-        matriculas_qs.values(
-            "codigo_matricula", "aluno_id", "codigo_ue"
-        )
+        matriculas_qs.values("codigo_matricula", "aluno_id", "codigo_ue")
     )
     if not matriculas:
         return []
@@ -1450,9 +1430,7 @@ def atualizar_dados_responsavel_busca_ativa(
         resp.ddd_celular = ddd_celular
     if numero_celular is not None:
         resp.numero_celular = numero_celular
-    resp.save(
-        update_fields=["email", "ddd_celular", "numero_celular"]
-    )
+    resp.save(update_fields=["email", "ddd_celular", "numero_celular"])
 
     return DadosResponsavelResumidoDTO(
         codigo_responsavel=resp.codigo_responsavel,
@@ -1559,6 +1537,7 @@ def obter_dados_responsavel_filiacao(
 def _consolidacao_por_turma(
     ano_letivo: int, ue_codigo: str
 ) -> list[ConsolidacaoMatriculaDTO]:
+    """Conta matrículas válidas por turma para uma UE e ano letivo."""
     qs = Matricula.objects.filter(
         ano_letivo=ano_letivo,
         codigo_ue=ue_codigo,
@@ -1679,9 +1658,7 @@ def obter_matriculas_aluno_na_escola(
             codigo_situacao_matricula=m["codigo_situacao_matricula"],
             situacao_matricula=m["situacao_matricula"],
             data_situacao=m["data_situacao_matricula"],
-            codigo_turma=mts.get(m["codigo_matricula"], {}).get(
-                "codigo_turma"
-            )
+            codigo_turma=mts.get(m["codigo_matricula"], {}).get("codigo_turma")
             or 0,
             codigo_matricula=m["codigo_matricula"],
             ano_letivo=m["ano_letivo"],
@@ -1696,7 +1673,7 @@ def obter_matriculas_aluno_na_escola(
 
 
 def dto_to_dict(dto: Any) -> dict[str, Any]:
-    """Converte DTO em dict (suporta dataclasses aninhadas)."""
+    """Faz a conversão de DTO em dict (suporta dataclasses aninhadas)."""
     return asdict(dto) if dto is not None else {}
 
 

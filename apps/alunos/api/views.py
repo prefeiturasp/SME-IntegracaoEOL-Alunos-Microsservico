@@ -92,16 +92,13 @@ def _query_int_list(request: Request, nome: str) -> list[int]:
             saida.append(int(v))
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                f"Parâmetro '{nome}' deve conter inteiros: recebido"
-                f" {v!r}."
+                f"Parâmetro '{nome}' deve conter inteiros: recebido" f" {v!r}."
             ) from exc
     return saida
 
 
 def _erro_400(detalhe: str) -> Response:
-    return Response(
-        {"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ---------------------------------------------------------------------------
@@ -251,9 +248,7 @@ class BuscarAlunosDaUeView(APIView):
         ],
         responses={200: TurmaDoAlunoSerializer(many=True)},
     )
-    def get(
-        self, request: Request, codigoUe: str, anoLetivo: str
-    ) -> Response:
+    def get(self, request: Request, codigoUe: str, anoLetivo: str) -> Response:
         if not codigoUe or not anoLetivo:
             return _erro_400("Código da UE e ano letivo obrigatório.")
         try:
@@ -298,9 +293,7 @@ class AutocompleteAlunosUeView(APIView):
         ],
         responses={200: AlunoAutocompleteSerializer(many=True)},
     )
-    def get(
-        self, request: Request, codigoUe: str, anoLetivo: str
-    ) -> Response:
+    def get(self, request: Request, codigoUe: str, anoLetivo: str) -> Response:
         if not codigoUe:
             return _erro_400("Código da UE e ano letivo obrigatório.")
         try:
@@ -310,13 +303,12 @@ class AutocompleteAlunosUeView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        somente_ativos = (
-            request.query_params.get("somenteAtivos", "").lower()
-            in ("true", "1")
-        )
-        eh_historico = (
-            request.query_params.get("ehHistorico", "").lower()
-            in ("true", "1")
+        somente_ativos = request.query_params.get(
+            "somenteAtivos", ""
+        ).lower() in ("true", "1")
+        eh_historico = request.query_params.get("ehHistorico", "").lower() in (
+            "true",
+            "1",
         )
 
         dados = services.buscar_alunos_autocomplete(
@@ -334,9 +326,7 @@ class AutocompleteAlunosUeView(APIView):
                 {"detail": "Não foram encontradas turmas para o aluno."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(
-            AlunoAutocompleteSerializer(dados, many=True).data
-        )
+        return Response(AlunoAutocompleteSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -351,9 +341,7 @@ class AutocompleteAlunosAtivosView(APIView):
         parameters=[
             OpenApiParameter("ueCodigo", str, OpenApiParameter.PATH),
             OpenApiParameter("alunoNome", str, OpenApiParameter.QUERY),
-            OpenApiParameter(
-                "dataReferencia", str, OpenApiParameter.QUERY
-            ),
+            OpenApiParameter("dataReferencia", str, OpenApiParameter.QUERY),
             OpenApiParameter("alunoCodigo", int, OpenApiParameter.QUERY),
             OpenApiParameter("limite", int, OpenApiParameter.QUERY),
         ],
@@ -374,12 +362,8 @@ class AutocompleteAlunosAtivosView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        if aluno_codigo == 0 and (
-            not aluno_nome or len(aluno_nome) < 3
-        ):
-            return _erro_400(
-                "O Nome deve conter no mínimo 3 caracteres."
-            )
+        if aluno_codigo == 0 and (not aluno_nome or len(aluno_nome) < 3):
+            return _erro_400("O Nome deve conter no mínimo 3 caracteres.")
 
         dados = services.buscar_alunos_ativos_autocomplete(
             ue_codigo=ueCodigo,
@@ -393,9 +377,7 @@ class AutocompleteAlunosAtivosView(APIView):
                 {"detail": "Não foram encontradas turmas para o aluno."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(
-            AlunoAutocompleteSerializer(dados, many=True).data
-        )
+        return Response(AlunoAutocompleteSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -445,9 +427,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             dre_id=request.query_params.get("dreId"),
             modalidades=modalidades,
         )
-        return Response(
-            TotalAlunosAtivosPeriodoSerializer(dados).data
-        )
+        return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +483,9 @@ class AlunosAtivosTurmaView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="A09 | Alunos ativos em turma",
-        parameters=[OpenApiParameter("codigoTurma", int, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoTurma", int, OpenApiParameter.PATH)
+        ],
         responses={200: AlunoAtivoTurmaSerializer(many=True)},
     )
     def get(self, request: Request, codigoTurma: str) -> Response:
@@ -525,7 +507,9 @@ class NecessidadesEspeciaisAlunoView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="A10 | Necessidades especiais do aluno",
-        parameters=[OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)
+        ],
         responses={200: NecessidadeEspecialSerializer(many=True)},
     )
     def get(self, request: Request, codigoAluno: str) -> Response:
@@ -537,9 +521,7 @@ class NecessidadesEspeciaisAlunoView(APIView):
         dados = services.obter_necessidades_especiais_por_aluno(
             codigo_aluno=codigo
         )
-        return Response(
-            NecessidadeEspecialSerializer(dados, many=True).data
-        )
+        return Response(NecessidadeEspecialSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -615,7 +597,9 @@ class InformacoesAlunoView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="A13 | Informações completas do aluno",
-        parameters=[OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)
+        ],
         responses={200: InformacoesAlunoSerializer},
     )
     def get(self, request: Request, codigoAluno: str) -> Response:
@@ -642,7 +626,9 @@ class InformacoesAlunosTurmaView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="A14 | Informações dos alunos da turma",
-        parameters=[OpenApiParameter("codigoTurma", int, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoTurma", int, OpenApiParameter.PATH)
+        ],
         responses={200: InformacoesAlunoTurmaSerializer(many=True)},
     )
     def get(self, request: Request, codigoTurma: str) -> Response:
@@ -651,12 +637,8 @@ class InformacoesAlunosTurmaView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        dados = services.obter_informacoes_alunos_da_turma(
-            codigo_turma=codigo
-        )
-        return Response(
-            InformacoesAlunoTurmaSerializer(dados, many=True).data
-        )
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=codigo)
+        return Response(InformacoesAlunoTurmaSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -715,12 +697,8 @@ class QuantidadeMatriculadosView(APIView):
             OpenApiParameter(
                 "modalidade", int, OpenApiParameter.QUERY, many=True
             ),
-            OpenApiParameter(
-                "ano", int, OpenApiParameter.QUERY, many=True
-            ),
-            OpenApiParameter(
-                "turma", str, OpenApiParameter.QUERY, many=True
-            ),
+            OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
+            OpenApiParameter("turma", str, OpenApiParameter.QUERY, many=True),
         ],
         responses={200: QuantidadeMatriculadosSerializer(many=True)},
     )
@@ -831,9 +809,7 @@ class ResponsaveisDreUeTurmaView(APIView):
         )
         if not dados:
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(
-            ResponsavelTurmaSerializer(dados, many=True).data
-        )
+        return Response(ResponsavelTurmaSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -845,16 +821,16 @@ class DadosResponsavelView(APIView):
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="A20 | Dados completos do responsável",
-        parameters=[OpenApiParameter("cpfResponsavel", str, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("cpfResponsavel", str, OpenApiParameter.PATH)
+        ],
         responses={200: DadosResponsavelSerializer(many=True)},
     )
     def get(self, request: Request, cpfResponsavel: str) -> Response:
         dados = services.obter_dados_responsavel(
             cpf_responsavel=cpfResponsavel
         )
-        return Response(
-            DadosResponsavelSerializer(dados, many=True).data
-        )
+        return Response(DadosResponsavelSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -866,7 +842,9 @@ class DadosResponsavelResumidoView(APIView):
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="A21 | Dados resumidos do responsável",
-        parameters=[OpenApiParameter("cpfResponsavel", str, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("cpfResponsavel", str, OpenApiParameter.PATH)
+        ],
         responses={200: DadosResponsavelResumidoSerializer},
     )
     def get(self, request: Request, cpfResponsavel: str) -> Response:
@@ -938,9 +916,7 @@ class ResponsavelAlunoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        serializer = CadastrarResponsavelRequestSerializer(
-            data=request.data
-        )
+        serializer = CadastrarResponsavelRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         body: dict[str, Any] = serializer.validated_data
 
@@ -965,7 +941,9 @@ class FiliacaoAlunoView(APIView):
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="A27 | Dados de filiação do responsável do aluno",
-        parameters=[OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoAluno", int, OpenApiParameter.PATH)
+        ],
         responses={200: InformacoesAlunoSerializer},
     )
     def get(self, request: Request, codigoAluno: str) -> Response:
@@ -1015,9 +993,7 @@ class MatriculasAnoAtualView(APIView):
         dados = services.obter_matriculas_ano_atual(
             ano_letivo=ano, ue_codigo=ue_codigo
         )
-        return Response(
-            ConsolidacaoMatriculaSerializer(dados, many=True).data
-        )
+        return Response(ConsolidacaoMatriculaSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -1052,9 +1028,7 @@ class MatriculasAnosAnterioresView(APIView):
         dados = services.obter_matriculas_anos_anteriores(
             ano_letivo=ano, ue_codigo=ue_codigo
         )
-        return Response(
-            ConsolidacaoMatriculaSerializer(dados, many=True).data
-        )
+        return Response(ConsolidacaoMatriculaSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -1101,9 +1075,7 @@ class TotalMatriculasPorTurnoDreView(APIView):
         if not dreCodigo:
             return _erro_400("Código da DRE obrigatório.")
         return Response(
-            services.obter_total_matriculas_por_turno_dre(
-                dre_codigo=dreCodigo
-            )
+            services.obter_total_matriculas_por_turno_dre(dre_codigo=dreCodigo)
         )
 
 
@@ -1116,7 +1088,9 @@ class QuantidadeAlunosPorTurmaEscolaView(APIView):
     @extend_schema(
         tags=_TAG_ESCOLA,
         summary="E05 | Quantidade de alunos por turma na escola",
-        parameters=[OpenApiParameter("codigoEscola", str, OpenApiParameter.PATH)],
+        parameters=[
+            OpenApiParameter("codigoEscola", str, OpenApiParameter.PATH)
+        ],
         responses={200: ConsolidacaoMatriculaSerializer(many=True)},
     )
     def get(self, request: Request, codigoEscola: str) -> Response:
@@ -1125,9 +1099,7 @@ class QuantidadeAlunosPorTurmaEscolaView(APIView):
         dados = services.obter_quantidade_alunos_por_turma_da_escola(
             codigo_escola=codigoEscola
         )
-        return Response(
-            ConsolidacaoMatriculaSerializer(dados, many=True).data
-        )
+        return Response(ConsolidacaoMatriculaSerializer(dados, many=True).data)
 
 
 # ---------------------------------------------------------------------------
@@ -1149,18 +1121,12 @@ class MatriculasAlunoEscolaView(APIView):
         self, request: Request, codigoEscola: str, codigoAluno: str
     ) -> Response:
         if not codigoEscola:
-            return _erro_400(
-                "O código da escola e do aluno são obrigatórios"
-            )
+            return _erro_400("O código da escola e do aluno são obrigatórios")
         try:
             codigo_a = _to_int(codigoAluno, "codigoAluno")
         except ValueError:
-            return _erro_400(
-                "O código da escola e do aluno são obrigatórios"
-            )
+            return _erro_400("O código da escola e do aluno são obrigatórios")
         dados = services.obter_matriculas_aluno_na_escola(
             codigo_escola=codigoEscola, codigo_aluno=codigo_a
         )
-        return Response(
-            MatriculaEscolaAlunoSerializer(dados, many=True).data
-        )
+        return Response(MatriculaEscolaAlunoSerializer(dados, many=True).data)

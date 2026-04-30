@@ -17,15 +17,15 @@ from apps.alunos.api.views import (
     AlunosPorCodigosView,
     AutocompleteAlunosAtivosView,
     AutocompleteAlunosUeView,
+    BuscarAlunosDaUeView,
     BuscaTurmasDoAlunoPorSituacaoMatriculaView,
     BuscaTurmasDoAlunoView,
-    BuscarAlunosDaUeView,
     DadosAcompanhamentoEscolarView,
     DadosResponsavelResumidoView,
     DadosResponsavelView,
     FiliacaoAlunoView,
-    InformacoesAlunoView,
     InformacoesAlunosTurmaView,
+    InformacoesAlunoView,
     MatriculasAlunoEscolaView,
     MatriculasAnoAtualView,
     MatriculasAnosAnterioresView,
@@ -169,7 +169,8 @@ urlpatterns = [
         DadosResponsavelResumidoView.as_view(),
         name="dados-responsavel-resumido",
     ),
-    # A27 — deve vir antes de A22/A23 para não ser capturado pelo <str:cpfResponsavel>
+    # A27 — deve vir antes de A22/A23 para não ser
+    # capturado pelo <str:cpfResponsavel>
     path(
         "alunos/<str:codigoAluno>/responsaveis/filiacao",
         FiliacaoAlunoView.as_view(),

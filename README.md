@@ -39,7 +39,7 @@ apps/
     │   ├── views.py        # APIViews por endpoint
     │   └── urls.py         # paths replicando o contrato
     └── tests/          # test_models / test_services / test_api
-config/                  # settings, urls, wsgi/asgi, settings_test, test_runner
+config/                  # settings, urls, wsgi/asgi, test_runner
 requirements/            # base.txt + local.txt
 ```
 
@@ -125,7 +125,7 @@ Swagger UI disponível em `http://localhost:8002/alunos/api/v1/docs/`.
 
 ```bash
 # Local
-python manage.py test --settings=config.settings_test
+python manage.py test
 
 # Via docker (espelha pipeline)
 ./executar_testes_docker.sh

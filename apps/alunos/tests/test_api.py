@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -45,7 +45,7 @@ class A01TurmasDoAlunoTestCase(TestCase):
         seed_responsaveis()
         with patch(
             "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
         ):
             url = reverse(
                 "busca-turmas-do-aluno", kwargs={"codigoAluno": "1234567"}
@@ -65,9 +65,7 @@ class A01TurmasDoAlunoTestCase(TestCase):
             self.assertNotIn(campo, body[0])
 
     def test_aluno_invalido_400(self) -> None:
-        url = reverse(
-            "busca-turmas-do-aluno", kwargs={"codigoAluno": "abc"}
-        )
+        url = reverse("busca-turmas-do-aluno", kwargs={"codigoAluno": "abc"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 400)
 
@@ -128,9 +126,7 @@ class A07A08A09TurmaApiTestCase(TestCase):
 
     def test_a09_alunos_ativos(self) -> None:
         seed_matriculas()
-        url = reverse(
-            "alunos-ativos-turma", kwargs={"codigoTurma": "12345"}
-        )
+        url = reverse("alunos-ativos-turma", kwargs={"codigoTurma": "12345"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
@@ -150,9 +146,7 @@ class A10A13A14ApiTestCase(TestCase):
 
     def test_a13_informacoes_shape_reduzido(self) -> None:
         seed_alunos()
-        url = reverse(
-            "informacoes-aluno", kwargs={"codigoAluno": "1234567"}
-        )
+        url = reverse("informacoes-aluno", kwargs={"codigoAluno": "1234567"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
@@ -171,9 +165,7 @@ class A10A13A14ApiTestCase(TestCase):
             self.assertNotIn(campo, body)
 
     def test_a13_inexistente_404(self) -> None:
-        url = reverse(
-            "informacoes-aluno", kwargs={"codigoAluno": "1111111"}
-        )
+        url = reverse("informacoes-aluno", kwargs={"codigoAluno": "1111111"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 404)
 
@@ -195,9 +187,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
-        resp = _autenticado().get(
-            url + "?codigoUe=100001&anoLetivo=2026"
-        )
+        resp = _autenticado().get(url + "?codigoUe=100001&anoLetivo=2026")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
 
@@ -309,9 +299,7 @@ class MatriculasApiTestCase(TestCase):
     def test_m01(self) -> None:
         seed_matriculas()
         url = reverse("matriculas-ano-atual")
-        resp = _autenticado().get(
-            url + "?anoLetivo=2026&ueCodigo=100001"
-        )
+        resp = _autenticado().get(url + "?anoLetivo=2026&ueCodigo=100001")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 2)
 
@@ -323,9 +311,7 @@ class MatriculasApiTestCase(TestCase):
     def test_m02(self) -> None:
         seed_matriculas()
         url = reverse("matriculas-anos-anteriores")
-        resp = _autenticado().get(
-            url + "?anoLetivo=2025&ueCodigo=100001"
-        )
+        resp = _autenticado().get(url + "?anoLetivo=2025&ueCodigo=100001")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
 
@@ -390,9 +376,7 @@ class A18AcompanhamentoApiTestCase(TestCase):
         seed_matriculas()
         seed_responsaveis()
         url = reverse("dados-acompanhamento-escolar")
-        resp = _autenticado().get(
-            url + "?codigoUe=100001&anoLetivo=2026"
-        )
+        resp = _autenticado().get(url + "?codigoUe=100001&anoLetivo=2026")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(len(body), 2)

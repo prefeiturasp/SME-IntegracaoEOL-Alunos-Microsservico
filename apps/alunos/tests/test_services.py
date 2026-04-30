@@ -6,7 +6,7 @@ M03/M04 são out-of-scope (turno vive no MS Pedagógico) e retornam ``[]``.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -26,7 +26,7 @@ class TurmasDoAlunoTestCase(TestCase):
         seed_responsaveis()
         with patch(
             "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
         ):
             dados = services.buscar_turmas_do_aluno(codigo_aluno=1234567)
         self.assertEqual(len(dados), 1)
@@ -40,7 +40,7 @@ class TurmasDoAlunoTestCase(TestCase):
     def test_a01_aluno_inexistente_retorna_lista_vazia(self) -> None:
         with patch(
             "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
         ):
             dados = services.buscar_turmas_do_aluno(codigo_aluno=9999999)
         self.assertEqual(dados, [])
@@ -49,14 +49,12 @@ class TurmasDoAlunoTestCase(TestCase):
         seed_matriculas()
         with patch(
             "django.utils.timezone.now",
-            return_value=datetime(2027, 6, 1, tzinfo=timezone.utc),
+            return_value=datetime(2027, 6, 1, tzinfo=UTC),
         ):
-            dados = (
-                services.buscar_turmas_do_aluno_por_situacao_matricula(
-                    codigo_aluno=1234567,
-                    ano_letivo=2026,
-                    filtrar_situacao_matricula=True,
-                )
+            dados = services.buscar_turmas_do_aluno_por_situacao_matricula(
+                codigo_aluno=1234567,
+                ano_letivo=2026,
+                filtrar_situacao_matricula=True,
             )
         self.assertEqual(len(dados), 1)
 
@@ -154,7 +152,7 @@ class A11A12CodigosTestCase(TestCase):
         seed_matriculas()
         with patch(
             "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=timezone.utc),
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
         ):
             dados = services.obter_alunos_por_codigos_e_ano(
                 codigos_aluno=[1234567, 7654321], ano_letivo=2026
@@ -177,9 +175,7 @@ class A13A14InformacoesTestCase(TestCase):
 
     def test_a14_lista_alunos_da_turma(self) -> None:
         seed_matriculas()
-        dados = services.obter_informacoes_alunos_da_turma(
-            codigo_turma=12345
-        )
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].codigo_aluno, 1234567)
 
@@ -229,9 +225,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
     def test_a20_dados_completos(self) -> None:
         seed_alunos()
         seed_responsaveis()
-        dados = services.obter_dados_responsavel(
-            cpf_responsavel="12345678901"
-        )
+        dados = services.obter_dados_responsavel(cpf_responsavel="12345678901")
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].nome, "Responsavel Exemplo")
 
@@ -277,9 +271,7 @@ class A22A23EscritaTestCase(TestCase):
 class A27FiliacaoTestCase(TestCase):
     def test_retorna_mesmo_shape_de_a13(self) -> None:
         seed_alunos()
-        dado = services.obter_dados_responsavel_filiacao(
-            codigo_aluno=1234567
-        )
+        dado = services.obter_dados_responsavel_filiacao(codigo_aluno=1234567)
         self.assertIsNotNone(dado)
         assert dado is not None
         self.assertEqual(dado.codigo_aluno, 1234567)
@@ -297,7 +289,9 @@ class A12AlunosPorCodigosTestCase(TestCase):
         self.assertEqual(dados, [])
 
     def test_ue_sem_matriculas_retorna_vazio(self) -> None:
-        dados = services.buscar_alunos_da_ue(codigo_ue="999999", ano_letivo=2026)
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="999999", ano_letivo=2026
+        )
         self.assertEqual(dados, [])
 
     def test_nome_sem_match_retorna_vazio(self) -> None:
@@ -340,9 +334,7 @@ class M03M04OutOfScopeTestCase(TestCase):
 
     def test_m04_retorna_vazio(self) -> None:
         self.assertEqual(
-            services.obter_total_matriculas_por_turno_dre(
-                dre_codigo="100001"
-            ),
+            services.obter_total_matriculas_por_turno_dre(dre_codigo="100001"),
             [],
         )
 
