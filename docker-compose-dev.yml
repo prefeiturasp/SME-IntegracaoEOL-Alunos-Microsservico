@@ -1,0 +1,28 @@
+services:
+  alunos:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: sme_sgp_ms_alunos_dev
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    volumes:
+      - .:/app
+    command: >
+      python -Xfrozen_modules=off -m debugpy
+      --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8002
+    ports:
+      - "${PORT_WEB:-8002}:8002"
+      - "${PORT_DEBUGPY:-5679}:5678"
+    networks:
+      - default
+      - ms_etl_net
+    restart: unless-stopped
+
+networks:
+  ms_etl_net:
+    name: sme-integracaoeol-ms-etl_default
+    external: true

@@ -1,0 +1,13 @@
+services:
+  alunos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sme_sgp_ms_alunos
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+    ports:
+      - "8002:8000"
+    restart: unless-stopped
