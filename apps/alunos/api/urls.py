@@ -46,13 +46,13 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # A01
     path(
-        "alunos/<str:codigoAluno>/turmas/",
+        "<str:codigoAluno>/turmas/",
         BuscaTurmasDoAlunoView.as_view(),
         name="busca-turmas-do-aluno",
     ),
     # A02
     path(
-        "alunos/<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
+        "<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
         "historico/<str:historico>/filtrar-situacao/<str:filtrarSituacao>/"
         "tipo-turma/<str:tipoTurma>",
         BuscaTurmasDoAlunoView.as_view(),
@@ -60,7 +60,7 @@ urlpatterns = [
     ),
     # A03
     path(
-        "alunos/<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
+        "<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
         "matriculaTurma/<str:filtrarSituacaoMatricula>/"
         "tipoTurma/<str:tipoTurma>",
         BuscaTurmasDoAlunoPorSituacaoMatriculaView.as_view(),
@@ -68,117 +68,117 @@ urlpatterns = [
     ),
     # A04
     path(
-        "alunos/ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>",
+        "ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>",
         BuscarAlunosDaUeView.as_view(),
         name="buscar-alunos-da-ue",
     ),
     # A05
     path(
-        "alunos/ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>/autocomplete",
+        "ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>/autocomplete",
         AutocompleteAlunosUeView.as_view(),
         name="autocomplete-alunos-ue",
     ),
     # A06
     path(
-        "alunos/ues/<str:ueCodigo>/autocomplete/ativos",
+        "ues/<str:ueCodigo>/autocomplete/ativos",
         AutocompleteAlunosAtivosView.as_view(),
         name="autocomplete-alunos-ativos",
     ),
     # A07
     path(
-        "alunos/ativos/anos/<str:anoTurma>/anos-letivos/<str:anoLetivo>/"
+        "ativos/anos/<str:anoTurma>/anos-letivos/<str:anoLetivo>/"
         "inicio/<str:dataInicio>/fim/<str:dataFim>",
         TotalAlunosAtivosPorPeriodoView.as_view(),
         name="total-alunos-ativos-por-periodo",
     ),
     # A08
     path(
-        "alunos/turmas/<str:codigoTurma>/ativos/<str:dataReferenciaFim>",
+        "turmas/<str:codigoTurma>/ativos/<str:dataReferenciaFim>",
         AlunosAtivosPeriodoTurmaView.as_view(),
         name="alunos-ativos-periodo-turma",
     ),
     # A09
     path(
-        "alunos/turmas/<str:codigoTurma>/ativos",
+        "turmas/<str:codigoTurma>/ativos",
         AlunosAtivosTurmaView.as_view(),
         name="alunos-ativos-turma",
     ),
     # A10
     path(
-        "alunos/<str:codigoAluno>/necessidades-especiais",
+        "<str:codigoAluno>/necessidades-especiais",
         NecessidadesEspeciaisAlunoView.as_view(),
         name="necessidades-especiais-aluno",
     ),
     # A11
     path(
-        "alunos/anoLetivo/<str:anoLetivo>/alunos",
+        "anoLetivo/<str:anoLetivo>/alunos",
         AlunosPorCodigosEAnoView.as_view(),
         name="alunos-por-codigos-e-ano",
     ),
     # A12
     path(
-        "alunos/alunos",
+        "alunos",
         AlunosPorCodigosView.as_view(),
         name="alunos-por-codigos",
     ),
     # A13
     path(
-        "alunos/<str:codigoAluno>/informacoes",
+        "<str:codigoAluno>/informacoes",
         InformacoesAlunoView.as_view(),
         name="informacoes-aluno",
     ),
     # A14
     path(
-        "alunos/<str:codigoTurma>/turma/informacoes",
+        "<str:codigoTurma>/turma/informacoes",
         InformacoesAlunosTurmaView.as_view(),
         name="informacoes-alunos-turma",
     ),
     # A15
     path(
-        "alunos/ano-letivo/<str:anoLetivo>/matriculados",
+        "ano-letivo/<str:anoLetivo>/matriculados",
         QuantidadeMatriculadosPorAnoCCView.as_view(),
         name="quantidade-matriculados-cc",
     ),
     # A16
     path(
-        "alunos/ano-letivo/<str:anoLetivo>/matriculados/quantidade",
+        "ano-letivo/<str:anoLetivo>/matriculados/quantidade",
         QuantidadeMatriculadosView.as_view(),
         name="quantidade-matriculados",
     ),
     # A18
     path(
-        "alunos/dados-acompanhamento-escolar",
+        "dados-acompanhamento-escolar",
         DadosAcompanhamentoEscolarView.as_view(),
         name="dados-acompanhamento-escolar",
     ),
     # A19
     path(
-        "alunos/responsaveis",
+        "responsaveis",
         ResponsaveisDreUeTurmaView.as_view(),
         name="responsaveis-dre-ue-turma",
     ),
     # A20
     path(
-        "alunos/responsaveis/<str:cpfResponsavel>",
+        "responsaveis/<str:cpfResponsavel>",
         DadosResponsavelView.as_view(),
         name="dados-responsavel",
     ),
     # A21
     path(
-        "alunos/responsaveis/<str:cpfResponsavel>/resumido",
+        "responsaveis/<str:cpfResponsavel>/resumido",
         DadosResponsavelResumidoView.as_view(),
         name="dados-responsavel-resumido",
     ),
     # A27 — deve vir antes de A22/A23 para não ser
     # capturado pelo <str:cpfResponsavel>
     path(
-        "alunos/<str:codigoAluno>/responsaveis/filiacao",
+        "<str:codigoAluno>/responsaveis/filiacao",
         FiliacaoAlunoView.as_view(),
         name="filiacao-aluno",
     ),
     # A22 (PUT) e A23 (POST) — mesmo path, métodos diferentes
     path(
-        "alunos/<str:codigoAluno>/responsaveis/<str:cpfResponsavel>",
+        "<str:codigoAluno>/responsaveis/<str:cpfResponsavel>",
         ResponsavelAlunoView.as_view(),
         name="responsavel-aluno",
     ),
