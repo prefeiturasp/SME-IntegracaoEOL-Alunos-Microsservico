@@ -56,7 +56,6 @@ class A01TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(len(body), 1)
         self.assertEqual(body[0]["codigoAluno"], 1234567)
         self.assertEqual(body[0]["codigoTurma"], 12345)
-        # Campos out-of-scope NÃO devem aparecer
         for campo in (
             "codigoTipoTurma",
             "dataAtualizacaoTabela",
@@ -152,7 +151,6 @@ class A10A13A14ApiTestCase(TestCase):
         body = resp.json()
         self.assertEqual(body["codigoAluno"], 1234567)
         self.assertEqual(body["nomeAluno"], "JOAO DA SILVA")
-        # Campos out-of-scope NÃO devem aparecer
         for campo in (
             "endereco",
             "grupoEtnico",
@@ -187,14 +185,40 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
-        resp = _autenticado().get(url + "?codigoUe=100001&anoLetivo=2026")
+        resp = _autenticado().get(
+            url + "?codigoDre=108&codigoUe=100001&anoLetivo=2026"
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
 
     def test_a19_sem_dados_204(self) -> None:
         url = reverse("responsaveis-dre-ue-turma")
-        resp = _autenticado().get(url + "?codigoUe=999")
+        resp = _autenticado().get(url + "?codigoDre=108&codigoUe=999")
         self.assertEqual(resp.status_code, 204)
+
+    def test_a19_sem_codigo_dre_retorna_400(self) -> None:
+        url = reverse("responsaveis-dre-ue-turma")
+        resp = _autenticado().get(url + "?codigoUe=100001&anoLetivo=2026")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("codigoDre", resp.json()["detail"])
+
+    def test_a19_so_codigo_dre_retorna_200(self) -> None:
+        # codigoDre sozinho satisfaz a validação de contrato (mesmo
+        # sendo ignorado internamente). codigoUe deixa de ser exigido.
+        seed_matriculas()
+        seed_responsaveis()
+        url = reverse("responsaveis-dre-ue-turma")
+        resp = _autenticado().get(url + "?codigoDre=108")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_a19_paginacao_limit(self) -> None:
+        seed_matriculas()
+        seed_responsaveis()
+        url = reverse("responsaveis-dre-ue-turma")
+        resp = _autenticado().get(
+            url + "?codigoDre=108&codigoUe=100001&anoLetivo=2026&limit=0"
+        )
+        self.assertEqual(resp.status_code, 400)
 
     def test_a20_dados_completos(self) -> None:
         seed_alunos()
@@ -380,3 +404,111 @@ class A18AcompanhamentoApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(len(body), 2)
+
+    def test_sem_nenhum_filtro_retorna_400(self) -> None:
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            resp.json()["detail"],
+            "Nenhum filtro foi especificado para busca de dados "
+            "dos alunos para acompanhamento do estudante",
+        )
+
+    def test_so_ano_letivo_retorna_400(self) -> None:
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(url + "?anoLetivo=2026")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        seed_matriculas()
+        seed_responsaveis()
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(url + "?codigoAluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigoEol"], 1234567)
+
+    def test_filtra_por_cpf_responsavel(self) -> None:
+        seed_matriculas()
+        seed_responsaveis()
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(url + "?cpfResponsavel=12345678901")
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["cpfResponsavel"], "12345678901")
+
+    def test_codigo_aluno_invalido_retorna_400(self) -> None:
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(url + "?codigoAluno=abc")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_paginacao_limit_offset(self) -> None:
+        seed_matriculas()
+        seed_responsaveis()
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(
+            url + "?codigoUe=100001&anoLetivo=2026&limit=1"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
+        resp2 = _autenticado().get(
+            url + "?codigoUe=100001&anoLetivo=2026&limit=1&offset=1"
+        )
+        self.assertEqual(resp2.status_code, 200)
+        self.assertEqual(len(resp2.json()), 1)
+        # garante que o segundo item é diferente do primeiro
+        self.assertNotEqual(resp.json(), resp2.json())
+
+    def test_paginacao_limit_invalido_400(self) -> None:
+        url = reverse("dados-acompanhamento-escolar")
+        resp = _autenticado().get(
+            url + "?codigoUe=100001&anoLetivo=2026&limit=abc"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
+class A15QuantidadeMatriculadosCCApiTestCase(TestCase):
+    def test_lista_com_ue_id_e_componentes(self) -> None:
+        seed_matriculas()
+        url = reverse(
+            "quantidade-matriculados-cc", kwargs={"anoLetivo": "2026"}
+        )
+        resp = _autenticado().get(
+            url + "?ueId=100001&componentesCurriculares=1"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreaterEqual(len(resp.json()), 1)
+
+    def test_sem_ue_id_retorna_200(self) -> None:
+        seed_matriculas()
+        url = reverse(
+            "quantidade-matriculados-cc", kwargs={"anoLetivo": "2026"}
+        )
+        resp = _autenticado().get(url + "?componentesCurriculares=1")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_sem_componentes_curriculares_retorna_400(self) -> None:
+        url = reverse(
+            "quantidade-matriculados-cc", kwargs={"anoLetivo": "2026"}
+        )
+        resp = _autenticado().get(url + "?ueId=100001")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("componentesCurriculares", resp.json()["detail"])
+
+
+class A16QuantidadeMatriculadosApiTestCase(TestCase):
+    def test_lista_com_ue_codigo(self) -> None:
+        seed_matriculas()
+        url = reverse("quantidade-matriculados", kwargs={"anoLetivo": "2026"})
+        resp = _autenticado().get(url + "?ueCodigo=100001")
+        self.assertEqual(resp.status_code, 200)
+        self.assertGreaterEqual(len(resp.json()), 1)
+
+    def test_sem_ue_codigo_retorna_200(self) -> None:
+        seed_matriculas()
+        url = reverse("quantidade-matriculados", kwargs={"anoLetivo": "2026"})
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, 200)

@@ -42,7 +42,9 @@ _TAG_MATRICULA = ["Matrículas"]
 _TAG_ESCOLA = ["Escolas"]
 
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
-CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = "Código da UE e ano letivo são obrigatórios."
+CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
+    "Código da UE e ano letivo são obrigatórios."
+)
 
 # ---------------------------------------------------------------------------
 # Helpers de parsing
@@ -103,6 +105,36 @@ def _erro_400(detalhe: str) -> Response:
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
+_PAGINACAO_LIMITE_DEFAULT = 100
+_PAGINACAO_LIMITE_MAX = 500
+
+
+def _paginar_lista(
+    lista: list[Any], request: Request
+) -> tuple[list[Any], Response | None]:
+    """Pagina ``lista`` por ``?limit`` e ``?offset`` preservando o contrato.
+
+    Retorna ``(slice, None)`` em sucesso ou ``([], erro_400)`` quando os
+    parâmetros são inválidos. Limite default ``100`` e máximo ``500`` —
+    cliente que omitir ``limit`` recebe os primeiros ``100`` itens.
+    """
+    try:
+        limit = int(
+            request.query_params.get("limit", _PAGINACAO_LIMITE_DEFAULT)
+        )
+        offset = int(request.query_params.get("offset", 0))
+    except (TypeError, ValueError):
+        return [], _erro_400(
+            "Parâmetros 'limit' e 'offset' devem ser inteiros."
+        )
+    if limit <= 0 or offset < 0:
+        return [], _erro_400(
+            "Parâmetros 'limit' (>0) e 'offset' (>=0) inválidos."
+        )
+    limit = min(limit, _PAGINACAO_LIMITE_MAX)
+    return lista[offset : offset + limit], None
+
+
 # ---------------------------------------------------------------------------
 # A01 / A02 — Turmas do aluno
 # ---------------------------------------------------------------------------
@@ -154,8 +186,6 @@ class BuscaTurmasDoAlunoView(APIView):
                 if filtrarSituacao is not None
                 else True
             )
-            # tipoTurma é aceito no contrato legado mas ignorado: o
-            # domínio Alunos não armazena o tipo de turma.
             if tipoTurma is not None:
                 _to_bool(tipoTurma, "tipoTurma")
         except ValueError as exc:
@@ -211,8 +241,6 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             filtra = _to_bool(
                 filtrarSituacaoMatricula, "filtrarSituacaoMatricula"
             )
-            # tipoTurma é aceito no contrato legado mas ignorado: o
-            # domínio Alunos não armazena o tipo de turma.
             _to_bool(tipoTurma, "tipoTurma")
         except ValueError as exc:
             return _erro_400(str(exc))
@@ -661,7 +689,10 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
                 int,
                 OpenApiParameter.QUERY,
                 many=True,
+                required=True,
             ),
+            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
+            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: QuantidadeMatriculadosCCSerializer(many=True)},
     )
@@ -671,6 +702,8 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
             componentes = _query_int_list(request, "componentesCurriculares")
         except ValueError as exc:
             return _erro_400(str(exc))
+        if not componentes:
+            return _erro_400("componentesCurriculares é obrigatório.")
 
         dados = services.obter_quantidade_matriculados_por_ano_e_cc(
             ano_letivo=ano,
@@ -678,8 +711,11 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
             dre_id=request.query_params.get("dreId"),
             ue_id=request.query_params.get("ueId"),
         )
+        pagina, erro = _paginar_lista(dados, request)
+        if erro is not None:
+            return erro
         return Response(
-            QuantidadeMatriculadosCCSerializer(dados, many=True).data
+            QuantidadeMatriculadosCCSerializer(pagina, many=True).data
         )
 
 
@@ -701,6 +737,8 @@ class QuantidadeMatriculadosView(APIView):
             ),
             OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
             OpenApiParameter("turma", str, OpenApiParameter.QUERY, many=True),
+            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
+            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: QuantidadeMatriculadosSerializer(many=True)},
     )
@@ -721,8 +759,11 @@ class QuantidadeMatriculadosView(APIView):
             ano=ano_lst,
             turma=turma,
         )
+        pagina, erro = _paginar_lista(dados, request)
+        if erro is not None:
+            return erro
         return Response(
-            QuantidadeMatriculadosSerializer(dados, many=True).data
+            QuantidadeMatriculadosSerializer(pagina, many=True).data
         )
 
 
@@ -736,17 +777,37 @@ class DadosAcompanhamentoEscolarView(APIView):
         tags=_TAG_ALUNO,
         summary="A18 | Dados de acompanhamento escolar",
         parameters=[
+            OpenApiParameter("codigoAluno", int, OpenApiParameter.QUERY),
             OpenApiParameter("codigoDre", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigoUe", str, OpenApiParameter.QUERY),
+            OpenApiParameter("cpfResponsavel", str, OpenApiParameter.QUERY),
             OpenApiParameter("anoLetivo", int, OpenApiParameter.QUERY),
             OpenApiParameter("modalidade", int, OpenApiParameter.QUERY),
             OpenApiParameter("semestre", int, OpenApiParameter.QUERY),
             OpenApiParameter("turmaCodigo", str, OpenApiParameter.QUERY),
+            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
+            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: DadosAcompanhamentoEscolarSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        codigo_aluno_raw = request.query_params.get("codigoAluno")
+        codigo_dre = request.query_params.get("codigoDre")
+        codigo_ue = request.query_params.get("codigoUe")
+        cpf_responsavel = request.query_params.get("cpfResponsavel")
+        if not any(
+            (codigo_aluno_raw, codigo_dre, codigo_ue, cpf_responsavel)
+        ):
+            return _erro_400(
+                "Nenhum filtro foi especificado para busca de dados "
+                "dos alunos para acompanhamento do estudante"
+            )
         try:
+            codigo_aluno = (
+                _to_int(codigo_aluno_raw, "codigoAluno")
+                if codigo_aluno_raw
+                else None
+            )
             ano = (
                 int(request.query_params["anoLetivo"])
                 if "anoLetivo" in request.query_params
@@ -766,15 +827,20 @@ class DadosAcompanhamentoEscolarView(APIView):
             return _erro_400(str(exc))
 
         dados = services.obter_dados_acompanhamento_escolar(
-            codigo_dre=request.query_params.get("codigoDre"),
-            codigo_ue=request.query_params.get("codigoUe"),
+            codigo_aluno=codigo_aluno,
+            codigo_dre=codigo_dre,
+            codigo_ue=codigo_ue,
+            cpf_responsavel=cpf_responsavel,
             ano_letivo=ano,
             modalidade=modalidade,
             semestre=semestre,
             turma_codigo=request.query_params.get("turmaCodigo"),
         )
+        pagina, erro = _paginar_lista(dados, request)
+        if erro is not None:
+            return erro
         return Response(
-            DadosAcompanhamentoEscolarSerializer(dados, many=True).data
+            DadosAcompanhamentoEscolarSerializer(pagina, many=True).data
         )
 
 
@@ -782,19 +848,32 @@ class DadosAcompanhamentoEscolarView(APIView):
 # A19 — Responsáveis por DRE/UE/turma
 # ---------------------------------------------------------------------------
 class ResponsaveisDreUeTurmaView(APIView):
-    """A19 — Responsáveis por DRE/UE/turma."""
+    """A19 — Responsáveis por DRE/UE/turma.
+
+    ``codigoDre`` é obrigatório por contrato — exigência declarativa,
+    pois o domínio Alunos não armazena DRE e o filtro não é aplicado
+    internamente. ``codigoUe`` é o único filtro que efetivamente recorta
+    os dados; quando omitido, a query varre todas as matrículas ativas.
+    """
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="A19 | Responsáveis por DRE/UE/turma",
         parameters=[
-            OpenApiParameter("codigoDre", str, OpenApiParameter.QUERY),
+            OpenApiParameter(
+                "codigoDre", str, OpenApiParameter.QUERY, required=True
+            ),
             OpenApiParameter("codigoUe", str, OpenApiParameter.QUERY),
             OpenApiParameter("anoLetivo", int, OpenApiParameter.QUERY),
+            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
+            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: ResponsavelTurmaSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        codigo_dre = request.query_params.get("codigoDre")
+        if not codigo_dre:
+            return _erro_400("codigoDre é obrigatório.")
         try:
             ano = (
                 int(request.query_params["anoLetivo"])
@@ -805,13 +884,16 @@ class ResponsaveisDreUeTurmaView(APIView):
             return _erro_400(str(exc))
 
         dados = services.obter_responsaveis_dre_ue_turma(
-            codigo_dre=request.query_params.get("codigoDre"),
+            codigo_dre=codigo_dre,
             codigo_ue=request.query_params.get("codigoUe"),
             ano_letivo=ano,
         )
         if not dados:
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(ResponsavelTurmaSerializer(dados, many=True).data)
+        pagina, erro = _paginar_lista(dados, request)
+        if erro is not None:
+            return erro
+        return Response(ResponsavelTurmaSerializer(pagina, many=True).data)
 
 
 # ---------------------------------------------------------------------------

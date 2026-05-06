@@ -829,15 +829,16 @@ def buscar_alunos_ativos_autocomplete(
     ue_codigo: str,
     aluno_nome: str | None = None,
     aluno_codigo: int = 0,
-    data_referencia: datetime | date | None = None,  # NOSONAR — ignorado, ver docstring
+    data_referencia: (
+        datetime | date | None
+    ) = None,  # NOSONAR — ignorado, ver docstring
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A06 — Alunos ativos para autocomplete por data de referência.
 
     ``data_referencia`` aceita o parâmetro do contrato legado mas é
-    ignorada: o domínio Alunos não materializa o estado da matrícula
-    por data — a referência atual é a única fonte. O Transition Gateway
-    poderá casar isso com o histórico do MS Pedagógico se necessário.
+    ignorado porque o domínio Alunos não materializa o estado da matrícula
+    por data, sendo a referência atual a única fonte, visto que histórico está em Pedagógico.
     """
     return _autocomplete_base(
         codigo_ue=ue_codigo,
@@ -1181,15 +1182,16 @@ def obter_informacoes_alunos_da_turma(
 def obter_quantidade_matriculados_por_ano_e_cc(
     ano_letivo: int,
     ue_id: str | None = None,
-    componentes_curriculares: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
+    componentes_curriculares: (
+        list[int] | None
+    ) = None,  # NOSONAR — ignorado, ver docstring
     dre_id: str | None = None,  # NOSONAR — ignorado, ver docstring
 ) -> list[QuantidadeMatriculadosCCDTO]:
     """A15 — Agrupa matrículas por turma (shape reduzido).
 
     Sem componente curricular no domínio Alunos (não é coluna de
-    ``matricula``). Retornamos a contagem agregada por turma — o MS
-    Pedagógico pode complementar com componente/modalidade quando o
-    Transition Gateway agregar.
+    ``matricula``). É retornado a contagem agregada por turma,
+    pois componentes_curriculares serão agregados de Pedgagógico.
     """
     qs = Matricula.objects.filter(
         ano_letivo=ano_letivo,
@@ -1279,6 +1281,8 @@ def obter_dados_acompanhamento_escolar(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
     turma_codigo: str | None = None,
+    codigo_aluno: int | None = None,
+    cpf_responsavel: str | None = None,
     codigo_dre: str | None = None,  # NOSONAR — ignorado, ver docstring
     modalidade: int | None = None,  # NOSONAR — ignorado, ver docstring
     semestre: int | None = None,  # NOSONAR — ignorado, ver docstring
@@ -1287,7 +1291,8 @@ def obter_dados_acompanhamento_escolar(
 
     Sem view materializada no MS-ETL; agregamos sobre Aluno + Matricula +
     MatriculaTurma + ResponsavelAluno. Filtros DRE/modalidade/semestre
-    são ignorados (vivem em outros domínios).
+    são ignorados (vivem em outros domínios). ``cpf_responsavel`` filtra
+    matrículas dos alunos com vínculo ativo a esse responsável.
     """
     qs = Matricula.objects.filter(
         codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
@@ -1296,6 +1301,15 @@ def obter_dados_acompanhamento_escolar(
         qs = qs.filter(codigo_ue=codigo_ue)
     if ano_letivo:
         qs = qs.filter(ano_letivo=ano_letivo)
+    if codigo_aluno:
+        qs = qs.filter(aluno_id=codigo_aluno)
+    if cpf_responsavel:
+        qs = qs.filter(
+            aluno_id__in=ResponsavelAluno.objects.filter(
+                cpf=cpf_responsavel,
+                data_fim_vinculo__isnull=True,
+            ).values("aluno_id")
+        )
 
     matriculas = list(
         qs.values(
@@ -1864,8 +1878,8 @@ def dto_to_dict(dto: Any) -> dict[str, Any]:
     """Converte um DTO em ``dict``, com suporte a dataclasses aninhadas.
 
     Usa ``dataclasses.asdict`` internamente. Aceita ``None`` (devolve
-    dict vazio) para callers que querem normalizar respostas
-    opcionais sem ramificações condicionais.
+    dict vazio) para chamadas que querem normalizar respostas
+    opcionais sem condicionais.
     """
     return asdict(dto) if dto is not None else {}
 
