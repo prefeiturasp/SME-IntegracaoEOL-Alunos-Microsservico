@@ -829,9 +829,7 @@ def buscar_alunos_ativos_autocomplete(
     ue_codigo: str,
     aluno_nome: str | None = None,
     aluno_codigo: int = 0,
-    data_referencia: (
-        datetime | date | None
-    ) = None,  # NOSONAR — ignorado, ver docstring
+    data_referencia: (datetime | date | None) = None,  # NOSONAR
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A06 — Alunos ativos para autocomplete por data de referência.
