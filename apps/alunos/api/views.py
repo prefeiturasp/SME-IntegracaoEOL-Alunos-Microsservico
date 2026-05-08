@@ -42,6 +42,8 @@ _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
 _TAG_MATRICULA = ["Matrículas"]
 _TAG_ESCOLA = ["Escolas"]
 
+_CONTENT_TYPE_JSON = "application/json"
+
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
 CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
     "Código da UE e ano letivo são obrigatórios."
@@ -680,7 +682,7 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
             dre_id=request.query_params.get("dreId"),
             ue_id=request.query_params.get("ueId"),
         )
-        return HttpResponse(payload, content_type="application/json")
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -721,7 +723,7 @@ class QuantidadeMatriculadosView(APIView):
             ano=ano_lst,
             turma=turma,
         )
-        return HttpResponse(payload, content_type="application/json")
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -789,7 +791,7 @@ class DadosAcompanhamentoEscolarView(APIView):
             semestre=semestre,
             turma_codigo=request.query_params.get("turmaCodigo"),
         )
-        return HttpResponse(payload, content_type="application/json")
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -836,7 +838,7 @@ class ResponsaveisDreUeTurmaView(APIView):
         )
         if payload == b"[]":
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return HttpResponse(payload, content_type="application/json")
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
