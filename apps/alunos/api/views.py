@@ -9,6 +9,7 @@ alunos_db, populado pelo SME-IntegracaoEOL-MS-ETL.
 from datetime import datetime
 from typing import Any
 
+from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -40,6 +41,8 @@ _TAG_ALUNO = ["Alunos"]
 _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
 _TAG_MATRICULA = ["Matrículas"]
 _TAG_ESCOLA = ["Escolas"]
+
+_CONTENT_TYPE_JSON = "application/json"
 
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
 CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
@@ -103,36 +106,6 @@ def _query_int_list(request: Request, nome: str) -> list[int]:
 
 def _erro_400(detalhe: str) -> Response:
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
-
-
-_PAGINACAO_LIMITE_DEFAULT = 100
-_PAGINACAO_LIMITE_MAX = 500
-
-
-def _paginar_lista(
-    lista: list[Any], request: Request
-) -> tuple[list[Any], Response | None]:
-    """Pagina ``lista`` por ``?limit`` e ``?offset`` preservando o contrato.
-
-    Retorna ``(slice, None)`` em sucesso ou ``([], erro_400)`` quando os
-    parâmetros são inválidos. Limite default ``100`` e máximo ``500`` —
-    cliente que omitir ``limit`` recebe os primeiros ``100`` itens.
-    """
-    try:
-        limit = int(
-            request.query_params.get("limit", _PAGINACAO_LIMITE_DEFAULT)
-        )
-        offset = int(request.query_params.get("offset", 0))
-    except (TypeError, ValueError):
-        return [], _erro_400(
-            "Parâmetros 'limit' e 'offset' devem ser inteiros."
-        )
-    if limit <= 0 or offset < 0:
-        return [], _erro_400(
-            "Parâmetros 'limit' (>0) e 'offset' (>=0) inválidos."
-        )
-    limit = min(limit, _PAGINACAO_LIMITE_MAX)
-    return lista[offset : offset + limit], None
 
 
 # ---------------------------------------------------------------------------
@@ -691,8 +664,6 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
                 many=True,
                 required=True,
             ),
-            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
-            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: QuantidadeMatriculadosCCSerializer(many=True)},
     )
@@ -705,18 +676,13 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
         if not componentes:
             return _erro_400("componentesCurriculares é obrigatório.")
 
-        dados = services.obter_quantidade_matriculados_por_ano_e_cc(
+        payload = services.obter_quantidade_matriculados_por_ano_e_cc_json(
             ano_letivo=ano,
             componentes_curriculares=componentes,
             dre_id=request.query_params.get("dreId"),
             ue_id=request.query_params.get("ueId"),
         )
-        pagina, erro = _paginar_lista(dados, request)
-        if erro is not None:
-            return erro
-        return Response(
-            QuantidadeMatriculadosCCSerializer(pagina, many=True).data
-        )
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -737,8 +703,6 @@ class QuantidadeMatriculadosView(APIView):
             ),
             OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
             OpenApiParameter("turma", str, OpenApiParameter.QUERY, many=True),
-            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
-            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: QuantidadeMatriculadosSerializer(many=True)},
     )
@@ -751,7 +715,7 @@ class QuantidadeMatriculadosView(APIView):
             return _erro_400(str(exc))
 
         turma = request.query_params.getlist("turma")
-        dados = services.obter_quantidade_matriculados(
+        payload = services.obter_quantidade_matriculados_json(
             ano_letivo=ano,
             dre_codigo=request.query_params.get("dreCodigo", ""),
             ue_codigo=request.query_params.get("ueCodigo", ""),
@@ -759,12 +723,7 @@ class QuantidadeMatriculadosView(APIView):
             ano=ano_lst,
             turma=turma,
         )
-        pagina, erro = _paginar_lista(dados, request)
-        if erro is not None:
-            return erro
-        return Response(
-            QuantidadeMatriculadosSerializer(pagina, many=True).data
-        )
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -785,8 +744,6 @@ class DadosAcompanhamentoEscolarView(APIView):
             OpenApiParameter("modalidade", int, OpenApiParameter.QUERY),
             OpenApiParameter("semestre", int, OpenApiParameter.QUERY),
             OpenApiParameter("turmaCodigo", str, OpenApiParameter.QUERY),
-            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
-            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: DadosAcompanhamentoEscolarSerializer(many=True)},
     )
@@ -795,9 +752,7 @@ class DadosAcompanhamentoEscolarView(APIView):
         codigo_dre = request.query_params.get("codigoDre")
         codigo_ue = request.query_params.get("codigoUe")
         cpf_responsavel = request.query_params.get("cpfResponsavel")
-        if not any(
-            (codigo_aluno_raw, codigo_dre, codigo_ue, cpf_responsavel)
-        ):
+        if not any((codigo_aluno_raw, codigo_dre, codigo_ue, cpf_responsavel)):
             return _erro_400(
                 "Nenhum filtro foi especificado para busca de dados "
                 "dos alunos para acompanhamento do estudante"
@@ -826,7 +781,7 @@ class DadosAcompanhamentoEscolarView(APIView):
         except (TypeError, ValueError) as exc:
             return _erro_400(str(exc))
 
-        dados = services.obter_dados_acompanhamento_escolar(
+        payload = services.obter_dados_acompanhamento_escolar_json(
             codigo_aluno=codigo_aluno,
             codigo_dre=codigo_dre,
             codigo_ue=codigo_ue,
@@ -836,12 +791,7 @@ class DadosAcompanhamentoEscolarView(APIView):
             semestre=semestre,
             turma_codigo=request.query_params.get("turmaCodigo"),
         )
-        pagina, erro = _paginar_lista(dados, request)
-        if erro is not None:
-            return erro
-        return Response(
-            DadosAcompanhamentoEscolarSerializer(pagina, many=True).data
-        )
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------
@@ -865,8 +815,6 @@ class ResponsaveisDreUeTurmaView(APIView):
             ),
             OpenApiParameter("codigoUe", str, OpenApiParameter.QUERY),
             OpenApiParameter("anoLetivo", int, OpenApiParameter.QUERY),
-            OpenApiParameter("limit", int, OpenApiParameter.QUERY),
-            OpenApiParameter("offset", int, OpenApiParameter.QUERY),
         ],
         responses={200: ResponsavelTurmaSerializer(many=True)},
     )
@@ -883,17 +831,14 @@ class ResponsaveisDreUeTurmaView(APIView):
         except (TypeError, ValueError) as exc:
             return _erro_400(str(exc))
 
-        dados = services.obter_responsaveis_dre_ue_turma(
+        payload = services.obter_responsaveis_dre_ue_turma_json(
             codigo_dre=codigo_dre,
             codigo_ue=request.query_params.get("codigoUe"),
             ano_letivo=ano,
         )
-        if not dados:
+        if payload == b"[]":
             return Response(status=status.HTTP_204_NO_CONTENT)
-        pagina, erro = _paginar_lista(dados, request)
-        if erro is not None:
-            return erro
-        return Response(ResponsavelTurmaSerializer(pagina, many=True).data)
+        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
 # ---------------------------------------------------------------------------

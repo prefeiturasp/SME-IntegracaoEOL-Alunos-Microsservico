@@ -22,11 +22,13 @@ quantidades agregadas por turno (M03/M04) e a view consolidada
 Transition Gateway.
 """
 
+import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any
 
+from django.db import connection
 from django.db.models import Count, Max
 from django.utils import timezone
 
@@ -806,7 +808,7 @@ def buscar_alunos_autocomplete(
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
     somente_ativos: bool = False,
-    eh_historico: bool = False,  # NOSONAR — aceito do contrato legado, ignorado aqui
+    eh_historico: bool = False,  # NOSONAR
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A05 — Alunos para autocomplete, filtrável por turmas/nome/código.
@@ -829,14 +831,15 @@ def buscar_alunos_ativos_autocomplete(
     ue_codigo: str,
     aluno_nome: str | None = None,
     aluno_codigo: int = 0,
-    data_referencia: (datetime | date | None) = None,  # NOSONAR
+    data_referencia: datetime | date | None = None,  # NOSONAR
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """A06 — Alunos ativos para autocomplete por data de referência.
 
     ``data_referencia`` aceita o parâmetro do contrato legado mas é
     ignorado porque o domínio Alunos não materializa o estado da matrícula
-    por data, sendo a referência atual a única fonte, visto que histórico está em Pedagógico.
+    por data, sendo a referência atual a única fonte,
+    visto que histórico está em Pedagógico.
     """
     return _autocomplete_base(
         codigo_ue=ue_codigo,
@@ -857,9 +860,9 @@ def obter_total_alunos_ativos_periodo(
     data_inicio: datetime | date,
     data_fim: datetime | date,
     ue_id: str | None = None,
-    ano_turma: str | None = None,  # NOSONAR — ignorado, ver docstring
-    dre_id: str | None = None,  # NOSONAR — ignorado, ver docstring
-    modalidades: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
+    ano_turma: str | None = None,  # NOSONAR
+    dre_id: str | None = None,  # NOSONAR
+    modalidades: list[int] | None = None,  # NOSONAR
 ) -> TotalAlunosAtivosPeriodoDTO:
     """A07 — Quantidade de alunos ativos no período.
 
@@ -1182,8 +1185,8 @@ def obter_quantidade_matriculados_por_ano_e_cc(
     ue_id: str | None = None,
     componentes_curriculares: (
         list[int] | None
-    ) = None,  # NOSONAR — ignorado, ver docstring
-    dre_id: str | None = None,  # NOSONAR — ignorado, ver docstring
+    ) = None,  # NOSONAR
+    dre_id: str | None = None,  # NOSONAR
 ) -> list[QuantidadeMatriculadosCCDTO]:
     """A15 — Agrupa matrículas por turma (shape reduzido).
 
@@ -1221,10 +1224,10 @@ def obter_quantidade_matriculados_por_ano_e_cc(
 def obter_quantidade_matriculados(
     ano_letivo: int,
     ue_codigo: str = "",
-    dre_codigo: str = "",  # NOSONAR — ignorado, ver docstring
-    modalidade: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
-    ano: list[int] | None = None,  # NOSONAR — ignorado, ver docstring
-    turma: list[str] | None = None,  # NOSONAR — ignorado, ver docstring
+    dre_codigo: str = "",  # NOSONAR
+    modalidade: list[int] | None = None,  # NOSONAR
+    ano: list[int] | None = None,  # NOSONAR
+    turma: list[str] | None = None,  # NOSONAR
 ) -> list[QuantidadeMatriculadosDTO]:
     """A16 — Agregado por (UE, turma) (shape reduzido).
 
@@ -1281,9 +1284,9 @@ def obter_dados_acompanhamento_escolar(
     turma_codigo: str | None = None,
     codigo_aluno: int | None = None,
     cpf_responsavel: str | None = None,
-    codigo_dre: str | None = None,  # NOSONAR — ignorado, ver docstring
-    modalidade: int | None = None,  # NOSONAR — ignorado, ver docstring
-    semestre: int | None = None,  # NOSONAR — ignorado, ver docstring
+    codigo_dre: str | None = None,  # NOSONAR
+    modalidade: int | None = None,  # NOSONAR
+    semestre: int | None = None,  # NOSONAR
 ) -> list[DadosAcompanhamentoEscolarDTO]:
     """A18 — Linhas para acompanhamento escolar (shape reduzido).
 
@@ -1384,7 +1387,7 @@ def obter_dados_acompanhamento_escolar(
 def obter_responsaveis_dre_ue_turma(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
-    codigo_dre: str | None = None,  # NOSONAR — ignorado, ver docstring
+    codigo_dre: str | None = None,  # NOSONAR
 ) -> list[ResponsavelTurmaDTO]:
     """A19 — Lista responsáveis vigentes agrupados por UE/turma.
 
@@ -1873,13 +1876,334 @@ def obter_matriculas_aluno_na_escola(
 
 
 def dto_to_dict(dto: Any) -> dict[str, Any]:
-    """Converte um DTO em ``dict``, com suporte a dataclasses aninhadas.
+    """Faz a conversão de um DTO em ``dict``, com suporte a
+    dataclasses aninhadas.
 
     Usa ``dataclasses.asdict`` internamente. Aceita ``None`` (devolve
     dict vazio) para chamadas que querem normalizar respostas
     opcionais sem condicionais.
     """
     return asdict(dto) if dto is not None else {}
+
+
+# ---------------------------------------------------------------------------
+# Variantes *_json — retornam bytes prontos para HttpResponse
+#
+# Endpoints A15/A16/A18/A19 podem devolver dezenas/centenas de milhares de
+# linhas. Em Postgres a query monta o JSON com ``json_agg(row_to_json(t))``
+# e devolvemos os bytes diretamente, evitando o overhead de
+# DTO → serializer → JSONRenderer no Python. SQLite (testes) usa as
+# funções legadas e ``json.dumps`` para preservar o mesmo contrato.
+# ---------------------------------------------------------------------------
+
+
+def _exec_json_agg(sql: str, params: dict[str, Any]) -> bytes:
+    """Executa SQL no formato ``SELECT json_agg(row_to_json(t))::text ...``
+    e devolve o JSON em bytes.
+
+    Quando ``json_agg`` recebe conjunto vazio ele retorna ``NULL`` — o
+    contrato do endpoint é ``[]``, então normalizamos.
+    """
+    with connection.cursor() as cur:
+        cur.execute(sql, params)
+        row = cur.fetchone()
+    if not row or row[0] is None:
+        return b"[]"
+    return row[0].encode("utf-8")
+
+
+def _dump_json_camel(payload: list[dict[str, Any]]) -> bytes:
+    """Codifica payload Python em bytes JSON sem caracteres ASCII escapados.
+
+    Datas são serializadas via ``default=str`` (ISO 8601), preservando o
+    contrato dos endpoints legados.
+    """
+    return json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+
+
+_SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
+SELECT json_agg(row_to_json(t))::text AS j FROM (
+    SELECT
+        mt.codigo_turma AS "codigoTurma",
+        COUNT(*) AS quantidade,
+        ROW_NUMBER() OVER (ORDER BY mt.codigo_turma) AS ordem
+    FROM matricula m
+    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
+    WHERE m.ano_letivo = %(ano)s
+      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
+    GROUP BY mt.codigo_turma
+    ORDER BY mt.codigo_turma
+) t
+"""
+
+
+def obter_quantidade_matriculados_por_ano_e_cc_json(
+    ano_letivo: int,
+    ue_id: str | None = None,
+    componentes_curriculares: (
+        list[int] | None
+    ) = None,  # NOSONAR
+    dre_id: str | None = None,  # NOSONAR
+) -> bytes:
+    """A15 — Variante que retorna bytes JSON em camelCase."""
+    if connection.vendor == "postgresql":
+        return _exec_json_agg(
+            _SQL_A15_QUANTIDADE_POR_ANO_E_CC,
+            {
+                "ano": ano_letivo,
+                "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
+                "ue": ue_id or None,
+            },
+        )
+    rows = obter_quantidade_matriculados_por_ano_e_cc(
+        ano_letivo=ano_letivo,
+        ue_id=ue_id,
+        componentes_curriculares=componentes_curriculares,
+        dre_id=dre_id,
+    )
+    return _dump_json_camel(
+        [
+            {
+                "codigoTurma": r.codigo_turma,
+                "quantidade": r.quantidade,
+                "ordem": r.ordem,
+            }
+            for r in rows
+        ]
+    )
+
+
+_SQL_A16_QUANTIDADE = """
+SELECT json_agg(row_to_json(t))::text AS j FROM (
+    SELECT
+        COUNT(*) AS quantidade,
+        ROW_NUMBER() OVER (ORDER BY m.codigo_ue, mt.codigo_turma) AS ordem,
+        mt.codigo_turma AS "codigoTurma",
+        m.codigo_ue AS "ueCodigo"
+    FROM matricula m
+    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
+    WHERE m.ano_letivo = %(ano)s
+      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
+    GROUP BY m.codigo_ue, mt.codigo_turma
+    ORDER BY m.codigo_ue, mt.codigo_turma
+) t
+"""
+
+
+def obter_quantidade_matriculados_json(
+    ano_letivo: int,
+    ue_codigo: str = "",
+    dre_codigo: str = "",  # NOSONAR
+    modalidade: list[int] | None = None,  # NOSONAR
+    ano: list[int] | None = None,  # NOSONAR
+    turma: list[str] | None = None,  # NOSONAR
+) -> bytes:
+    """A16 — Variante que retorna bytes JSON em camelCase."""
+    if connection.vendor == "postgresql":
+        return _exec_json_agg(
+            _SQL_A16_QUANTIDADE,
+            {
+                "ano": ano_letivo,
+                "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
+                "ue": ue_codigo or None,
+            },
+        )
+    rows = obter_quantidade_matriculados(
+        ano_letivo=ano_letivo,
+        ue_codigo=ue_codigo,
+        dre_codigo=dre_codigo,
+        modalidade=modalidade,
+        ano=ano,
+        turma=turma,
+    )
+    return _dump_json_camel(
+        [
+            {
+                "quantidade": r.quantidade,
+                "ordem": r.ordem,
+                "codigoTurma": r.codigo_turma,
+                "ueCodigo": r.ue_codigo,
+            }
+            for r in rows
+        ]
+    )
+
+
+_SQL_A18_ACOMPANHAMENTO = """
+SELECT json_agg(row_to_json(t))::text AS j FROM (
+    SELECT
+        m.codigo_aluno AS "codigoEol",
+        r.nome AS "nomeResponsavel",
+        r.cpf AS "cpfResponsavel",
+        a.nome AS nome,
+        a.nome_social AS "nomeSocial",
+        m.codigo_ue AS "codigoEscola",
+        r.tipo_responsavel AS "tipoResponsavel",
+        COALESCE(mt.codigo_turma, 0) AS "codigoTurma",
+        m.situacao_matricula AS "situacaoMatricula",
+        a.data_nascimento AS "dataNascimento",
+        m.data_situacao_matricula AS "dataSituacaoMatricula",
+        m.ano_letivo AS "anoLetivo"
+    FROM matricula m
+    JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
+    LEFT JOIN LATERAL (
+        SELECT codigo_turma
+        FROM matricula_turma
+        WHERE codigo_matricula = m.codigo_matricula
+        LIMIT 1
+    ) mt ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT nome, cpf, tipo_responsavel
+        FROM responsavel_aluno
+        WHERE codigo_aluno = a.codigo_aluno
+          AND data_fim_vinculo IS NULL
+        ORDER BY tipo_responsavel DESC NULLS FIRST
+        LIMIT 1
+    ) r ON TRUE
+    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(codigo_aluno)s::bigint IS NULL
+           OR m.codigo_aluno = %(codigo_aluno)s::bigint)
+      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
+      AND (%(ano_letivo)s::int IS NULL
+           OR m.ano_letivo = %(ano_letivo)s::int)
+      AND (%(turma_codigo)s::bigint IS NULL
+           OR mt.codigo_turma = %(turma_codigo)s::bigint)
+      AND (%(cpf)s::text IS NULL OR EXISTS (
+          SELECT 1 FROM responsavel_aluno r2
+          WHERE r2.codigo_aluno = m.codigo_aluno
+            AND r2.cpf = %(cpf)s
+            AND r2.data_fim_vinculo IS NULL
+      ))
+) t
+"""
+
+
+def obter_dados_acompanhamento_escolar_json(
+    codigo_ue: str | None = None,
+    ano_letivo: int | None = None,
+    turma_codigo: str | None = None,
+    codigo_aluno: int | None = None,
+    cpf_responsavel: str | None = None,
+    codigo_dre: str | None = None,  # NOSONAR
+    modalidade: int | None = None,  # NOSONAR
+    semestre: int | None = None,  # NOSONAR
+) -> bytes:
+    """A18 — Variante que retorna bytes JSON em camelCase."""
+    if connection.vendor == "postgresql":
+        try:
+            turma_int = int(turma_codigo) if turma_codigo else None
+        except (TypeError, ValueError):
+            return b"[]"
+        return _exec_json_agg(
+            _SQL_A18_ACOMPANHAMENTO,
+            {
+                "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
+                "codigo_aluno": codigo_aluno,
+                "codigo_ue": codigo_ue or None,
+                "ano_letivo": ano_letivo,
+                "turma_codigo": turma_int,
+                "cpf": cpf_responsavel or None,
+            },
+        )
+    rows = obter_dados_acompanhamento_escolar(
+        codigo_ue=codigo_ue,
+        ano_letivo=ano_letivo,
+        turma_codigo=turma_codigo,
+        codigo_aluno=codigo_aluno,
+        cpf_responsavel=cpf_responsavel,
+        codigo_dre=codigo_dre,
+        modalidade=modalidade,
+        semestre=semestre,
+    )
+    return _dump_json_camel(
+        [
+            {
+                "codigoEol": r.codigo_eol,
+                "nomeResponsavel": r.nome_responsavel,
+                "cpfResponsavel": r.cpf_responsavel,
+                "nome": r.nome,
+                "nomeSocial": r.nome_social,
+                "codigoEscola": r.codigo_escola,
+                "tipoResponsavel": r.tipo_responsavel,
+                "codigoTurma": r.codigo_turma,
+                "situacaoMatricula": r.situacao_matricula,
+                "dataNascimento": (
+                    r.data_nascimento.isoformat()
+                    if r.data_nascimento
+                    else None
+                ),
+                "dataSituacaoMatricula": (
+                    r.data_situacao_matricula.isoformat()
+                    if r.data_situacao_matricula
+                    else None
+                ),
+                "anoLetivo": r.ano_letivo,
+            }
+            for r in rows
+        ]
+    )
+
+
+_SQL_A19_RESPONSAVEIS = """
+SELECT json_agg(row_to_json(t))::text AS j FROM (
+    SELECT
+        m.codigo_ue AS "codigoUe",
+        COALESCE(mt.codigo_turma, 0) AS "codigoTurma",
+        r.cpf AS "cpfResponsavel",
+        m.codigo_aluno AS "codigoAluno"
+    FROM matricula m
+    JOIN responsavel_aluno r
+        ON r.codigo_aluno = m.codigo_aluno
+       AND r.data_fim_vinculo IS NULL
+       AND r.cpf IS NOT NULL
+       AND r.cpf <> ''
+    LEFT JOIN LATERAL (
+        SELECT codigo_turma
+        FROM matricula_turma
+        WHERE codigo_matricula = m.codigo_matricula
+        LIMIT 1
+    ) mt ON TRUE
+    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
+      AND (%(ano_letivo)s::int IS NULL
+           OR m.ano_letivo = %(ano_letivo)s::int)
+) t
+"""
+
+
+def obter_responsaveis_dre_ue_turma_json(
+    codigo_ue: str | None = None,
+    ano_letivo: int | None = None,
+    codigo_dre: str | None = None,  # NOSONAR
+) -> bytes:
+    """A19 — Variante que retorna bytes JSON em camelCase."""
+    if connection.vendor == "postgresql":
+        return _exec_json_agg(
+            _SQL_A19_RESPONSAVEIS,
+            {
+                "situacoes": list(SITUACOES_MATRICULA_ATIVAS),
+                "codigo_ue": codigo_ue or None,
+                "ano_letivo": ano_letivo,
+            },
+        )
+    rows = obter_responsaveis_dre_ue_turma(
+        codigo_ue=codigo_ue,
+        ano_letivo=ano_letivo,
+        codigo_dre=codigo_dre,
+    )
+    return _dump_json_camel(
+        [
+            {
+                "codigoUe": r.codigo_ue,
+                "codigoTurma": r.codigo_turma,
+                "cpfResponsavel": r.cpf_responsavel,
+                "codigoAluno": r.codigo_aluno,
+            }
+            for r in rows
+        ]
+    )
 
 
 __all__ = [
@@ -1911,6 +2235,7 @@ __all__ = [
     "obter_alunos_por_codigos",
     "obter_alunos_por_codigos_e_ano",
     "obter_dados_acompanhamento_escolar",
+    "obter_dados_acompanhamento_escolar_json",
     "obter_dados_responsavel",
     "obter_dados_responsavel_filiacao",
     "obter_dados_responsavel_resumido",
@@ -1922,8 +2247,11 @@ __all__ = [
     "obter_necessidades_especiais_por_aluno",
     "obter_quantidade_alunos_por_turma_da_escola",
     "obter_quantidade_matriculados",
+    "obter_quantidade_matriculados_json",
     "obter_quantidade_matriculados_por_ano_e_cc",
+    "obter_quantidade_matriculados_por_ano_e_cc_json",
     "obter_responsaveis_dre_ue_turma",
+    "obter_responsaveis_dre_ue_turma_json",
     "obter_total_alunos_ativos_periodo",
     "obter_total_matriculas_por_turno_dre",
     "obter_total_matriculas_por_turno_ue",

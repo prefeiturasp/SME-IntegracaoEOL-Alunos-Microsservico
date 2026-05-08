@@ -211,15 +211,6 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         resp = _autenticado().get(url + "?codigoDre=108")
         self.assertEqual(resp.status_code, 200)
 
-    def test_a19_paginacao_limit(self) -> None:
-        seed_matriculas()
-        seed_responsaveis()
-        url = reverse("responsaveis-dre-ue-turma")
-        resp = _autenticado().get(
-            url + "?codigoDre=108&codigoUe=100001&anoLetivo=2026&limit=0"
-        )
-        self.assertEqual(resp.status_code, 400)
-
     def test_a20_dados_completos(self) -> None:
         seed_alunos()
         seed_responsaveis()
@@ -443,30 +434,6 @@ class A18AcompanhamentoApiTestCase(TestCase):
     def test_codigo_aluno_invalido_retorna_400(self) -> None:
         url = reverse("dados-acompanhamento-escolar")
         resp = _autenticado().get(url + "?codigoAluno=abc")
-        self.assertEqual(resp.status_code, 400)
-
-    def test_paginacao_limit_offset(self) -> None:
-        seed_matriculas()
-        seed_responsaveis()
-        url = reverse("dados-acompanhamento-escolar")
-        resp = _autenticado().get(
-            url + "?codigoUe=100001&anoLetivo=2026&limit=1"
-        )
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.json()), 1)
-        resp2 = _autenticado().get(
-            url + "?codigoUe=100001&anoLetivo=2026&limit=1&offset=1"
-        )
-        self.assertEqual(resp2.status_code, 200)
-        self.assertEqual(len(resp2.json()), 1)
-        # garante que o segundo item é diferente do primeiro
-        self.assertNotEqual(resp.json(), resp2.json())
-
-    def test_paginacao_limit_invalido_400(self) -> None:
-        url = reverse("dados-acompanhamento-escolar")
-        resp = _autenticado().get(
-            url + "?codigoUe=100001&anoLetivo=2026&limit=abc"
-        )
         self.assertEqual(resp.status_code, 400)
 
 
