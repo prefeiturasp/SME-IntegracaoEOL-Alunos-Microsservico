@@ -180,6 +180,7 @@ SPECTACULAR_SETTINGS = {
         }
     },
     "SECURITY": [{"ApiKeyAuth": []}],
+    "SWAGGER_UI_SETTINGS": {"syntaxHighlight": False},
 }
 
 LOGGING = {

@@ -21,7 +21,8 @@ def agora() -> datetime:
 
 def seed_alunos() -> dict[int, Aluno]:
     """Cria dois alunos de teste e retorna um dict
-    indexado por codigo_aluno."""
+    indexado por codigo_aluno.
+    """
     a1 = Aluno.objects.create(
         codigo_aluno=1234567,
         nome="JOAO DA SILVA",
@@ -107,7 +108,8 @@ def seed_necessidades(
     codigo_aluno: int = 1234567,
 ) -> NecessidadeEspecialAluno:
     """Cria um tipo e um vínculo de necessidade especial
-    para o aluno informado (padrão: 1234567) e retorna o objeto criado."""
+    para o aluno informado (padrão: 1234567) e retorna o objeto criado.
+    """
     tipo = TipoNecessidadeEspecial.objects.create(
         codigo_necessidade_especial=1,
         descricao="Deficiência Visual",
