@@ -191,25 +191,31 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
 
-    def test_a19_sem_dados_204(self) -> None:
+    def test_a19_sem_dados_retorna_lista_vazia(self) -> None:
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigoDre=108&codigoUe=999")
-        self.assertEqual(resp.status_code, 204)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
 
-    def test_a19_sem_codigo_dre_retorna_400(self) -> None:
+    def test_a19_sem_codigo_dre_aceita(self) -> None:
+        # codigoDre não é mais obrigatório; com codigoUe/anoLetivo
+        # válidos a busca acontece normalmente.
+        seed_matriculas()
+        seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigoUe=100001&anoLetivo=2026")
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn("codigoDre", resp.json()["detail"])
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
 
-    def test_a19_so_codigo_dre_retorna_200(self) -> None:
-        # codigoDre sozinho satisfaz a validação de contrato (mesmo
-        # sendo ignorado internamente). codigoUe deixa de ser exigido.
+    def test_a19_so_codigo_dre_retorna_vazio(self) -> None:
+        # codigoDre não é aplicado internamente; sozinho dispara o
+        # safeguard que devolve [] sem tocar no banco.
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigoDre=108")
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
 
     def test_a20_dados_completos(self) -> None:
         seed_alunos()

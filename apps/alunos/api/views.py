@@ -740,10 +740,6 @@ class DadosAcompanhamentoEscolarView(APIView):
             OpenApiParameter("codigoDre", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigoUe", str, OpenApiParameter.QUERY),
             OpenApiParameter("cpfResponsavel", str, OpenApiParameter.QUERY),
-            OpenApiParameter("anoLetivo", int, OpenApiParameter.QUERY),
-            OpenApiParameter("modalidade", int, OpenApiParameter.QUERY),
-            OpenApiParameter("semestre", int, OpenApiParameter.QUERY),
-            OpenApiParameter("turmaCodigo", str, OpenApiParameter.QUERY),
         ],
         responses={200: DadosAcompanhamentoEscolarSerializer(many=True)},
     )
@@ -763,33 +759,20 @@ class DadosAcompanhamentoEscolarView(APIView):
                 if codigo_aluno_raw
                 else None
             )
-            ano = (
-                int(request.query_params["anoLetivo"])
-                if "anoLetivo" in request.query_params
-                else None
-            )
-            modalidade = (
-                int(request.query_params["modalidade"])
-                if "modalidade" in request.query_params
-                else None
-            )
-            semestre = (
-                int(request.query_params["semestre"])
-                if "semestre" in request.query_params
-                else None
-            )
-        except (TypeError, ValueError) as exc:
+        except ValueError as exc:
             return _erro_400(str(exc))
+
+        outros_filtros = any(
+            (codigo_aluno is not None, codigo_ue, cpf_responsavel)
+        )
+        if codigo_dre and not outros_filtros:
+            return HttpResponse(b"[]", content_type=_CONTENT_TYPE_JSON)
 
         payload = services.obter_dados_acompanhamento_escolar_json(
             codigo_aluno=codigo_aluno,
             codigo_dre=codigo_dre,
             codigo_ue=codigo_ue,
             cpf_responsavel=cpf_responsavel,
-            ano_letivo=ano,
-            modalidade=modalidade,
-            semestre=semestre,
-            turma_codigo=request.query_params.get("turmaCodigo"),
         )
         return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
@@ -798,21 +781,13 @@ class DadosAcompanhamentoEscolarView(APIView):
 # A19 — Responsáveis por DRE/UE/turma
 # ---------------------------------------------------------------------------
 class ResponsaveisDreUeTurmaView(APIView):
-    """A19 — Responsáveis por DRE/UE/turma.
-
-    ``codigoDre`` é obrigatório por contrato — exigência declarativa,
-    pois o domínio Alunos não armazena DRE e o filtro não é aplicado
-    internamente. ``codigoUe`` é o único filtro que efetivamente recorta
-    os dados; quando omitido, a query varre todas as matrículas ativas.
-    """
+    """A19 — Responsáveis por DRE/UE/turma."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="A19 | Responsáveis por DRE/UE/turma",
         parameters=[
-            OpenApiParameter(
-                "codigoDre", str, OpenApiParameter.QUERY, required=True
-            ),
+            OpenApiParameter("codigoDre", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigoUe", str, OpenApiParameter.QUERY),
             OpenApiParameter("anoLetivo", int, OpenApiParameter.QUERY),
         ],
@@ -820,8 +795,6 @@ class ResponsaveisDreUeTurmaView(APIView):
     )
     def get(self, request: Request) -> Response:
         codigo_dre = request.query_params.get("codigoDre")
-        if not codigo_dre:
-            return _erro_400("codigoDre é obrigatório.")
         try:
             ano = (
                 int(request.query_params["anoLetivo"])
@@ -831,13 +804,16 @@ class ResponsaveisDreUeTurmaView(APIView):
         except (TypeError, ValueError) as exc:
             return _erro_400(str(exc))
 
+        codigo_ue = request.query_params.get("codigoUe")
+
+        if codigo_dre and not codigo_ue and ano is None:
+            return HttpResponse(b"[]", content_type=_CONTENT_TYPE_JSON)
+
         payload = services.obter_responsaveis_dre_ue_turma_json(
             codigo_dre=codigo_dre,
-            codigo_ue=request.query_params.get("codigoUe"),
+            codigo_ue=codigo_ue,
             ano_letivo=ano,
         )
-        if payload == b"[]":
-            return Response(status=status.HTTP_204_NO_CONTENT)
         return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
 
 
