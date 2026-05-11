@@ -781,14 +781,7 @@ class DadosAcompanhamentoEscolarView(APIView):
 # A19 — Responsáveis por DRE/UE/turma
 # ---------------------------------------------------------------------------
 class ResponsaveisDreUeTurmaView(APIView):
-    """A19 — Responsáveis por DRE/UE/turma.
-
-    Todos os filtros (``codigoDre``, ``codigoUe``, ``anoLetivo``) são
-    opcionais. ``codigoDre`` é aceito por compatibilidade, mas não é
-    aplicado internamente (domínio Alunos não armazena DRE). Se for o
-    único filtro informado, retorna lista vazia (devido os dados estarem
-    em Institucional). Sem nenhum filtro, retorna todas as matrículas ativas.
-    """
+    """A19 — Responsáveis por DRE/UE/turma."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
