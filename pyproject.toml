@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SME-IntegracaoEOL-Alunos-Microsservico"
+version = "0.1.0"
+description = "Microsserviço de leitura/escrita do domínio Alunos — SGP EOL"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "SME" }]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*", "config*"]
+
+[tool.black]
+line-length = 79
+target-version = ["py312"]
+exclude = "/migrations/"
+
+[tool.ruff]
+line-length = 79
+target-version = "py312"
+exclude = ["migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "D"]
+ignore = ["D203", "D212", "D104", "D105", "D106", "D107", "D102"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/admin.py" = ["D100", "D101"]
+"**/apps.py" = ["D101"]
+"**/tests.py" = ["D100"]
+"**/tests/**/*.py" = ["D100", "D101"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 79
+
+[tool.mypy]
+python_version = "3.12"
+exclude = ".*/migrations/.*"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
