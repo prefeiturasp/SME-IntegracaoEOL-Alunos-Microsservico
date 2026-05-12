@@ -354,3 +354,92 @@ class E24MatriculasAlunoEscolaTestCase(TestCase):
             codigo_escola="100001", codigo_aluno=9999999
         )
         self.assertEqual(dados, [])
+
+
+class HelpersInternosTestCase(TestCase):
+    """Exercita early-returns e ramos vazios dos helpers privados."""
+
+    def test_alunos_indexados_vazio(self) -> None:
+        from apps.alunos.services import _alunos_indexados
+
+        self.assertEqual(_alunos_indexados([]), {})
+
+    def test_matricula_turma_por_matricula_vazio(self) -> None:
+        from apps.alunos.services import _matricula_turma_por_matricula
+
+        self.assertEqual(_matricula_turma_por_matricula([]), {})
+
+    def test_matriculas_por_codigos_turma_vazio(self) -> None:
+        from apps.alunos.services import _matriculas_por_codigos_turma
+
+        self.assertEqual(_matriculas_por_codigos_turma([]), [])
+
+    def test_matriculas_por_codigos_turma_sem_match(self) -> None:
+        from apps.alunos.services import _matriculas_por_codigos_turma
+
+        self.assertEqual(_matriculas_por_codigos_turma([99999999]), [])
+
+    def test_responsavel_principal_inexistente(self) -> None:
+        from apps.alunos.services import _responsavel_principal
+
+        self.assertIsNone(_responsavel_principal(99999999))
+
+    def test_calcular_idade_none(self) -> None:
+        from apps.alunos.services import _calcular_idade
+
+        self.assertIsNone(_calcular_idade(None))
+
+    def test_calcular_idade_aniversario_nao_completo(self) -> None:
+        from apps.alunos.services import _calcular_idade
+
+        self.assertEqual(
+            _calcular_idade(date(2010, 12, 31), referencia=date(2026, 6, 1)),
+            15,
+        )
+
+    def test_calcular_idade_com_datetime(self) -> None:
+        from apps.alunos.services import _calcular_idade
+
+        self.assertEqual(
+            _calcular_idade(datetime(2010, 1, 1), referencia=date(2026, 6, 1)),
+            16,
+        )
+
+
+class AutocompleteCenariosServiceTestCase(TestCase):
+    def test_codigo_eol_invalido_retorna_vazio(self) -> None:
+        dados = services.buscar_alunos_autocomplete(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="abc",
+            limite=10,
+        )
+        self.assertEqual(dados, [])
+
+    def test_ue_sem_matricula_retorna_vazio(self) -> None:
+        dados = services.buscar_alunos_autocomplete(
+            codigo_ue="999999",
+            ano_letivo=2026,
+            limite=10,
+        )
+        self.assertEqual(dados, [])
+
+    def test_filtro_por_codigo_turma(self) -> None:
+        seed_matriculas()
+        dados = services.buscar_alunos_autocomplete(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_turmas=[12345],
+            limite=10,
+        )
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 12345)
+
+    def test_limite_um(self) -> None:
+        seed_matriculas()
+        dados = services.buscar_alunos_autocomplete(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            limite=1,
+        )
+        self.assertEqual(len(dados), 1)

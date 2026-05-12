@@ -13,10 +13,10 @@ em camelCase fiel ao contrato legado.
 **SHAPE REDUZIDO**: este microsserviço retorna apenas o que o domínio
 Alunos possui em ``alunos_db`` (ver ``apps.alunos.models``). Campos
 legados que pertencem a outros domínios — metadados de Turma
-(turmaNome, codigoTipoTurma, codigoModalidade, descricaoModalidade,
-codigoCicloEnsino, codigoEtapaEnsino, serieResumida, ano,
-descricaoTurno, codigoTurno), Escola (nomeEscola, codigoTipoEscola,
-descricaoTipoEscola), DRE (codigoDre, siglaDre), Endereço completo,
+(turma_nome, codigo_tipo_turma, codigo_modalidade, descricao_modalidade,
+codigo_ciclo_ensino, codigo_etapa_ensino, serie_resumida, ano,
+descricao_turno, codigo_turno), Escola (nome_escola, codigo_tipo_escola,
+descricao_tipo_escola), DRE (codigo_dre, sigla_dre), Endereço completo,
 quantidades agregadas por turno (M03/M04) e a view consolidada
 "acompanhamento escolar" (A18) — não vivem aqui e são agregados pelo
 Transition Gateway.
@@ -1183,9 +1183,7 @@ def obter_informacoes_alunos_da_turma(
 def obter_quantidade_matriculados_por_ano_e_cc(
     ano_letivo: int,
     ue_id: str | None = None,
-    componentes_curriculares: (
-        list[int] | None
-    ) = None,  # NOSONAR
+    componentes_curriculares: list[int] | None = None,  # NOSONAR
     dre_id: str | None = None,  # NOSONAR
 ) -> list[QuantidadeMatriculadosCCDTO]:
     """A15 — Agrupa matrículas por turma (shape reduzido).
@@ -1876,7 +1874,8 @@ def obter_matriculas_aluno_na_escola(
 
 
 def dto_to_dict(dto: Any) -> dict[str, Any]:
-    """Faz a conversão de um DTO em ``dict``, com suporte a
+    """
+    Faz a conversão de um DTO em ``dict``, com suporte a
     dataclasses aninhadas.
 
     Usa ``dataclasses.asdict`` internamente. Aceita ``None`` (devolve
@@ -1898,7 +1897,8 @@ def dto_to_dict(dto: Any) -> dict[str, Any]:
 
 
 def _exec_json_agg(sql: str, params: dict[str, Any]) -> bytes:
-    """Executa SQL no formato ``SELECT json_agg(row_to_json(t))::text ...``
+    """
+    Executa SQL no formato ``SELECT json_agg(row_to_json(t))::text ...``
     e devolve o JSON em bytes.
 
     Quando ``json_agg`` recebe conjunto vazio ele retorna ``NULL`` — o
@@ -1924,7 +1924,7 @@ def _dump_json_camel(payload: list[dict[str, Any]]) -> bytes:
 _SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
 SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
-        mt.codigo_turma AS "codigoTurma",
+        mt.codigo_turma AS "codigo_turma",
         COUNT(*) AS quantidade,
         ROW_NUMBER() OVER (ORDER BY mt.codigo_turma) AS ordem
     FROM matricula m
@@ -1941,9 +1941,7 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
 def obter_quantidade_matriculados_por_ano_e_cc_json(
     ano_letivo: int,
     ue_id: str | None = None,
-    componentes_curriculares: (
-        list[int] | None
-    ) = None,  # NOSONAR
+    componentes_curriculares: list[int] | None = None,  # NOSONAR
     dre_id: str | None = None,  # NOSONAR
 ) -> bytes:
     """A15 — Variante que retorna bytes JSON em camelCase."""
@@ -1965,7 +1963,7 @@ def obter_quantidade_matriculados_por_ano_e_cc_json(
     return _dump_json_camel(
         [
             {
-                "codigoTurma": r.codigo_turma,
+                "codigo_turma": r.codigo_turma,
                 "quantidade": r.quantidade,
                 "ordem": r.ordem,
             }
@@ -1979,8 +1977,8 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
         COUNT(*) AS quantidade,
         ROW_NUMBER() OVER (ORDER BY m.codigo_ue, mt.codigo_turma) AS ordem,
-        mt.codigo_turma AS "codigoTurma",
-        m.codigo_ue AS "ueCodigo"
+        mt.codigo_turma AS "codigo_turma",
+        m.codigo_ue AS "ue_codigo"
     FROM matricula m
     JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
     WHERE m.ano_letivo = %(ano)s
@@ -2023,7 +2021,7 @@ def obter_quantidade_matriculados_json(
             {
                 "quantidade": r.quantidade,
                 "ordem": r.ordem,
-                "codigoTurma": r.codigo_turma,
+                "codigo_turma": r.codigo_turma,
                 "ueCodigo": r.ue_codigo,
             }
             for r in rows
@@ -2034,18 +2032,18 @@ def obter_quantidade_matriculados_json(
 _SQL_A18_ACOMPANHAMENTO = """
 SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
-        m.codigo_aluno AS "codigoEol",
-        r.nome AS "nomeResponsavel",
-        r.cpf AS "cpfResponsavel",
-        a.nome AS nome,
-        a.nome_social AS "nomeSocial",
-        m.codigo_ue AS "codigoEscola",
-        r.tipo_responsavel AS "tipoResponsavel",
-        COALESCE(mt.codigo_turma, 0) AS "codigoTurma",
-        m.situacao_matricula AS "situacaoMatricula",
-        a.data_nascimento AS "dataNascimento",
-        m.data_situacao_matricula AS "dataSituacaoMatricula",
-        m.ano_letivo AS "anoLetivo"
+        m.codigo_aluno AS "codigo_eol",
+        r.nome AS "nome_responsavel",
+        r.cpf AS "cpf_responsavel",
+        a.nome AS "nome",
+        a.nome_social AS "nome_social",
+        m.codigo_ue AS "codigo_escola",
+        r.tipo_responsavel AS "tipo_responsavel",
+        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
+        m.situacao_matricula AS "situacao_matricula",
+        a.data_nascimento AS "data_nascimento",
+        m.data_situacao_matricula AS "data_situacao_matricula",
+        m.ano_letivo AS "ano_letivo"
     FROM matricula m
     JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
     LEFT JOIN LATERAL (
@@ -2120,26 +2118,26 @@ def obter_dados_acompanhamento_escolar_json(
     return _dump_json_camel(
         [
             {
-                "codigoEol": r.codigo_eol,
-                "nomeResponsavel": r.nome_responsavel,
-                "cpfResponsavel": r.cpf_responsavel,
+                "codigo_eol": r.codigo_eol,
+                "nome_responsavel": r.nome_responsavel,
+                "cpf_responsavel": r.cpf_responsavel,
                 "nome": r.nome,
-                "nomeSocial": r.nome_social,
-                "codigoEscola": r.codigo_escola,
-                "tipoResponsavel": r.tipo_responsavel,
-                "codigoTurma": r.codigo_turma,
-                "situacaoMatricula": r.situacao_matricula,
-                "dataNascimento": (
+                "nome_social": r.nome_social,
+                "codigo_escola": r.codigo_escola,
+                "tipo_responsavel": r.tipo_responsavel,
+                "codigo_turma": r.codigo_turma,
+                "situacao_matricula": r.situacao_matricula,
+                "data_nascimento": (
                     r.data_nascimento.isoformat()
                     if r.data_nascimento
                     else None
                 ),
-                "dataSituacaoMatricula": (
+                "data_situacao_matricula": (
                     r.data_situacao_matricula.isoformat()
                     if r.data_situacao_matricula
                     else None
                 ),
-                "anoLetivo": r.ano_letivo,
+                "ano_letivo": r.ano_letivo,
             }
             for r in rows
         ]
@@ -2149,10 +2147,10 @@ def obter_dados_acompanhamento_escolar_json(
 _SQL_A19_RESPONSAVEIS = """
 SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
-        m.codigo_ue AS "codigoUe",
-        COALESCE(mt.codigo_turma, 0) AS "codigoTurma",
-        r.cpf AS "cpfResponsavel",
-        m.codigo_aluno AS "codigoAluno"
+        m.codigo_ue AS "codigo_ue",
+        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
+        r.cpf AS "cpf_responsavel",
+        m.codigo_aluno AS "codigo_aluno"
     FROM matricula m
     JOIN responsavel_aluno r
         ON r.codigo_aluno = m.codigo_aluno
@@ -2196,10 +2194,10 @@ def obter_responsaveis_dre_ue_turma_json(
     return _dump_json_camel(
         [
             {
-                "codigoUe": r.codigo_ue,
-                "codigoTurma": r.codigo_turma,
-                "cpfResponsavel": r.cpf_responsavel,
-                "codigoAluno": r.codigo_aluno,
+                "codigo_ue": r.codigo_ue,
+                "codigo_turma": r.codigo_turma,
+                "cpf_responsavel": r.cpf_responsavel,
+                "codigo_aluno": r.codigo_aluno,
             }
             for r in rows
         ]
