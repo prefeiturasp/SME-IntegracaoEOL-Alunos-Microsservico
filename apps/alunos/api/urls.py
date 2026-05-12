@@ -46,72 +46,72 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # A01
     path(
-        "<str:codigoAluno>/turmas/",
+        "<str:codigo_aluno>/turmas/",
         BuscaTurmasDoAlunoView.as_view(),
         name="busca-turmas-do-aluno",
     ),
     # A02
     path(
-        "<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
-        "historico/<str:historico>/filtrar-situacao/<str:filtrarSituacao>/"
-        "tipo-turma/<str:tipoTurma>",
+        "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"
+        "historico/<str:historico>/filtrar-situacao/<str:filtrar_situacao>/"
+        "tipo-turma/<str:tipo_turma>",
         BuscaTurmasDoAlunoView.as_view(),
         name="busca-turmas-do-aluno-com-filtros",
     ),
     # A03
     path(
-        "<str:codigoAluno>/turmas/anosLetivos/<str:anoLetivo>/"
-        "matriculaTurma/<str:filtrarSituacaoMatricula>/"
-        "tipoTurma/<str:tipoTurma>",
+        "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"
+        "matricula_turma/<str:filtrar_situacao_matricula>/"
+        "tipo_turma/<str:tipo_turma>",
         BuscaTurmasDoAlunoPorSituacaoMatriculaView.as_view(),
         name="busca-turmas-do-aluno-por-situacao-matricula",
     ),
     # A04
     path(
-        "ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>",
+        "ues/<str:codigo_ue>/anos_letivos/<str:ano_letivo>",
         BuscarAlunosDaUeView.as_view(),
         name="buscar-alunos-da-ue",
     ),
     # A05
     path(
-        "ues/<str:codigoUe>/anosLetivos/<str:anoLetivo>/autocomplete",
+        "ues/<str:codigo_ue>/anos_letivos/<str:ano_letivo>/autocomplete",
         AutocompleteAlunosUeView.as_view(),
         name="autocomplete-alunos-ue",
     ),
     # A06
     path(
-        "ues/<str:ueCodigo>/autocomplete/ativos",
+        "ues/<str:ue_codigo>/autocomplete/ativos",
         AutocompleteAlunosAtivosView.as_view(),
         name="autocomplete-alunos-ativos",
     ),
     # A07
     path(
-        "ativos/anos/<str:anoTurma>/anos-letivos/<str:anoLetivo>/"
-        "inicio/<str:dataInicio>/fim/<str:dataFim>",
+        "ativos/anos/<str:ano_turma>/anos-letivos/<str:ano_letivo>/"
+        "inicio/<str:data_inicio>/fim/<str:data_fim>",
         TotalAlunosAtivosPorPeriodoView.as_view(),
         name="total-alunos-ativos-por-periodo",
     ),
     # A08
     path(
-        "turmas/<str:codigoTurma>/ativos/<str:dataReferenciaFim>",
+        "turmas/<str:codigo_turma>/ativos/<str:data_referencia_fim>",
         AlunosAtivosPeriodoTurmaView.as_view(),
         name="alunos-ativos-periodo-turma",
     ),
     # A09
     path(
-        "turmas/<str:codigoTurma>/ativos",
+        "turmas/<str:codigo_turma>/ativos",
         AlunosAtivosTurmaView.as_view(),
         name="alunos-ativos-turma",
     ),
     # A10
     path(
-        "<str:codigoAluno>/necessidades-especiais",
+        "<str:codigo_aluno>/necessidades-especiais",
         NecessidadesEspeciaisAlunoView.as_view(),
         name="necessidades-especiais-aluno",
     ),
     # A11
     path(
-        "anoLetivo/<str:anoLetivo>/alunos",
+        "ano_letivo/<str:ano_letivo>/alunos",
         AlunosPorCodigosEAnoView.as_view(),
         name="alunos-por-codigos-e-ano",
     ),
@@ -123,25 +123,25 @@ urlpatterns = [
     ),
     # A13
     path(
-        "<str:codigoAluno>/informacoes",
+        "<str:codigo_aluno>/informacoes",
         InformacoesAlunoView.as_view(),
         name="informacoes-aluno",
     ),
     # A14
     path(
-        "<str:codigoTurma>/turma/informacoes",
+        "<str:codigo_turma>/turma/informacoes",
         InformacoesAlunosTurmaView.as_view(),
         name="informacoes-alunos-turma",
     ),
     # A15
     path(
-        "ano-letivo/<str:anoLetivo>/matriculados",
+        "ano-letivo/<str:ano_letivo>/matriculados",
         QuantidadeMatriculadosPorAnoCCView.as_view(),
         name="quantidade-matriculados-cc",
     ),
     # A16
     path(
-        "ano-letivo/<str:anoLetivo>/matriculados/quantidade",
+        "ano-letivo/<str:ano_letivo>/matriculados/quantidade",
         QuantidadeMatriculadosView.as_view(),
         name="quantidade-matriculados",
     ),
@@ -159,26 +159,26 @@ urlpatterns = [
     ),
     # A20
     path(
-        "responsaveis/<str:cpfResponsavel>",
+        "responsaveis/<str:cpf_responsavel>",
         DadosResponsavelView.as_view(),
         name="dados-responsavel",
     ),
     # A21
     path(
-        "responsaveis/<str:cpfResponsavel>/resumido",
+        "responsaveis/<str:cpf_responsavel>/resumido",
         DadosResponsavelResumidoView.as_view(),
         name="dados-responsavel-resumido",
     ),
     # A27 — deve vir antes de A22/A23 para não ser
-    # capturado pelo <str:cpfResponsavel>
+    # capturado pelo <str:cpf_responsavel>
     path(
-        "<str:codigoAluno>/responsaveis/filiacao",
+        "<str:codigo_aluno>/responsaveis/filiacao",
         FiliacaoAlunoView.as_view(),
         name="filiacao-aluno",
     ),
     # A22 (PUT) e A23 (POST) — mesmo path, métodos diferentes
     path(
-        "<str:codigoAluno>/responsaveis/<str:cpfResponsavel>",
+        "<str:codigo_aluno>/responsaveis/<str:cpf_responsavel>",
         ResponsavelAlunoView.as_view(),
         name="responsavel-aluno",
     ),
@@ -199,13 +199,13 @@ urlpatterns = [
     ),
     # M03
     path(
-        "matriculas/escolas/<str:ueCodigo>/quantidades",
+        "matriculas/escolas/<str:ue_codigo>/quantidades",
         TotalMatriculasPorTurnoUeView.as_view(),
         name="matriculas-quantidades-ue",
     ),
     # M04
     path(
-        "matriculas/escolas/dre/<str:dreCodigo>/quantidades",
+        "matriculas/escolas/dre/<str:dre_codigo>/quantidades",
         TotalMatriculasPorTurnoDreView.as_view(),
         name="matriculas-quantidades-dre",
     ),
@@ -214,13 +214,13 @@ urlpatterns = [
     # ------------------------------------------------------------------
     # E05
     path(
-        "escolas/<str:codigoEscola>/alunos/quantidade",
+        "escolas/<str:codigo_escola>/alunos/quantidade",
         QuantidadeAlunosPorTurmaEscolaView.as_view(),
         name="quantidade-alunos-por-turma-escola",
     ),
     # E24
     path(
-        "escolas/<str:codigoEscola>/aluno/<str:codigoAluno>/matriculas",
+        "escolas/<str:codigo_escola>/aluno/<str:codigo_aluno>/matriculas",
         MatriculasAlunoEscolaView.as_view(),
         name="matriculas-aluno-escola",
     ),

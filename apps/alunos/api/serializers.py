@@ -14,134 +14,96 @@ from rest_framework import serializers
 class TurmaDoAlunoSerializer(serializers.Serializer):
     """A01/A02/A03/A04/A11/A12 — Turma do aluno (shape reduzido)."""
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    anoLetivo = serializers.IntegerField(source="ano_letivo")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    codigoSituacaoMatricula = serializers.IntegerField(
-        source="codigo_situacao_matricula"
-    )
-    situacaoMatricula = serializers.CharField(source="situacao_matricula")
-    dataSituacao = serializers.DateField(
-        source="data_situacao", allow_null=True
-    )
-    dataNascimento = serializers.DateField(
-        source="data_nascimento", allow_null=True
-    )
-    numeroAlunoChamada = serializers.CharField(
-        source="numero_aluno_chamada", allow_null=True
-    )
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    dataAtualizacaoContato = serializers.DateField(
-        source="data_atualizacao_contato", allow_null=True
-    )
+    codigo_aluno = serializers.IntegerField()
+    ano_letivo = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    codigo_situacao_matricula = serializers.IntegerField()
+    situacao_matricula = serializers.CharField()
+    data_situacao = serializers.DateField(allow_null=True)
+    data_nascimento = serializers.DateField(allow_null=True)
+    numero_aluno_chamada = serializers.CharField(allow_null=True)
+    codigo_turma = serializers.IntegerField()
+    data_atualizacao_contato = serializers.DateField(allow_null=True)
 
 
 class AlunoAutocompleteSerializer(serializers.Serializer):
     """A05/A06 — Autocomplete de aluno (shape reduzido)."""
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    numeroAlunoChamada = serializers.CharField(
-        source="numero_aluno_chamada", allow_null=True
-    )
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    codigo_turma = serializers.IntegerField()
+    numero_aluno_chamada = serializers.CharField(allow_null=True)
 
 
 class AlunoAtivoTurmaSerializer(serializers.Serializer):
     """A08/A09 — Alunos ativos em uma turma (shape reduzido)."""
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    dataNascimento = serializers.DateField(
-        source="data_nascimento", allow_null=True
-    )
-    codigoSituacaoMatricula = serializers.IntegerField(
-        source="codigo_situacao_matricula"
-    )
-    situacaoMatricula = serializers.CharField(source="situacao_matricula")
-    dataSituacao = serializers.DateField(
-        source="data_situacao", allow_null=True
-    )
-    numeroAlunoChamada = serializers.CharField(
-        source="numero_aluno_chamada", allow_null=True
-    )
-    possuiDeficiencia = serializers.BooleanField(source="possui_deficiencia")
-    codigoMatricula = serializers.IntegerField(source="codigo_matricula")
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    codigoEscola = serializers.CharField(source="codigo_escola")
-    anoLetivo = serializers.IntegerField(source="ano_letivo")
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    data_nascimento = serializers.DateField(allow_null=True)
+    codigo_situacao_matricula = serializers.IntegerField()
+    situacao_matricula = serializers.CharField()
+    data_situacao = serializers.DateField(allow_null=True)
+    numero_aluno_chamada = serializers.CharField(allow_null=True)
+    possui_deficiencia = serializers.BooleanField()
+    codigo_matricula = serializers.IntegerField()
+    codigo_turma = serializers.IntegerField()
+    codigo_escola = serializers.CharField()
+    ano_letivo = serializers.IntegerField()
 
 
 class NecessidadeEspecialSerializer(serializers.Serializer):
     """A10 — Necessidade especial do aluno (shape reduzido)."""
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    tipoNecessidadeEspecial = serializers.IntegerField(
-        source="tipo_necessidade_especial"
-    )
-    descricaoNecessidadeEspecial = serializers.CharField(
-        source="descricao_necessidade_especial"
-    )
+    codigo_aluno = serializers.IntegerField()
+    tipo_necessidade_especial = serializers.IntegerField()
+    descricao_necessidade_especial = serializers.CharField()
 
 
 class InformacoesAlunoSerializer(serializers.Serializer):
     """A13/A27 — Informações do aluno (shape reduzido).
 
-    Campos out-of-scope (Transition Gateway agrega): grupoEtnico,
-    nacionalidadeResponsavel, ehImigrante, responsavelEhImigrante, cns,
+    Campos out-of-scope (Transition Gateway agrega): grupo_etnico,
+    nacionalidade_responsavel, eh_imigrante, responsavel_eh_imigrante, cns,
     teg, endereço completo (id, nro, complemento, bairro, cep,
-    nomeMunicipio, siglaUf, tipoLogradouro, logradouro).
+    nome_municipio, sigla_uf, tipo_logradouro, logradouro).
     """
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    nomeMae = serializers.CharField(source="nome_mae", allow_null=True)
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    nome_mae = serializers.CharField(allow_null=True)
     sexo = serializers.CharField(allow_null=True)
     nacionalidade = serializers.CharField(allow_null=True)
-    racaCor = serializers.CharField(source="raca_cor", allow_null=True)
+    raca_cor = serializers.CharField(allow_null=True)
     nis = serializers.CharField(allow_null=True)
     cpf = serializers.CharField(allow_null=True)
-    dataNascimento = serializers.DateField(
-        source="data_nascimento", allow_null=True
-    )
-    possuiDeficiencia = serializers.BooleanField(source="possui_deficiencia")
+    data_nascimento = serializers.DateField(allow_null=True)
+    possui_deficiencia = serializers.BooleanField()
 
 
 class InformacoesAlunoTurmaSerializer(serializers.Serializer):
     """A14 — Resumo de aluno em turma (shape reduzido)."""
 
-    numeroAlunoChamada = serializers.CharField(
-        source="numero_aluno_chamada", allow_null=True
-    )
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
+    numero_aluno_chamada = serializers.CharField(allow_null=True)
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
     sexo = serializers.CharField(allow_null=True)
-    racaCor = serializers.CharField(source="raca_cor", allow_null=True)
+    raca_cor = serializers.CharField(allow_null=True)
 
 
 class QuantidadeMatriculadosCCSerializer(serializers.Serializer):
     """A15 — Quantidade de matriculados por turma (shape reduzido).
 
-    Campos out-of-scope (Pedagógico): componenteCurricularId, modalidade,
+    Campos out-of-scope (Pedagógico): componente_curricular_id, modalidade,
     ano (turma), turma (nome).
     """
 
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
+    codigo_turma = serializers.IntegerField()
     quantidade = serializers.IntegerField()
     ordem = serializers.IntegerField()
 
@@ -149,113 +111,89 @@ class QuantidadeMatriculadosCCSerializer(serializers.Serializer):
 class QuantidadeMatriculadosSerializer(serializers.Serializer):
     """A16 — Quantidade de matriculados por UE/turma (shape reduzido).
 
-    Campos out-of-scope: dreCodigo, modalidade, ano (turma), turma.
+    Campos out-of-scope: dre_codigo, modalidade, ano (turma), turma.
     """
 
     quantidade = serializers.IntegerField()
     ordem = serializers.IntegerField()
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    ueCodigo = serializers.CharField(source="ue_codigo")
+    codigo_turma = serializers.IntegerField()
+    ue_codigo = serializers.CharField()
 
 
 class DadosAcompanhamentoEscolarSerializer(serializers.Serializer):
     """A18 — Acompanhamento escolar (shape reduzido).
 
     Campos out-of-scope (Transition Gateway agrega via Pedagógico):
-    escola (nome), codigoDre, siglaDre, codigoTipoEscola,
-    descricaoTipoEscola, codigoCicloEnsino, codigoEtapaEnsino,
-    serieResumida, modalidadeCodigo, modalidadeDescricao.
+    escola (nome), codigo_dre, sigla_dre, codigo_tipo_escola,
+    descricao_tipo_escola, codigo_ciclo_ensino, codigo_etapa_ensino,
+    serie_resumida, modalidade_codigo, modalidade_descricao.
     """
 
-    codigoEol = serializers.IntegerField(source="codigo_eol")
-    nomeResponsavel = serializers.CharField(
-        source="nome_responsavel", allow_null=True
-    )
-    cpfResponsavel = serializers.CharField(
-        source="cpf_responsavel", allow_null=True
-    )
+    codigo_eol = serializers.IntegerField()
+    nome_responsavel = serializers.CharField(allow_null=True)
+    cpf_responsavel = serializers.CharField(allow_null=True)
     nome = serializers.CharField()
-    nomeSocial = serializers.CharField(source="nome_social", allow_null=True)
-    codigoEscola = serializers.CharField(source="codigo_escola")
-    tipoResponsavel = serializers.IntegerField(
-        source="tipo_responsavel", allow_null=True
-    )
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    situacaoMatricula = serializers.CharField(source="situacao_matricula")
-    dataNascimento = serializers.DateField(
-        source="data_nascimento", allow_null=True
-    )
-    dataSituacaoMatricula = serializers.DateField(
-        source="data_situacao_matricula", allow_null=True
-    )
-    anoLetivo = serializers.IntegerField(source="ano_letivo")
+    nome_social = serializers.CharField(allow_null=True)
+    codigo_escola = serializers.CharField()
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    codigo_turma = serializers.IntegerField()
+    situacao_matricula = serializers.CharField()
+    data_nascimento = serializers.DateField(allow_null=True)
+    data_situacao_matricula = serializers.DateField(allow_null=True)
+    ano_letivo = serializers.IntegerField()
 
 
 class ResponsavelTurmaSerializer(serializers.Serializer):
     """A19 — Responsável por turma (shape reduzido).
 
-    Campos out-of-scope (Pedagógico): codigoDre, dre, ue (nome),
-    turma (nome), codigoTipoEscola, codigoEtapaEnsino, codigoCicloEnsino,
-    serieResumida, codigoModalidadeTurma, temAppInstalado.
+    Campos out-of-scope (Pedagógico): codigo_dre, dre, ue (nome),
+    turma (nome), codigo_tipo_escola, codigo_etapa_ensino, codigo_ciclo_ensino,
+    serie_resumida, codigo_modalidade_turma, tem_app_instalado.
     """
 
-    codigoUe = serializers.CharField(source="codigo_ue")
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    cpfResponsavel = serializers.CharField(source="cpf_responsavel")
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
+    codigo_ue = serializers.CharField()
+    codigo_turma = serializers.IntegerField()
+    cpf_responsavel = serializers.CharField()
+    codigo_aluno = serializers.IntegerField()
 
 
 class DadosResponsavelSerializer(serializers.Serializer):
     """A20 — Dados do responsável (shape reduzido).
 
     Campos out-of-scope (não existem em ``responsavel_aluno`` do MS-ETL):
-    tipoSigilo, dataNascimento (do responsável), nomeMae do responsável,
-    numeroRG, digitoRG, ufRG, cpfConfere, tipoTurnoCelular,
-    dddTelefoneFixo/Comercial e turnos, dataNascimentoMae.
+    tipo_sigilo, data_nascimento (do responsável), nome_mae do responsável,
+    numero_rg, digito_rg, uf_rg, cpf_confere, tipo_turno_celular,
+    ddd_telefone_fixo/comercial e turnos, data_nascimento_mae.
     """
 
-    codigoResponsavel = serializers.IntegerField(source="codigo_responsavel")
+    codigo_responsavel = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
     email = serializers.CharField(allow_null=True)
     nome = serializers.CharField(allow_null=True)
-    tipoResponsavel = serializers.IntegerField(
-        source="tipo_responsavel", allow_null=True
-    )
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    dataNascimentoAluno = serializers.DateField(
-        source="data_nascimento_aluno", allow_null=True
-    )
-    codigoAluno = serializers.CharField(source="codigo_aluno")
-    dddCelular = serializers.CharField(source="ddd_celular", allow_null=True)
-    numeroCelular = serializers.CharField(
-        source="numero_celular", allow_null=True
-    )
-    autorizaSms = serializers.CharField(source="autoriza_sms", allow_null=True)
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    data_nascimento_aluno = serializers.DateField(allow_null=True)
+    codigo_aluno = serializers.CharField()
+    ddd_celular = serializers.CharField(allow_null=True)
+    numero_celular = serializers.CharField(allow_null=True)
+    autoriza_sms = serializers.CharField(allow_null=True)
     logradouro = serializers.CharField(allow_null=True)
     cep = serializers.IntegerField(allow_null=True)
-    dataFimVinculo = serializers.DateField(
-        source="data_fim_vinculo", allow_null=True
-    )
+    data_fim_vinculo = serializers.DateField(allow_null=True)
 
 
 class DadosResponsavelResumidoSerializer(serializers.Serializer):
     """A21/A22/A23 — Dados resumidos do responsável."""
 
-    codigoResponsavel = serializers.IntegerField(source="codigo_responsavel")
+    codigo_responsavel = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
     email = serializers.CharField(allow_null=True)
     nome = serializers.CharField(allow_null=True)
-    tipoResponsavel = serializers.IntegerField(
-        source="tipo_responsavel", allow_null=True
-    )
-    dddCelular = serializers.CharField(source="ddd_celular", allow_null=True)
-    numeroCelular = serializers.CharField(
-        source="numero_celular", allow_null=True
-    )
-    codigoAluno = serializers.CharField(source="codigo_aluno")
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    ddd_celular = serializers.CharField(allow_null=True)
+    numero_celular = serializers.CharField(allow_null=True)
+    codigo_aluno = serializers.CharField()
 
 
 class TotalAlunosAtivosPeriodoSerializer(serializers.Serializer):
@@ -267,28 +205,22 @@ class TotalAlunosAtivosPeriodoSerializer(serializers.Serializer):
 class ConsolidacaoMatriculaSerializer(serializers.Serializer):
     """M01/M02/E05 — Consolidação por turma."""
 
-    turmaCodigo = serializers.CharField(source="turma_codigo")
+    turma_codigo = serializers.CharField()
     quantidade = serializers.IntegerField()
 
 
 class MatriculaEscolaAlunoSerializer(serializers.Serializer):
     """E24 — Matrícula de aluno em escola."""
 
-    codigoAluno = serializers.IntegerField(source="codigo_aluno")
-    nomeAluno = serializers.CharField(source="nome_aluno")
-    nomeSocialAluno = serializers.CharField(
-        source="nome_social_aluno", allow_null=True
-    )
-    codigoSituacaoMatricula = serializers.IntegerField(
-        source="codigo_situacao_matricula"
-    )
-    situacaoMatricula = serializers.CharField(source="situacao_matricula")
-    dataSituacao = serializers.DateField(
-        source="data_situacao", allow_null=True
-    )
-    codigoTurma = serializers.IntegerField(source="codigo_turma")
-    codigoMatricula = serializers.IntegerField(source="codigo_matricula")
-    anoLetivo = serializers.IntegerField(source="ano_letivo")
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    codigo_situacao_matricula = serializers.IntegerField()
+    situacao_matricula = serializers.CharField()
+    data_situacao = serializers.DateField(allow_null=True)
+    codigo_turma = serializers.IntegerField()
+    codigo_matricula = serializers.IntegerField()
+    ano_letivo = serializers.IntegerField()
 
 
 # ---------------------------------------------------------------------------
@@ -305,21 +237,17 @@ class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
     mas ignorados pela camada de service.
     """
 
-    codigoAluno = serializers.IntegerField(
-        source="codigo_aluno", required=False
-    )
+    codigo_aluno = serializers.IntegerField(required=False)
     cpf = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    dddCelular = serializers.CharField(
-        source="ddd_celular", required=False, allow_blank=True
+    ddd_celular = serializers.CharField(required=False, allow_blank=True)
+    numero_celular = serializers.CharField(required=False, allow_blank=True)
+    ddd_residencial = serializers.CharField(required=False, allow_blank=True)
+    numero_residencial = serializers.CharField(
+        required=False, allow_blank=True
     )
-    numeroCelular = serializers.CharField(
-        source="numero_celular", required=False, allow_blank=True
-    )
-    dddResidencial = serializers.CharField(required=False, allow_blank=True)
-    numeroResidencial = serializers.CharField(required=False, allow_blank=True)
-    dddComercial = serializers.CharField(required=False, allow_blank=True)
-    numeroComercial = serializers.CharField(required=False, allow_blank=True)
+    ddd_comercial = serializers.CharField(required=False, allow_blank=True)
+    numero_comercial = serializers.CharField(required=False, allow_blank=True)
 
 
 class CadastrarResponsavelRequestSerializer(serializers.Serializer):
@@ -328,15 +256,9 @@ class CadastrarResponsavelRequestSerializer(serializers.Serializer):
     cpf = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     nome = serializers.CharField(required=False, allow_blank=True)
-    tipoResponsavel = serializers.IntegerField(
-        source="tipo_responsavel", required=False, allow_null=True
+    tipo_responsavel = serializers.IntegerField(
+        required=False, allow_null=True
     )
-    dddCelular = serializers.CharField(
-        source="ddd_celular", required=False, allow_blank=True
-    )
-    numeroCelular = serializers.CharField(
-        source="numero_celular", required=False, allow_blank=True
-    )
-    codigoAluno = serializers.CharField(
-        source="codigo_aluno", required=False, allow_blank=True
-    )
+    ddd_celular = serializers.CharField(required=False, allow_blank=True)
+    numero_celular = serializers.CharField(required=False, allow_blank=True)
+    codigo_aluno = serializers.CharField(required=False, allow_blank=True)
