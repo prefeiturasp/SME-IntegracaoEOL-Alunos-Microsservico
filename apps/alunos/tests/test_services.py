@@ -1,8 +1,4 @@
-"""Testes das funções de service do app alunos.
-
-Cobre o caminho feliz dos endpoints A01-A23, A27, M01-M02, E05 e E24.
-M03/M04 são out-of-scope (turno vive no MS Pedagógico) e retornam ``[]``.
-"""
+"""Testes das funções de service do app alunos."""
 
 from __future__ import annotations
 
@@ -120,7 +116,6 @@ class A08A09AlunosTurmaTestCase(TestCase):
         seed_matriculas()
         seed_responsaveis()
         seed_necessidades()
-        # alunos_db marca possui_deficiencia direto no Aluno.
         dados = services.obter_alunos_ativos_por_turma(codigo_turma=12345)
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].codigo_aluno, 1234567)
@@ -357,7 +352,7 @@ class E24MatriculasAlunoEscolaTestCase(TestCase):
 
 
 class HelpersInternosTestCase(TestCase):
-    """Exercita early-returns e ramos vazios dos helpers privados."""
+    """Testes para os helpers internos."""
 
     def test_alunos_indexados_vazio(self) -> None:
         from apps.alunos.services import _alunos_indexados

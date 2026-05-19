@@ -15,13 +15,14 @@ from apps.alunos.models import (
 
 
 def agora() -> datetime:
-    """Datetime fixo (UTC) usado em testes."""
+    """Retorna um datetime fixo para os testes."""
     return datetime(2026, 4, 1, tzinfo=UTC)
 
 
 def seed_alunos() -> dict[int, Aluno]:
-    """Cria dois alunos de teste e retorna um dict
-    indexado por codigo_aluno.
+    """Cria dois alunos de teste .
+
+    Retorna um dicionário indexado por codigo_aluno.
     """
     a1 = Aluno.objects.create(
         codigo_aluno=1234567,
@@ -107,9 +108,7 @@ def seed_responsaveis() -> ResponsavelAluno:
 def seed_necessidades(
     codigo_aluno: int = 1234567,
 ) -> NecessidadeEspecialAluno:
-    """Cria um tipo e um vínculo de necessidade especial
-    para o aluno informado (padrão: 1234567) e retorna o objeto criado.
-    """
+    """Cria um tipo e um vínculo de necessidade especial."""
     tipo = TipoNecessidadeEspecial.objects.create(
         codigo_necessidade_especial=1,
         descricao="Deficiência Visual",

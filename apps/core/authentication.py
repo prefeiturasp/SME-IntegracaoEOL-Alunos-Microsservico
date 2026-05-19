@@ -29,7 +29,7 @@ class ApiKeyAuthentication(BaseAuthentication):
     """Valida requisições via API Key."""
 
     def authenticate(self, request: Request) -> tuple[_ApiAuth, None] | None:
-        """Autentica via header configurado (RFC 7235)."""
+        """Autentica a requisição pelo header de API Key."""
         header_name = getattr(settings, "API_KEY_HEADER", "x-api-key")
         api_key = getattr(settings, "API_KEY", "")
         meta_key = "HTTP_" + header_name.upper().replace("-", "_")
@@ -42,7 +42,7 @@ class ApiKeyAuthentication(BaseAuthentication):
         return (_ApiAuth(), None)
 
     def authenticate_header(self, request: Request) -> str:
-        """Retorna header esperado para 401."""
+        """Retorna o header de autenticação esperado."""
         return getattr(settings, "API_KEY_HEADER", "x-api-key")
 
 

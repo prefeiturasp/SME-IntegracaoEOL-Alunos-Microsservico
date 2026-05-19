@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Utilitario de gerenciamento Django."""
+"""Utilitário de gerenciamento Django."""
 
 import os
 import sys

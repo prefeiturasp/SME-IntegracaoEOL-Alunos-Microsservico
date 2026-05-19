@@ -1,4 +1,4 @@
-"""WSGI config para SME-IntegracaoEOL-Alunos-Microsservico."""
+"""Configuração WSGI do SME-IntegracaoEOL-Alunos-Microsservico."""
 
 import os
 

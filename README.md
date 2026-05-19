@@ -43,6 +43,20 @@ config/                  # settings, urls, wsgi/asgi, test_runner
 requirements/            # base.txt + local.txt
 ```
 
+## Hierarquia (idêntica ao MS-ETL):
+    `TipoNecessidadeEspecial`
+    Aluno
+        ├── `ResponsavelAluno`
+        ├── `NecessidadeEspecialAluno`  ──► `TipoNecessidadeEspecial`
+        └── `Matricula`
+                └── `MatriculaTurma`
+
+Qualquer dado fora deste universo (Endereço completo, metadados de
+Turma/DRE/Modalidade, Escola, etapa/ciclo de ensino, agregações de
+matrícula por turno etc.) NÃO é responsabilidade do domínio Alunos —
+o Transition Gateway agrega esses dados a partir dos demais
+microsserviços (Pedagógico, Programas).
+
 ## Endpoints implementados
 
 > Todos os paths preservam o contrato legado. Documentação interativa disponível em `/api/docs/` (Swagger UI).
@@ -108,6 +122,184 @@ Veja [`.env.example`](./.env.example).
 | `AMBIENTE_APLICACAO`        | `local`                                            | Ambiente (`local`, `staging`, `prod`)    |
 | `NIVEL_LOG`                 | `INFO`                                             | Nível de log                             |
 | `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                    | Portas em dev                            |
+
+## Descrição de dados do model:
+
+### TipoNecessidadeEspecial
+Espelha a tabela ``tipo_necessidade_especial`` em ``alunos_db``.
+Atua como tabela de domínio: cada registro é uma categoria
+referenciada por ``NecessidadeEspecialAluno`` para descrever a NEE
+de um aluno.
+
+### Alunos
+Espelha a tabela ``aluno`` em ``alunos_db``. Concentra os campos
+pessoais (nome, CPF, data de nascimento, raça/cor, filiação) e o
+indicador ``possui_deficiencia``, derivado a partir das NEE ativas
+pelo MS-ETL.
+
+É a raiz do agregado do domínio Alunos: ``Matricula``,
+``ResponsavelAluno`` e ``NecessidadeEspecialAluno`` apontam para
+este model via ``codigo_aluno``.
+
+### ResponsavelAluno
+Espelha a tabela ``responsavel_aluno`` em ``alunos_db``. Cada
+registro representa um responsável vigente ou histórico: o vínculo
+é considerado **ativo** enquanto ``data_fim_vinculo`` for ``NULL``.
+
+Mantém os dados de contato (telefone, e-mail, endereço,
+consentimento de SMS) usados pelos endpoints A19/A20/A21 e pelo
+fluxo de busca ativa (atualização de contato).
+
+### NecessidadeEspecialAluno
+Espelha a tabela ``necessidade_especial_aluno`` em ``alunos_db``.
+Cada registro materializa o histórico de NEE de um aluno em um
+intervalo (``data_inicio`` / ``data_fim``); a NEE é considerada
+**vigente** enquanto ``data_fim`` for ``NULL``.
+
+Funciona como tabela associativa entre ``Aluno`` e
+``TipoNecessidadeEspecial`` — preserva o tipo da NEE e o período
+em que esteve ativa, alimentando o endpoint A10 e o flag
+``possui_deficiencia`` em ``Aluno``.
+
+### Matricula
+Espelha a tabela ``matricula`` em ``alunos_db``. Representa o
+vínculo do aluno com a escola — é a entidade central para os
+endpoints de listagem (A04/A05/A11/A12), totais (A07/A15/A16) e
+derivações de situação (ativa/válida) controladas por
+``codigo_situacao_matricula`` (ver ``apps.alunos.enums``).
+
+Liga-se a ``Aluno`` (N:1) e a ``MatriculaTurma`` (1:N) — esta
+última materializa em qual turma o aluno está alocado dentro da
+UE.
+
+### MatriculaTurma
+Espelha a tabela ``matricula_turma`` em ``alunos_db``. Resolve a
+relação N:N entre ``Matricula`` e turma — uma matrícula pode passar
+por mais de uma turma ao longo do ano letivo (transferência,
+progressão), e cada vínculo carrega o ``numero_chamada`` e a
+``data_situacao_aluno`` do aluno naquela turma.
+
+A constraint ``unique_together = (codigo_matricula, codigo_turma)``
+garante que cada par matrícula/turma apareça uma única vez, mesmo
+quando o histórico inclui reentradas.
+
+Os metadados da turma propriamente dita (nome, modalidade, etapa,
+turno, etc.) **não** vivem aqui — pertencem ao domínio Pedagógico
+e são compostos pelo Transition Gateway quando necessário.
+
+## Informações adicionais acerca dos DTOs:
+
+### TurmaDoAlunoDTO:
+A01/A02/A03/A04/A11/A12 — Turmas/matrículas do aluno (shape reduzido).
+
+### AlunoAutocompleteDTO:
+A05/A06 — Alunos para autocomplete (shape reduzido).
+
+### AlunoAtivoTurmaDTO:
+A08/A09 — Alunos ativos em uma turma (shape reduzido).
+
+Fora do escopo: tipoTurma, codigoEscola via turma, codigoDre,
+transferenciaInterna, remanejado, escolaTransferencia,
+turmaTransferencia, turmaRemanejamento, parecerConclusivo,
+nomeResponsavel/celular/tipo, dataAtualizacaoContato (este último
+fica como data_atualizacao_contato do Aluno).
+
+Fora do escopo: turma (nome), modalidade.
+
+Fora do escopo (Transition Gateway agrega): nomeResponsavel,
+tipoResponsavel, celularResponsavel, codigoTipoTurma,
+dataAtualizacaoTabela.
+
+#### NecessidadeEspecialDTO:
+A10 — Necessidade especial vinculada ao aluno.
+
+Junta o vínculo (``NecessidadeEspecialAluno``) com o catálogo
+(``TipoNecessidadeEspecial``) num único registro, expondo código e
+descrição da NEE.
+
+### InformacoesAlunoDTO
+A13/A27 — Informações do aluno (shape reduzido).
+
+Fora do escopo (Transition Gateway agrega): grupoEtnico,
+nacionalidadeResponsavel, ehImigrante, responsavelEhImigrante, cns,
+teg e endereço completo (nro/complemento/bairro/cep/município/UF/
+tipoLogradouro/logradouro). Aqui retornamos apenas os campos do
+Aluno presentes em ``alunos_db``.
+
+### QuantidadeMatriculaCCDTO:
+A15 — Quantidade de matrículas por ano letivo (shape reduzido).
+
+O domínio Alunos não possui o vínculo matrícula-componente
+curricular (não é coluna de ``matricula``). Retornamos apenas a
+quantidade total agregada por turma — campos como modalidade,
+ano (turma) e nome de turma ficam por conta do MS Pedagógico via
+Transition Gateway.
+
+### QuantidadeMatriculadosDTO:
+A16 — Quantidade de matrículas por DRE/UE/turma (shape reduzido).
+
+Sem dados de Turma no domínio Alunos; o endpoint retorna o agregado
+que conseguimos calcular: por (codigo_ue, codigo_turma).
+
+### DadosAcompanhamentoEscolarDTO:
+A18 — Acompanhamento escolar (shape reduzido).
+
+Sem view materializada no MS-ETL; agregamos o que existe em
+Aluno+Matricula+ResponsavelAluno+MatriculaTurma. Fora do escopo:
+nomeEscola, codigoDre/siglaDre, codigoTipoEscola/descricaoTipoEscola,
+serieResumida, codigoCicloEnsino/codigoEtapaEnsino, modalidade.
+
+### ResponsavelTurmaDTO:
+A19 — Responsável agrupado por turma (shape reduzido).
+
+Sem dados de Turma/DRE/Escola no domínio Alunos; retornamos apenas
+UE+turma+aluno+CPF+tipoResponsavel. Os campos pedagógicos
+(codigoTipoEscola, codigoEtapaEnsino, codigoCicloEnsino,
+serieResumida, codigoModalidadeTurma) e ``temAppInstalado`` são
+agregados pelo Transition Gateway.
+
+### DadosResponsavelDTO:
+A20 — Dados do responsável (shape reduzido).
+
+Fora do escopo: tipoSigilo, RG/dígito/UF, telefone fixo/comercial e
+suas turnos, dataNascimento (do responsável e da mãe), nomeMae do
+responsável, autorizaSMS — campos que NÃO existem em
+``responsavel_aluno`` do MS-ETL.
+
+### InformacoesAlunoTurmaDTO:
+A14 — Resumo dos alunos de uma turma (shape reduzido).
+
+Fora do escopo: agrupamento de raça em descrição amigável.
+
+### DadosResponsavelResumidoDTO:
+A21/A22/A23 — Versão enxuta dos dados do responsável.
+
+Reaproveitado por três endpoints: A21 (consulta resumida pelo
+CPF), A22 (retorno do PUT de busca ativa) e A23 (retorno do POST
+de cadastro). Contém o vínculo mínimo (responsável + aluno) e os
+contatos (e-mail, celular).
+
+### TotalAlunosAtivosPeriodoDTO:
+A07 — Total de alunos distintos ativos no intervalo informado.
+
+Conta cada ``aluno_id`` uma única vez, mesmo que o aluno tenha mais
+de uma matrícula ativa no período (ex.: dupla matrícula em UEs
+distintas).
+
+### ConsolidacaoMatriculaDTO:
+M01/M02/E05 — Total de matrículas válidas agrupadas por turma.
+
+Compartilhado entre M01 (ano atual), M02 (anos anteriores) e E05
+(último ano disponível para a escola). A diferença entre eles está
+apenas no critério de seleção do ano letivo na função chamadora.
+
+### MatriculaEscolaAlunoDTO:
+E24 — Matrícula do aluno em uma escola específica.
+
+Cada registro representa uma matrícula vinculada à escola
+informada, com a turma corrente (quando há) e o estado da
+matrícula (situação + data). Pode haver múltiplas linhas por
+aluno quando ele teve matrículas em anos letivos distintos.
 
 ## Como rodar
 

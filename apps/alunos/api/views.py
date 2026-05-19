@@ -1,10 +1,4 @@
-"""Views do domínio Alunos (A01-A27, M01-M04, E05, E24).
-
-Substituem os endpoints legados do Pedagogico-API
-(AlunoController/MatriculaController + os endpoints E05/E24 do
-EscolaController) que hoje consultam EOL/Elastic. Os dados vêm de
-alunos_db, populado pelo SME-IntegracaoEOL-MS-ETL.
-"""
+"""Views do domínio Alunos."""
 
 from datetime import datetime
 from typing import Any
@@ -109,7 +103,7 @@ def _erro_400(detalhe: str) -> Response:
 
 
 class BuscaTurmasDoAlunoView(APIView):
-    """A01/A02 — Turmas do aluno (com filtros opcionais via rota)."""
+    """Lista as turmas do aluno com filtros opcionais."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -179,7 +173,7 @@ class BuscaTurmasDoAlunoView(APIView):
 
 
 class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
-    """Turmas do aluno com filtro de situação de matrícula."""
+    """Lista as turmas do aluno com filtro de situação de matrícula."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -229,7 +223,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
 
 
 class BuscarAlunosDaUeView(APIView):
-    """Alunos de uma UE no ano letivo."""
+    """Lista os alunos de uma UE no ano letivo."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -267,7 +261,7 @@ class BuscarAlunosDaUeView(APIView):
 
 
 class AutocompleteAlunosUeView(APIView):
-    """Autocomplete de alunos da UE/ano."""
+    """Lista dados de autocomplete de alunos da UE/ano."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -327,7 +321,7 @@ class AutocompleteAlunosUeView(APIView):
 
 
 class AutocompleteAlunosAtivosView(APIView):
-    """Autocomplete de alunos ativos por data de referência."""
+    """Lista dados de autocomplete de alunos ativos por data de referência."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -375,7 +369,7 @@ class AutocompleteAlunosAtivosView(APIView):
 
 
 class TotalAlunosAtivosPorPeriodoView(APIView):
-    """Total de alunos ativos por período."""
+    """Lista o total de alunos ativos por período."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -422,7 +416,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
 
 
 class AlunosAtivosPeriodoTurmaView(APIView):
-    """Alunos ativos em uma turma por período."""
+    """Lista os alunos ativos em uma turma por período."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -465,7 +459,7 @@ class AlunosAtivosPeriodoTurmaView(APIView):
 
 
 class AlunosAtivosTurmaView(APIView):
-    """Alunos ativos em uma turma."""
+    """Lista os alunos ativos em uma turma."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -486,7 +480,7 @@ class AlunosAtivosTurmaView(APIView):
 
 
 class NecessidadesEspeciaisAlunoView(APIView):
-    """Necessidades especiais do aluno."""
+    """Lista os dados das necessidades especiais do aluno."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -509,7 +503,7 @@ class NecessidadesEspeciaisAlunoView(APIView):
 
 
 class AlunosPorCodigosEAnoView(APIView):
-    """Alunos por lista de códigos e ano letivo."""
+    """Lista os alunos por códigos e ano letivo."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -540,7 +534,7 @@ class AlunosPorCodigosEAnoView(APIView):
 
 
 class AlunosPorCodigosView(APIView):
-    """Alunos por lista de códigos."""
+    """Lista os alunos por lista de códigos."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -567,7 +561,7 @@ class AlunosPorCodigosView(APIView):
 
 
 class InformacoesAlunoView(APIView):
-    """Informações completas do aluno."""
+    """Lista as informações completas do aluno."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -593,7 +587,7 @@ class InformacoesAlunoView(APIView):
 
 
 class InformacoesAlunosTurmaView(APIView):
-    """Informações dos alunos de uma turma."""
+    """Lista as informações dos alunos de uma turma."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -614,7 +608,7 @@ class InformacoesAlunosTurmaView(APIView):
 
 
 class QuantidadeMatriculadosPorAnoCCView(APIView):
-    """Quantidade de matriculados por componente curricular e ano."""
+    """Lista a quantidade de matriculados por componente curricular e ano."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -652,7 +646,7 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
 
 
 class QuantidadeMatriculadosView(APIView):
-    """Quantidade de matriculados com múltiplos filtros."""
+    """Lista a quantidade de matriculados com múltiplos filtros."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -690,7 +684,7 @@ class QuantidadeMatriculadosView(APIView):
 
 
 class DadosAcompanhamentoEscolarView(APIView):
-    """Dados de acompanhamento escolar."""
+    """Lista dados de acompanhamento escolar."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -738,7 +732,7 @@ class DadosAcompanhamentoEscolarView(APIView):
 
 
 class ResponsaveisDreUeTurmaView(APIView):
-    """Responsáveis por DRE/UE/turma."""
+    """Lista dados dos responsáveis por DRE/UE/turma."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
@@ -775,7 +769,7 @@ class ResponsaveisDreUeTurmaView(APIView):
 
 
 class DadosResponsavelView(APIView):
-    """Dados completos do responsável."""
+    """Lista os dados completos do responsável."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
@@ -793,7 +787,7 @@ class DadosResponsavelView(APIView):
 
 
 class DadosResponsavelResumidoView(APIView):
-    """Dados resumidos do responsável."""
+    """Lista dados resumidos do responsável."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
@@ -816,7 +810,7 @@ class DadosResponsavelResumidoView(APIView):
 
 
 class ResponsavelAlunoView(APIView):
-    """PUT atualiza (busca ativa) e POST cadastra responsável."""
+    """Atualiza ou cadastra dados de um responsável."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
@@ -886,7 +880,7 @@ class ResponsavelAlunoView(APIView):
 
 
 class FiliacaoAlunoView(APIView):
-    """Dados de filiação do responsável do aluno."""
+    """Lista os dados de filiação do responsável do aluno."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
@@ -912,7 +906,7 @@ class FiliacaoAlunoView(APIView):
 
 
 class MatriculasAnoAtualView(APIView):
-    """Matrículas consolidadas do ano atual."""
+    """Lista matrículas consolidadas do ano atual."""
 
     @extend_schema(
         tags=_TAG_MATRICULA,
@@ -944,7 +938,7 @@ class MatriculasAnoAtualView(APIView):
 
 
 class MatriculasAnosAnterioresView(APIView):
-    """Matrículas consolidadas de anos anteriores."""
+    """Lista matrículas consolidadas de anos anteriores."""
 
     @extend_schema(
         tags=_TAG_MATRICULA,
@@ -976,11 +970,7 @@ class MatriculasAnosAnterioresView(APIView):
 
 
 class TotalMatriculasPorTurnoUeView(APIView):
-    """Out-of-scope (turno vive no MS Pedagógico).
-
-    Mantemos a rota para preservar o contrato legado, mas a resposta é
-    sempre ``[]`` — o Transition Gateway agrega via MS Pedagógico.
-    """
+    """Lista o total de matrículas por turno (UE)."""
 
     @extend_schema(
         tags=_TAG_MATRICULA,
@@ -999,7 +989,7 @@ class TotalMatriculasPorTurnoUeView(APIView):
 
 
 class TotalMatriculasPorTurnoDreView(APIView):
-    """Out-of-scope (turno + DRE vivem no MS Pedagógico)."""
+    """Lista o total de matrículas por turno (DRE)."""
 
     @extend_schema(
         tags=_TAG_MATRICULA,
@@ -1020,7 +1010,7 @@ class TotalMatriculasPorTurnoDreView(APIView):
 
 
 class QuantidadeAlunosPorTurmaEscolaView(APIView):
-    """Quantidade de alunos por turma na escola."""
+    """Lista a quantidade de alunos por turma na escola."""
 
     @extend_schema(
         tags=_TAG_ESCOLA,
@@ -1040,7 +1030,7 @@ class QuantidadeAlunosPorTurmaEscolaView(APIView):
 
 
 class MatriculasAlunoEscolaView(APIView):
-    """Matrículas de um aluno na escola."""
+    """Lista as matrículas de um aluno na escola."""
 
     @extend_schema(
         tags=_TAG_ESCOLA,

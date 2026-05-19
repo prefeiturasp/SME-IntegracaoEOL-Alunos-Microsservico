@@ -1,18 +1,10 @@
-"""Serializers DRF do domínio Alunos.
-
-Mapeiam os DTOs retornados por ``apps.alunos.services`` para o shape
-camelCase. **Shape reduzido**: campos pertencentes a outros domínios
-(metadados de Turma, Escola, DRE, Modalidade, Endereço completo,
-agregação por turno, view de acompanhamento materializada) NÃO são
-expostos aqui — o Transition Gateway agrega esses dados a partir dos
-demais microsserviços.
-"""
+"""Serializers do domínio Alunos."""
 
 from rest_framework import serializers
 
 
 class TurmaDoAlunoSerializer(serializers.Serializer):
-    """A01/A02/A03/A04/A11/A12 — Turma do aluno (shape reduzido)."""
+    """Serializa turmas do aluno."""
 
     codigo_aluno = serializers.IntegerField()
     ano_letivo = serializers.IntegerField()
@@ -28,7 +20,7 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
 
 
 class AlunoAutocompleteSerializer(serializers.Serializer):
-    """A05/A06 — Autocomplete de aluno (shape reduzido)."""
+    """Serializa dados de autocomplete de aluno."""
 
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
@@ -38,7 +30,7 @@ class AlunoAutocompleteSerializer(serializers.Serializer):
 
 
 class AlunoAtivoTurmaSerializer(serializers.Serializer):
-    """A08/A09 — Alunos ativos em uma turma (shape reduzido)."""
+    """Serializa alunos ativos em uma turma."""
 
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
@@ -56,7 +48,7 @@ class AlunoAtivoTurmaSerializer(serializers.Serializer):
 
 
 class NecessidadeEspecialSerializer(serializers.Serializer):
-    """A10 — Necessidade especial do aluno (shape reduzido)."""
+    """Serializa necessidades especiais do aluno."""
 
     codigo_aluno = serializers.IntegerField()
     tipo_necessidade_especial = serializers.IntegerField()
@@ -64,13 +56,7 @@ class NecessidadeEspecialSerializer(serializers.Serializer):
 
 
 class InformacoesAlunoSerializer(serializers.Serializer):
-    """A13/A27 — Informações do aluno (shape reduzido).
-
-    Campos out-of-scope (Transition Gateway agrega): grupo_etnico,
-    nacionalidade_responsavel, eh_imigrante, responsavel_eh_imigrante, cns,
-    teg, endereço completo (id, nro, complemento, bairro, cep,
-    nome_municipio, sigla_uf, tipo_logradouro, logradouro).
-    """
+    """Serializa informações do aluno."""
 
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
@@ -86,7 +72,7 @@ class InformacoesAlunoSerializer(serializers.Serializer):
 
 
 class InformacoesAlunoTurmaSerializer(serializers.Serializer):
-    """A14 — Resumo de aluno em turma (shape reduzido)."""
+    """Serializa resumo de aluno em turma."""
 
     numero_aluno_chamada = serializers.CharField(allow_null=True)
     codigo_aluno = serializers.IntegerField()
@@ -97,11 +83,7 @@ class InformacoesAlunoTurmaSerializer(serializers.Serializer):
 
 
 class QuantidadeMatriculadosCCSerializer(serializers.Serializer):
-    """A15 — Quantidade de matriculados por turma (shape reduzido).
-
-    Campos out-of-scope (Pedagógico): componente_curricular_id, modalidade,
-    ano (turma), turma (nome).
-    """
+    """Serializa quantidade de matriculados por turma."""
 
     codigo_turma = serializers.IntegerField()
     quantidade = serializers.IntegerField()
@@ -109,10 +91,7 @@ class QuantidadeMatriculadosCCSerializer(serializers.Serializer):
 
 
 class QuantidadeMatriculadosSerializer(serializers.Serializer):
-    """A16 — Quantidade de matriculados por UE/turma (shape reduzido).
-
-    Campos out-of-scope: dre_codigo, modalidade, ano (turma), turma.
-    """
+    """Serializa quantidade de matriculados por UE/turma."""
 
     quantidade = serializers.IntegerField()
     ordem = serializers.IntegerField()
@@ -121,13 +100,7 @@ class QuantidadeMatriculadosSerializer(serializers.Serializer):
 
 
 class DadosAcompanhamentoEscolarSerializer(serializers.Serializer):
-    """A18 — Acompanhamento escolar (shape reduzido).
-
-    Campos out-of-scope (Transition Gateway agrega via Pedagógico):
-    escola (nome), codigo_dre, sigla_dre, codigo_tipo_escola,
-    descricao_tipo_escola, codigo_ciclo_ensino, codigo_etapa_ensino,
-    serie_resumida, modalidade_codigo, modalidade_descricao.
-    """
+    """Serializa dados de acompanhamento escolar."""
 
     codigo_eol = serializers.IntegerField()
     nome_responsavel = serializers.CharField(allow_null=True)
@@ -144,12 +117,7 @@ class DadosAcompanhamentoEscolarSerializer(serializers.Serializer):
 
 
 class ResponsavelTurmaSerializer(serializers.Serializer):
-    """A19 — Responsável por turma (shape reduzido).
-
-    Campos out-of-scope (Pedagógico): codigo_dre, dre, ue (nome),
-    turma (nome), codigo_tipo_escola, codigo_etapa_ensino, codigo_ciclo_ensino,
-    serie_resumida, codigo_modalidade_turma, tem_app_instalado.
-    """
+    """Serializa dados do responsável por turma."""
 
     codigo_ue = serializers.CharField()
     codigo_turma = serializers.IntegerField()
@@ -158,13 +126,7 @@ class ResponsavelTurmaSerializer(serializers.Serializer):
 
 
 class DadosResponsavelSerializer(serializers.Serializer):
-    """A20 — Dados do responsável (shape reduzido).
-
-    Campos out-of-scope (não existem em ``responsavel_aluno`` do MS-ETL):
-    tipo_sigilo, data_nascimento (do responsável), nome_mae do responsável,
-    numero_rg, digito_rg, uf_rg, cpf_confere, tipo_turno_celular,
-    ddd_telefone_fixo/comercial e turnos, data_nascimento_mae.
-    """
+    """Serializa os dados do responsável."""
 
     codigo_responsavel = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
@@ -184,7 +146,7 @@ class DadosResponsavelSerializer(serializers.Serializer):
 
 
 class DadosResponsavelResumidoSerializer(serializers.Serializer):
-    """A21/A22/A23 — Dados resumidos do responsável."""
+    """Serializa os dados resumidos do responsável."""
 
     codigo_responsavel = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
@@ -197,20 +159,20 @@ class DadosResponsavelResumidoSerializer(serializers.Serializer):
 
 
 class TotalAlunosAtivosPeriodoSerializer(serializers.Serializer):
-    """A07 — Total de alunos ativos em um período."""
+    """Serializa o total de alunos ativos em um período."""
 
     quantidade = serializers.IntegerField()
 
 
 class ConsolidacaoMatriculaSerializer(serializers.Serializer):
-    """M01/M02/E05 — Consolidação por turma."""
+    """Serializa dados de consolidação por turma."""
 
     turma_codigo = serializers.CharField()
     quantidade = serializers.IntegerField()
 
 
 class MatriculaEscolaAlunoSerializer(serializers.Serializer):
-    """E24 — Matrícula de aluno em escola."""
+    """Serializa dados da matrícula de aluno em escola."""
 
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
@@ -223,19 +185,8 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
     ano_letivo = serializers.IntegerField()
 
 
-# ---------------------------------------------------------------------------
-# Request bodies (escrita)
-# ---------------------------------------------------------------------------
-
-
 class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
-    """A22 — Body do PUT /alunos/{codigoAluno}/responsaveis/{cpf}.
-
-    Campos do contrato legado que não pertencem ao domínio Alunos
-    (``dddResidencial``, ``numeroResidencial``, ``dddComercial``,
-    ``numeroComercial``) são aceitos no body para compatibilidade,
-    mas ignorados pela camada de service.
-    """
+    """Serializa os dados para atualizar o responsável do aluno."""
 
     codigo_aluno = serializers.IntegerField(required=False)
     cpf = serializers.CharField(required=False, allow_blank=True)
@@ -251,7 +202,7 @@ class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
 
 
 class CadastrarResponsavelRequestSerializer(serializers.Serializer):
-    """A23 — Body do POST /alunos/{codigoAluno}/responsaveis/{cpf}."""
+    """Serializa os dados para cadastrar um novo responsável."""
 
     cpf = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
