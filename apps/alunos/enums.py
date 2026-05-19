@@ -1,15 +1,10 @@
-"""Enums e mapeamentos do domínio Alunos.
-
-Espelha ``apps/alunos/enums.py`` do ``SME-IntegracaoEOL-MS-ETL`` —
-replicado aqui para manter independência entre microsserviços (sem
-cross-import).
-"""
+"""Enums e mapeamentos do domínio Alunos."""
 
 from enum import IntEnum
 
 
 class SituacaoMatricula(IntEnum):
-    """Mapeamento de st_matricula do EOL."""
+    """Situações de matrícula escolar dos alunos."""
 
     ATIVO = 1
     DESISTENTE = 2

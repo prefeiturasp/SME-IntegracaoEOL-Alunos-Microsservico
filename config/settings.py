@@ -107,10 +107,6 @@ DATABASES = {
     "default": _parse_db_url(URL_BANCO_ALUNOS),
 }
 
-# Em modo teste os models do app alunos (managed=False em produção,
-# DDL no MS-ETL) precisam de um banco onde o schema possa ser criado.
-# O AlunosTestRunner promove os models a managed antes do
-# setup_databases — ver config/test_runner.py.
 MODO_TESTE = "test" in sys.argv or os.environ.get(
     "USE_SQLITE_TEST", "False"
 ).lower() in ("true", "1")

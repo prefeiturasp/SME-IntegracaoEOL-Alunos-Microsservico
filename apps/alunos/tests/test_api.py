@@ -198,8 +198,6 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(resp.json(), [])
 
     def test_a19_sem_codigo_dre_aceita(self) -> None:
-        # codigo_dre não é mais obrigatório; com codigo_ue/ano_letivo
-        # válidos a busca acontece normalmente.
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
@@ -208,8 +206,6 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(len(resp.json()), 1)
 
     def test_a19_so_codigo_dre_retorna_vazio(self) -> None:
-        # codigo_dre não é aplicado internamente; sozinho dispara o
-        # safeguard que devolve [] sem tocar no banco.
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")

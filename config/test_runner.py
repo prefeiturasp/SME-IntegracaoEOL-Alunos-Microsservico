@@ -1,11 +1,4 @@
-"""Test runner customizado para o microsserviço Alunos.
-
-Os models do app ``alunos`` declaram ``Meta.managed = False`` em
-produção (DDL é responsabilidade do ``SME-IntegracaoEOL-MS-ETL``). Em
-testes isso impediria o Django de criar as tabelas no banco SQLite em
-memória. Este runner cria as tabelas de models unmanaged manualmente
-via ``schema_editor`` após o ``setup_databases`` padrão.
-"""
+"""Test runner customizado para o microsserviço Alunos."""
 
 from __future__ import annotations
 
