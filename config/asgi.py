@@ -1,4 +1,4 @@
-"""ASGI config para SME-IntegracaoEOL-Alunos-Microsservico."""
+"""Configuração ASG do SME-IntegracaoEOL-Alunos-Microsservico."""
 
 import os
 

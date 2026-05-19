@@ -1,4 +1,4 @@
-"""Testes dos models read-only do app alunos — __str__ e shape básico."""
+"""Testes dos models read-only do app aluno."""
 
 from __future__ import annotations
 
