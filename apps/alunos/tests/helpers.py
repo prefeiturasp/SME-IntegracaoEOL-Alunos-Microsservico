@@ -20,10 +20,7 @@ def agora() -> datetime:
 
 
 def seed_alunos() -> dict[int, Aluno]:
-    """Cria dois alunos de teste .
-
-    Retorna um dicionário indexado por codigo_aluno.
-    """
+    """Cria dois alunos de teste indexados por código."""
     a1 = Aluno.objects.create(
         codigo_aluno=1234567,
         nome="JOAO DA SILVA",
