@@ -26,7 +26,15 @@ _POOL_OPTIONS = {
 
 
 def _parse_db_url(url: Any) -> dict:
-    """Faz o parse de uma URL postgres para dict de configuração Django."""
+    """Faz o parse de uma URL postgres para dict de configuração Django.
+
+    Args:
+        url: URL postgres ou valor falsy.
+
+    Returns:
+        Configuração de banco no formato esperado por ``DATABASES``.
+        Quando ``url`` é vazia, devolve configuração SQLite em memória.
+    """
     if not url:
         return {
             "ENGINE": "django.db.backends.sqlite3",

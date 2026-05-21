@@ -25,7 +25,16 @@ class SituacaoMatricula(IntEnum):
 
     @classmethod
     def get_descricao(cls, codigo: int | str | None) -> str:
-        """Retorna a descrição amigável para o código."""
+        """Retorna a descrição amigável para o código.
+
+        Args:
+            codigo: Código inteiro ou string numérica. ``None`` é aceito.
+
+        Returns:
+            Descrição correspondente. ``"Não Informada"`` quando
+            ``codigo`` é ``None`` e ``"Fora do domínio liberado pela
+            PRODAM"`` para valores não numéricos ou códigos fora do enum.
+        """
         if codigo is None:
             return "Não Informada"
 

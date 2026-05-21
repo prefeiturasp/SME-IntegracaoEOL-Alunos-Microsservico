@@ -11,6 +11,7 @@ class AlunosTestRunner(DiscoverRunner):
     """Cria tabelas de models unmanaged antes de executar os testes."""
 
     def setup_databases(self, **kwargs):  # type: ignore[no-untyped-def]
+        """Cria as tabelas dos models unmanaged após o setup padrão."""
         result = super().setup_databases(**kwargs)
         with connections["default"].schema_editor() as editor:
             created_tables: set[str] = set()

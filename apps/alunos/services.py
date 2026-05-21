@@ -361,7 +361,7 @@ def _consultar_turmas_do_aluno(
 ) -> list[TurmaDoAlunoDTO]:
     """Consulta as turmas/matrículas do aluno.
 
-    As são turmas ordenadas por ano letivo decrescente e situação ascendente.
+    Ordena por ano letivo decrescente e situação de matrícula ascendente.
     """
     qs = Matricula.objects.filter(aluno_id=codigo_aluno)
     if ano_letivo is not None:
@@ -432,7 +432,18 @@ def buscar_turmas_do_aluno(
     historico: bool = False,
     filtrar_situacao: bool = True,
 ) -> list[TurmaDoAlunoDTO]:
-    """Retorna as turmas do aluno no ano corrente, salvo histórico."""
+    """Lista as turmas do aluno.
+
+    Args:
+        codigo_aluno: Código EOL do aluno.
+        ano_letivo: Restringe a consulta ao ano letivo informado.
+        historico: Quando ``False``, restringe ao ano corrente.
+        filtrar_situacao: Quando ``True``, mantém apenas matrículas em
+            situações consideradas válidas.
+
+    Returns:
+        Turmas do aluno conforme os filtros aplicados.
+    """
     return _consultar_turmas_do_aluno(
         codigo_aluno=codigo_aluno,
         ano_letivo=ano_letivo,
@@ -464,7 +475,18 @@ def buscar_alunos_da_ue(
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
 ) -> list[TurmaDoAlunoDTO]:
-    """Lista alunos da UE no ano letivo, filtrável por nome/código."""
+    """Lista alunos da UE no ano letivo.
+
+    Args:
+        codigo_ue: Código EOL da UE.
+        ano_letivo: Ano letivo da consulta.
+        nome_aluno: Filtro por substring (case-insensitive) do nome.
+        codigo_eol: Filtro pelo código EOL exato; valor não numérico
+            resulta em lista vazia.
+
+    Returns:
+        Alunos matriculados na UE com matrícula em situação válida.
+    """
     qs = Matricula.objects.filter(
         codigo_ue=codigo_ue,
         ano_letivo=ano_letivo,
@@ -627,7 +649,21 @@ def buscar_alunos_autocomplete(
     eh_historico: bool = False,  # NOSONAR
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
-    """Busca alunos para autocomplete, filtrável por turmas/nome/código."""
+    """Busca alunos para autocomplete da UE/ano.
+
+    Args:
+        codigo_ue: Código EOL da UE.
+        ano_letivo: Ano letivo da consulta.
+        codigo_turmas: Restringe pelas turmas informadas.
+        nome_aluno: Filtro por substring do nome (case-insensitive).
+        codigo_eol: Filtro pelo código EOL exato.
+        somente_ativos: Se ``True``, considera apenas situações ativas.
+        eh_historico: Mantido por compatibilidade; sem efeito.
+        limite: Máximo de resultados retornados.
+
+    Returns:
+        Alunos compatíveis com os filtros, limitados por ``limite``.
+    """
     return _autocomplete_base(
         codigo_ue=codigo_ue,
         ano_letivo=ano_letivo,
@@ -665,7 +701,17 @@ def obter_total_alunos_ativos_periodo(
     dre_id: str | None = None,  # NOSONAR
     modalidades: list[int] | None = None,  # NOSONAR
 ) -> TotalAlunosAtivosPeriodoDTO:
-    """Retorna a quantidade de alunos ativos no período."""
+    """Conta alunos distintos com matrícula ativa no intervalo.
+
+    Args:
+        ano_letivo: Ano letivo da consulta.
+        data_inicio: Data inicial do intervalo (inclusiva).
+        data_fim: Data final do intervalo (inclusiva).
+        ue_id: Restringe à UE informada.
+        ano_turma: Mantido por compatibilidade; sem efeito atual.
+        dre_id: Mantido por compatibilidade; sem efeito atual.
+        modalidades: Mantido por compatibilidade; sem efeito atual.
+    """
     qs = Matricula.objects.filter(
         ano_letivo=ano_letivo,
         codigo_situacao_matricula__in=SITUACOES_MATRICULA_ATIVAS,
@@ -1140,7 +1186,11 @@ def obter_responsaveis_dre_ue_turma(
 def obter_dados_responsavel(
     cpf_responsavel: str,
 ) -> list[DadosResponsavelDTO]:
-    """Lista os detalhes do responsável + aluno vinculado."""
+    """Lista os vínculos de um responsável a partir do CPF.
+
+    Args:
+        cpf_responsavel: CPF do responsável. Valor vazio retorna ``[]``.
+    """
     cpf = (cpf_responsavel or "").strip()
     if not cpf:
         return []
@@ -1234,7 +1284,20 @@ def atualizar_dados_responsavel_busca_ativa(
     ddd_celular: str | None = None,
     numero_celular: str | None = None,
 ) -> DadosResponsavelResumidoDTO:
-    """Atualiza contatos do responsável no fluxo de busca ativa."""
+    """Atualiza contatos do responsável no fluxo de busca ativa.
+
+    Args:
+        codigo_aluno: Código EOL do aluno vinculado.
+        cpf_responsavel: CPF do responsável a atualizar.
+        email: Novo e-mail; ``None`` mantém o valor atual.
+        ddd_celular: Novo DDD; ``None`` mantém o valor atual.
+        numero_celular: Novo número; ``None`` mantém o valor atual.
+
+    Returns:
+        Dados resumidos do responsável após a atualização. Quando o
+        vínculo não existir, devolve um DTO sintético com os dados
+        recebidos e ``codigo_responsavel=0``.
+    """
     resp = ResponsavelAluno.objects.filter(
         cpf=cpf_responsavel, aluno_id=codigo_aluno
     ).first()
@@ -1280,7 +1343,20 @@ def cadastrar_dados_responsavel(
     ddd_celular: str = "",
     numero_celular: str = "",
 ) -> DadosResponsavelResumidoDTO:
-    """Cria ou atualiza um vínculo responsável-aluno."""
+    """Cria ou atualiza um vínculo responsável-aluno.
+
+    Args:
+        codigo_aluno: Código EOL do aluno vinculado.
+        cpf_responsavel: CPF do responsável.
+        nome: Nome do responsável.
+        email: E-mail de contato.
+        tipo_responsavel: Tipo do vínculo (mãe, pai, guardião, etc.).
+        ddd_celular: DDD do celular.
+        numero_celular: Número do celular.
+
+    Returns:
+        Dados resumidos do responsável após a operação.
+    """
     resp = ResponsavelAluno.objects.filter(
         cpf=cpf_responsavel, aluno_id=codigo_aluno
     ).first()
@@ -1395,19 +1471,13 @@ def obter_quantidade_alunos_por_turma_da_escola(
 
 
 def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> list[Any]:
-    """Retorna lista vazia: total por turno da UE.
-
-    Funcionalidade fora do escopo deste serviço; retorna sempre lista vazia.
-    """
+    """Retorna sempre lista vazia — funcionalidade fora do escopo."""
     _ = ue_codigo
     return []
 
 
 def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[Any]:
-    """Retorna lista vazia: total por turno da DRE.
-
-    Funcionalidade fora do escopo deste serviço; retorna sempre lista vazia.
-    """
+    """Retorna sempre lista vazia — funcionalidade fora do escopo."""
     _ = dre_codigo
     return []
 
