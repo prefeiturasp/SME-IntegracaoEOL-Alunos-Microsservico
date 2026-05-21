@@ -49,6 +49,18 @@ CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
 
 
 def _to_int(valor: str, nome_param: str) -> int:
+    """Converte um path/query param para inteiro.
+
+    Args:
+        valor: Valor recebido na URL.
+        nome_param: Nome usado na mensagem de erro.
+
+    Returns:
+        Valor convertido para inteiro.
+
+    Raises:
+        ValueError: Se ``valor`` não puder ser convertido.
+    """
     try:
         return int(valor)
     except (TypeError, ValueError) as exc:
@@ -59,6 +71,15 @@ def _to_int(valor: str, nome_param: str) -> int:
 
 
 def _to_bool(valor: str, nome_param: str) -> bool:
+    """Converte um path/query param para booleano.
+
+    Args:
+        valor: Valor recebido (``true``/``false`` e variantes em PT/EN).
+        nome_param: Nome usado na mensagem de erro.
+
+    Raises:
+        ValueError: Se ``valor`` for ``None`` ou não representar booleano.
+    """
     if valor is None:
         raise ValueError(f"Parâmetro '{nome_param}' obrigatório.")
     val = str(valor).strip().lower()
@@ -72,6 +93,17 @@ def _to_bool(valor: str, nome_param: str) -> bool:
 
 
 def _to_datetime(valor: str, nome_param: str) -> datetime:
+    """Converte um path/query param para datetime.
+
+    Aceita formato ISO 8601 com ou sem horário; ``Z`` é tratado como UTC.
+
+    Args:
+        valor: Valor recebido na URL.
+        nome_param: Nome usado na mensagem de erro.
+
+    Raises:
+        ValueError: Se o valor não for uma data ISO válida.
+    """
     try:
         if "T" in valor or " " in valor:
             return datetime.fromisoformat(valor.replace("Z", "+00:00"))
@@ -84,6 +116,18 @@ def _to_datetime(valor: str, nome_param: str) -> datetime:
 
 
 def _query_int_list(request: Request, nome: str) -> list[int]:
+    """Extrai uma lista de inteiros da query string.
+
+    Args:
+        request: Requisição DRF.
+        nome: Nome do parâmetro repetível.
+
+    Returns:
+        Inteiros recebidos, ignorando entradas vazias.
+
+    Raises:
+        ValueError: Se qualquer entrada não puder ser convertida.
+    """
     raw = request.query_params.getlist(nome)
     saida: list[int] = []
     for v in raw:
@@ -99,6 +143,7 @@ def _query_int_list(request: Request, nome: str) -> list[int]:
 
 
 def _erro_400(detalhe: str) -> Response:
+    """Constrói uma resposta 400 com a mensagem informada."""
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
