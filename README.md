@@ -313,6 +313,17 @@ docker compose up --build
 
 Swagger UI disponível em `http://localhost:8002/alunos/api/v1/docs/`.
 
+## Documentação (Sphinx)
+
+Gera a documentação HTML a partir dos arquivos em `docs/`:
+
+```bash
+docker compose -f docker-compose-dev.yml run --rm alunos \
+  sphinx-build -b html docs docs/_build
+```
+
+O resultado fica em `docs/_build/index.html` (acessível no host via volume).
+
 ## Testes
 
 ```bash
