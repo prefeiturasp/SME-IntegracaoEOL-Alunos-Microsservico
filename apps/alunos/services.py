@@ -443,6 +443,24 @@ def _responsavel_principal(
     return cast(dict[str, Any] | None, responsavel)
 
 
+def _qs_matriculas(
+    codigo_aluno: int,
+    ano_letivo: int | None,
+    historico: bool,
+    filtrar_situacao: bool,
+):
+    qs = Matricula.objects.filter(aluno_id=codigo_aluno)
+    if ano_letivo is not None:
+        qs = qs.filter(ano_letivo=ano_letivo)
+    if filtrar_situacao:
+        qs = qs.filter(
+            codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
+        )
+    if not historico:
+        qs = qs.filter(ano_letivo=timezone.now().year)
+    return qs
+
+
 def _consultar_turmas_do_aluno(
     codigo_aluno: int,
     ano_letivo: int | None = None,
@@ -459,19 +477,9 @@ def _consultar_turmas_do_aluno(
         filtrar_situacao: Restringe às situações de matrícula válidas quando ``True``.
         tipo_turma: Filtra somente turmas regulares (tipo 1) quando ``True``.
     """
-    qs = Matricula.objects.filter(aluno_id=codigo_aluno)
-    if ano_letivo is not None:
-        qs = qs.filter(ano_letivo=ano_letivo)
-    if filtrar_situacao:
-        qs = qs.filter(
-            codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
-        )
-    if not historico:
-        ano_corrente = timezone.now().year
-        qs = qs.filter(ano_letivo=ano_corrente)
-
     matriculas = list(
-        qs.values(
+        _qs_matriculas(codigo_aluno, ano_letivo, historico, filtrar_situacao)
+        .values(
             "codigo_matricula",
             "aluno_id",
             "codigo_ue",
