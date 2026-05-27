@@ -195,8 +195,11 @@ class BuscaTurmasDoAlunoView(APIView):
                 if filtrar_situacao is not None
                 else True
             )
-            if tipo_turma is not None:
+            filtra_tipo_turma = (
                 _to_bool(tipo_turma, "tipo_turma")
+                if tipo_turma is not None
+                else True
+            )
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -208,6 +211,7 @@ class BuscaTurmasDoAlunoView(APIView):
             ano_letivo=ano,
             historico=hist,
             filtrar_situacao=filtra,
+            tipo_turma=filtra_tipo_turma,
         )
         if not dados:
             return Response(

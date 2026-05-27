@@ -12,11 +12,20 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
     nome_social_aluno = serializers.CharField(allow_null=True)
     codigo_situacao_matricula = serializers.IntegerField()
     situacao_matricula = serializers.CharField()
-    data_situacao = serializers.DateField(allow_null=True)
+    data_situacao = serializers.CharField(allow_null=True)
     data_nascimento = serializers.DateField(allow_null=True)
+    documento_cpf = serializers.CharField(allow_null=True)
+    data_matricula = serializers.CharField(allow_null=True)
     numero_aluno_chamada = serializers.CharField(allow_null=True)
     codigo_turma = serializers.IntegerField()
-    data_atualizacao_contato = serializers.DateField(allow_null=True)
+    data_atualizacao_contato = serializers.CharField(allow_null=True)
+    nome_responsavel = serializers.CharField(allow_null=True)
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    ddd_celular = serializers.CharField(allow_null=True)
+    numero_celular = serializers.CharField(allow_null=True)
+    codigo_escola = serializers.CharField(allow_null=True)
+    codigo_tipo_turma = serializers.IntegerField(allow_null=True)
+    data_atualizacao_tabela = serializers.CharField(allow_null=True)
 
 
 class AlunoAutocompleteSerializer(serializers.Serializer):
@@ -53,6 +62,8 @@ class NecessidadeEspecialSerializer(serializers.Serializer):
     codigo_aluno = serializers.IntegerField()
     tipo_necessidade_especial = serializers.IntegerField()
     descricao_necessidade_especial = serializers.CharField()
+    tipo_recurso = serializers.IntegerField(allow_null=True)
+    descricao_recurso = serializers.CharField(allow_null=True)
 
 
 class InformacoesAlunoSerializer(serializers.Serializer):
@@ -67,6 +78,8 @@ class InformacoesAlunoSerializer(serializers.Serializer):
     raca_cor = serializers.CharField(allow_null=True)
     nis = serializers.CharField(allow_null=True)
     cpf = serializers.CharField(allow_null=True)
+    cns = serializers.CharField(allow_null=True)
+    endereco = serializers.DictField(allow_null=True)
     data_nascimento = serializers.DateField(allow_null=True)
     possui_deficiencia = serializers.BooleanField()
 
