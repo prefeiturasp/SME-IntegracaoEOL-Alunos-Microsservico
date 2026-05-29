@@ -339,11 +339,6 @@ def _todas_turmas_por_matricula(
 ) -> dict[int, list[dict[str, Any]]]:
     """Retorna todas as turmas de cada matrícula.
 
-    Diferente de ``_matricula_turma_por_matricula``, preserva todos os
-    vínculos quando uma matrícula está associada a mais de uma turma
-    simultaneamente — replicando o comportamento do INNER JOIN legado em
-    ``matricula_turma_escola``.
-
     Args:
         codigos_matricula: Códigos de matrícula consultados.
 
