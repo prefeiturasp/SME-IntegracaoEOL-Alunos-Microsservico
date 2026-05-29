@@ -559,8 +559,12 @@ def _qs_matriculas(
         qs = qs.filter(
             codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
         )
-    if not historico:
-        qs = qs.filter(ano_letivo=timezone.now().year)
+    if historico:
+        qs = qs.filter(origem_atual=False)
+    else:
+        qs = qs.filter(origem_atual=True)
+        if ano_letivo is None:
+            qs = qs.filter(ano_letivo=timezone.now().year)
     return qs
 
 
