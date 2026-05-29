@@ -206,11 +206,13 @@ And("a mensagem de aluno não encontrado deve ser exibida", function () {
 And("os dados de necessidades especiais do aluno devem ser válidos", () => {
   cy.get("@response").then((response) => {
     if (response.status === 200) {
-      expect(response.body).to.have.property("codigo_aluno");
-      expect(response.body).to.have.property("tipo_necessidade_especial");
-      expect(response.body).to.have.property("descricao_necessidade_especial");
-      expect(response.body).to.have.property("tipo_recurso");
-      expect(response.body).to.have.property("descricao_recurso");
+      expect(response.body[0]).to.have.property("codigo_aluno");
+      expect(response.body[0]).to.have.property("tipo_necessidade_especial");
+      expect(response.body[0]).to.have.property(
+        "descricao_necessidade_especial",
+      );
+      expect(response.body[0]).to.have.property("tipo_recurso");
+      expect(response.body[0]).to.have.property("descricao_recurso");
     }
   });
 });
