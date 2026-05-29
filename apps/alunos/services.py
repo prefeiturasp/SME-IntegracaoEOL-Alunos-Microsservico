@@ -334,6 +334,45 @@ def _matricula_turma_por_matricula(
     return saida
 
 
+def _todas_turmas_por_matricula(
+    codigos_matricula: Sequence[int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Retorna todas as turmas de cada matrícula.
+
+    Diferente de ``_matricula_turma_por_matricula``, preserva todos os
+    vínculos quando uma matrícula está associada a mais de uma turma
+    simultaneamente — replicando o comportamento do INNER JOIN legado em
+    ``matricula_turma_escola``.
+
+    Args:
+        codigos_matricula: Códigos de matrícula consultados.
+
+    Returns:
+        Dicionário indexado por ``codigo_matricula`` com lista de turmas.
+    """
+    if not codigos_matricula:
+        return {}
+    saida: dict[int, list[dict[str, Any]]] = {}
+    for mt in MatriculaTurma.objects.filter(
+        codigo_matricula__in=codigos_matricula
+    ).values(
+        "codigo_matricula",
+        "codigo_turma",
+        "numero_chamada",
+        "data_situacao_aluno",
+        "data_situacao_aluno_data_hora",
+        "codigo_situacao_aluno",
+        "codigo_tipo_turma",
+        "data_atualizacao_tabela",
+    ).order_by(
+        "codigo_matricula",
+        "-data_situacao_aluno_data_hora",
+        "-data_situacao_aluno",
+    ):
+        saida.setdefault(mt["codigo_matricula"], []).append(mt)
+    return saida
+
+
 def _responsaveis_do_aluno(codigo_aluno: int) -> list[dict[str, Any]]:
     """Lista responsáveis de um aluno.
 
@@ -1255,54 +1294,55 @@ def _turmas_atuais_por_aluno(codigo_aluno: int) -> list[TurmaDoAlunoDTO]:
         or {}
     )
     responsaveis = _responsaveis_do_aluno(codigo_aluno) or [{}]
-    mts = _matricula_turma_por_matricula(
+    mts_all = _todas_turmas_por_matricula(
         [m["codigo_matricula"] for m in matriculas]
     )
 
     saida: list[TurmaDoAlunoDTO] = []
     for m in matriculas:
-        mt = mts.get(m["codigo_matricula"], {})
-        codigo_situacao = _codigo_situacao_turma(m, mt)
-        for responsavel in responsaveis:
-            data_situacao = (
-                mt.get("data_situacao_aluno_data_hora")
-                or mt.get("data_situacao_aluno")
-                or m.get("data_situacao_matricula_data_hora")
-                or m["data_situacao_matricula"]
-            )
-            saida.append(
-                TurmaDoAlunoDTO(
-                    codigo_aluno=m["aluno_id"],
-                    ano_letivo=m["ano_letivo"],
-                    nome_aluno=aluno.get("nome", ""),
-                    nome_social_aluno=aluno.get("nome_social"),
-                    codigo_situacao_matricula=codigo_situacao,
-                    situacao_matricula=SituacaoMatricula.get_descricao(
-                        codigo_situacao
-                    ),
-                    data_situacao=data_situacao,
-                    data_nascimento=aluno.get("data_nascimento"),
-                    documento_cpf=aluno.get("cpf"),
-                    data_matricula=(
-                        m.get("data_situacao_matricula_data_hora")
-                        or m["data_situacao_matricula"]
-                    ),
-                    numero_aluno_chamada=mt.get("numero_chamada"),
-                    codigo_turma=mt.get("codigo_turma") or 0,
-                    data_atualizacao_contato=responsavel.get(
-                        "data_atualizacao_tabela"
-                    ),
-                    nome_responsavel=responsavel.get("nome"),
-                    tipo_responsavel=responsavel.get("tipo_responsavel"),
-                    ddd_celular=responsavel.get("ddd_celular"),
-                    numero_celular=responsavel.get("numero_celular"),
-                    codigo_escola=m["codigo_ue"],
-                    codigo_tipo_turma=mt.get("codigo_tipo_turma"),
-                    data_atualizacao_tabela=(
-                        mt.get("data_atualizacao_tabela") or data_situacao
-                    ),
+        turmas = mts_all.get(m["codigo_matricula"]) or [{}]
+        codigo_situacao = _codigo_situacao_turma(m, turmas[0])
+        for mt in turmas:
+            for responsavel in responsaveis:
+                data_situacao = (
+                    mt.get("data_situacao_aluno_data_hora")
+                    or mt.get("data_situacao_aluno")
+                    or m.get("data_situacao_matricula_data_hora")
+                    or m["data_situacao_matricula"]
                 )
-            )
+                saida.append(
+                    TurmaDoAlunoDTO(
+                        codigo_aluno=m["aluno_id"],
+                        ano_letivo=m["ano_letivo"],
+                        nome_aluno=aluno.get("nome", ""),
+                        nome_social_aluno=aluno.get("nome_social"),
+                        codigo_situacao_matricula=codigo_situacao,
+                        situacao_matricula=SituacaoMatricula.get_descricao(
+                            codigo_situacao
+                        ),
+                        data_situacao=data_situacao,
+                        data_nascimento=aluno.get("data_nascimento"),
+                        documento_cpf=aluno.get("cpf"),
+                        data_matricula=(
+                            m.get("data_situacao_matricula_data_hora")
+                            or m["data_situacao_matricula"]
+                        ),
+                        numero_aluno_chamada=mt.get("numero_chamada"),
+                        codigo_turma=mt.get("codigo_turma") or 0,
+                        data_atualizacao_contato=responsavel.get(
+                            "data_atualizacao_tabela"
+                        ),
+                        nome_responsavel=responsavel.get("nome"),
+                        tipo_responsavel=responsavel.get("tipo_responsavel"),
+                        ddd_celular=responsavel.get("ddd_celular"),
+                        numero_celular=responsavel.get("numero_celular"),
+                        codigo_escola=m["codigo_ue"],
+                        codigo_tipo_turma=mt.get("codigo_tipo_turma"),
+                        data_atualizacao_tabela=(
+                            mt.get("data_atualizacao_tabela") or data_situacao
+                        ),
+                    )
+                )
     return saida
 
 
