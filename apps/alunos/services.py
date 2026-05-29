@@ -559,8 +559,12 @@ def _qs_matriculas(
         qs = qs.filter(
             codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
         )
-    if not historico:
-        qs = qs.filter(ano_letivo=timezone.now().year)
+    if historico:
+        qs = qs.filter(origem_atual=False)
+    else:
+        qs = qs.filter(origem_atual=True)
+        if ano_letivo is None:
+            qs = qs.filter(ano_letivo=timezone.now().year)
     return qs
 
 
@@ -1231,13 +1235,14 @@ def obter_alunos_por_codigos_e_ano(
     """
     if not codigos_aluno:
         return []
+    eh_historico = ano_letivo != timezone.now().year
     saida: list[TurmaDoAlunoDTO] = []
     for codigo in codigos_aluno:
         saida.extend(
             _consultar_turmas_do_aluno(
                 codigo_aluno=codigo,
                 ano_letivo=ano_letivo,
-                historico=True,
+                historico=eh_historico,
                 filtrar_situacao=True,
             )
         )
