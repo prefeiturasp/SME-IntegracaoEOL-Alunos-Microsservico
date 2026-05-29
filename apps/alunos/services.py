@@ -1235,13 +1235,14 @@ def obter_alunos_por_codigos_e_ano(
     """
     if not codigos_aluno:
         return []
+    eh_historico = ano_letivo != timezone.now().year
     saida: list[TurmaDoAlunoDTO] = []
     for codigo in codigos_aluno:
         saida.extend(
             _consultar_turmas_do_aluno(
                 codigo_aluno=codigo,
                 ano_letivo=ano_letivo,
-                historico=True,
+                historico=eh_historico,
                 filtrar_situacao=True,
             )
         )

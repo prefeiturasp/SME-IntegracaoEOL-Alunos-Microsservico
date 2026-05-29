@@ -636,7 +636,7 @@ class A03TurmasPorSituacaoMatriculaApiTestCase(TestCase):
 
     def test_happy_path(self) -> None:
         """Verifica o retorno com parâmetros válidos."""
-        seed_matriculas()
+        seed_matriculas(origem_atual=False)
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2027, 6, 1, tzinfo=UTC),

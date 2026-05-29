@@ -50,7 +50,7 @@ def seed_alunos() -> dict[int, Aluno]:
     return {a.codigo_aluno: a for a in (a1, a2)}
 
 
-def seed_matriculas() -> list[Matricula]:
+def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
     """Cria alunos, matrículas e vínculos de turma para os testes."""
     seed_alunos()
     m1 = Matricula.objects.create(
@@ -61,6 +61,7 @@ def seed_matriculas() -> list[Matricula]:
         codigo_situacao_matricula=1,
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
     )
     m2 = Matricula.objects.create(
         codigo_matricula=998878,
@@ -70,6 +71,7 @@ def seed_matriculas() -> list[Matricula]:
         codigo_situacao_matricula=1,
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998877,
