@@ -583,7 +583,7 @@ def _consultar_turmas_do_aluno(
         historico: Inclui anos anteriores ao corrente quando ``True``.
         filtrar_situacao: Restringe às situações de matrícula válidas
             quando ``True``.
-        tipo_turma: Filtra somente turmas regulares (tipo 1) quando ``True``.
+        tipo_turma: Exclui turmas do tipo programa (tipo 3) quando ``True``.
 
     Returns:
         Turmas e matrículas do aluno no formato do domínio.
@@ -705,7 +705,7 @@ def buscar_turmas_do_aluno(
         historico: Quando ``False``, restringe ao ano corrente.
         filtrar_situacao: Quando ``True``, mantém apenas matrículas em
             situações consideradas válidas.
-        tipo_turma: Filtra somente turmas regulares (tipo 1) quando ``True``.
+        tipo_turma: Exclui turmas do tipo programa (tipo 3) quando ``True``.
 
     Returns:
         Turmas do aluno conforme os filtros aplicados.

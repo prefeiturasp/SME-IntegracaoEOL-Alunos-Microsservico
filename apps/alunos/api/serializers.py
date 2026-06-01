@@ -21,12 +21,14 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
     data_atualizacao_contato = serializers.SerializerMethodField()
 
     def get_data_atualizacao_contato(self, obj) -> str:
+        """Retorna data de atualização de contato ou sentinel quando ausente."""
         val = getattr(obj, "data_atualizacao_contato", None)
         if val is None:
             return "0001-01-01T00:00:00"
         if hasattr(val, "isoformat"):
             return val.isoformat()
         return str(val)
+
     nome_responsavel = serializers.CharField(allow_null=True)
     tipo_responsavel = serializers.IntegerField(allow_null=True)
     ddd_celular = serializers.CharField(allow_null=True)
