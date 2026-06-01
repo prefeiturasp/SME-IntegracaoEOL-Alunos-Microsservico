@@ -641,7 +641,7 @@ def _consultar_turmas_do_aluno(
     saida: list[TurmaDoAlunoDTO] = []
     for m in matriculas:
         mt = mts.get(m["codigo_matricula"], {})
-        if filtrar_tipo_regular and mt.get("codigo_tipo_turma") != 1:
+        if filtrar_tipo_regular and mt.get("codigo_tipo_turma") == 3:
             continue
         codigo_situacao = _codigo_situacao_turma(m, mt)
         for resp in responsaveis:
