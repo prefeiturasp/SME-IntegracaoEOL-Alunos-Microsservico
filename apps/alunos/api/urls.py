@@ -40,13 +40,6 @@ urlpatterns = [
     ),
     path(
         "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"
-        "historico/<str:historico>/filtrar-situacao/<str:filtrar_situacao>/"
-        "tipo-turma/<str:tipo_turma>",
-        BuscaTurmasDoAlunoView.as_view(),
-        name="busca-turmas-do-aluno-com-filtros",
-    ),
-    path(
-        "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"
         "matricula_turma/<str:filtrar_situacao_matricula>/"
         "tipo_turma/<str:tipo_turma>",
         BuscaTurmasDoAlunoPorSituacaoMatriculaView.as_view(),
