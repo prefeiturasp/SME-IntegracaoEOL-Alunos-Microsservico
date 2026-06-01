@@ -148,67 +148,26 @@ def _erro_400(detalhe: str) -> Response:
 
 
 class BuscaTurmasDoAlunoView(APIView):
-    """Lista as turmas do aluno com filtros opcionais."""
+    """Lista as turmas do aluno."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
-        summary="A01/A02 | Turmas do aluno",
+        summary="Turmas do aluno",
         parameters=[
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
-            OpenApiParameter(
-                "ano_letivo", int, OpenApiParameter.PATH, required=False
-            ),
-            OpenApiParameter(
-                "historico", bool, OpenApiParameter.PATH, required=False
-            ),
-            OpenApiParameter(
-                "filtrar_situacao",
-                bool,
-                OpenApiParameter.PATH,
-                required=False,
-            ),
-            OpenApiParameter(
-                "tipo_turma", bool, OpenApiParameter.PATH, required=False
-            ),
         ],
         responses={200: TurmaDoAlunoSerializer(many=True)},
     )
-    def get(
-        self,
-        request: Request,
-        codigo_aluno: str,
-        ano_letivo: str | None = None,
-        historico: str | None = None,
-        filtrar_situacao: str | None = None,
-        tipo_turma: str | None = None,
-    ) -> Response:
+    def get(self, request: Request, codigo_aluno: str) -> Response:
         try:
             codigo = _to_int(codigo_aluno, "codigo_aluno")
-            ano = _to_int(ano_letivo, "ano_letivo") if ano_letivo else None
-            hist = (
-                _to_bool(historico, "historico")
-                if historico is not None
-                else False
-            )
-            filtra = (
-                _to_bool(filtrar_situacao, "filtrar_situacao")
-                if filtrar_situacao is not None
-                else True
-            )
-            if tipo_turma is not None:
-                _to_bool(tipo_turma, "tipo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
         if codigo <= 0:
             return _erro_400("Código do aluno obrigatório.")
 
-        dados = services.buscar_turmas_do_aluno(
-            codigo_aluno=codigo,
-            ano_letivo=ano,
-            historico=hist,
-            filtrar_situacao=filtra,
-        )
+        dados = services.buscar_turmas_do_aluno(codigo_aluno=codigo)
         if not dados:
             return Response(
                 {"detail": ALUNO_SEM_TURMA},

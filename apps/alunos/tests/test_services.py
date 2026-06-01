@@ -47,7 +47,7 @@ class TurmasDoAlunoTestCase(TestCase):
 
     def test_a03_calcula_historico_por_ano(self) -> None:
         """Verifica que ano diferente do corrente é tratado como histórico."""
-        seed_matriculas()
+        seed_matriculas(origem_atual=False)
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2027, 6, 1, tzinfo=UTC),

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from typing import cast
 
 from apps.alunos.models import (
     Aluno,
@@ -49,7 +50,7 @@ def seed_alunos() -> dict[int, Aluno]:
     return {a.codigo_aluno: a for a in (a1, a2)}
 
 
-def seed_matriculas() -> list[Matricula]:
+def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
     """Cria alunos, matrículas e vínculos de turma para os testes."""
     seed_alunos()
     m1 = Matricula.objects.create(
@@ -60,6 +61,7 @@ def seed_matriculas() -> list[Matricula]:
         codigo_situacao_matricula=1,
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
     )
     m2 = Matricula.objects.create(
         codigo_matricula=998878,
@@ -69,36 +71,52 @@ def seed_matriculas() -> list[Matricula]:
         codigo_situacao_matricula=1,
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998877,
         codigo_turma=12345,
         numero_chamada="12",
         data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
         codigo_turma=22222,
         numero_chamada="07",
         data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
     )
     return [m1, m2]
 
 
 def seed_responsaveis() -> ResponsavelAluno:
     """Cria um responsável vinculado ao aluno 1234567 para os testes."""
-    return ResponsavelAluno.objects.create(
-        codigo_responsavel=5501,
-        aluno_id=1234567,
-        tipo_responsavel=1,
-        nome="Responsavel Exemplo",
-        cpf="12345678901",
-        ddd_celular="11",
-        numero_celular="977778888",
-        email="contato.exemplo@sme.com.br",
-        autoriza_sms="S",
-        logradouro="Rua das Flores, 100",
-        cep=1310200,
+    return cast(
+        ResponsavelAluno,
+        ResponsavelAluno.objects.create(
+            codigo_responsavel=5501,
+            aluno_id=1234567,
+            tipo_responsavel=1,
+            nome="Responsavel Exemplo",
+            cpf="12345678901",
+            ddd_celular="11",
+            numero_celular="977778888",
+            email="contato.exemplo@sme.com.br",
+            autoriza_sms="S",
+            endereco_id=123,
+            numero_endereco="100",
+            complemento="AP 1",
+            bairro="Centro",
+            logradouro="Rua das Flores",
+            cep=1310200,
+            nome_municipio="SAO PAULO",
+            sigla_uf="SP",
+            tipo_logradouro="Rua",
+            data_atualizacao_tabela=date(2026, 1, 10),
+        ),
     )
 
 
@@ -112,9 +130,12 @@ def seed_necessidades(
         codigo_estado=1,
         ativo=True,
     )
-    return NecessidadeEspecialAluno.objects.create(
-        codigo_necessidade_especial_aluno=10001,
-        aluno_id=codigo_aluno,
-        necessidade_especial=tipo,
-        data_inicio=date(2025, 1, 1),
+    return cast(
+        NecessidadeEspecialAluno,
+        NecessidadeEspecialAluno.objects.create(
+            codigo_necessidade_especial_aluno=10001,
+            aluno_id=codigo_aluno,
+            necessidade_especial=tipo,
+            data_inicio=date(2025, 1, 1),
+        ),
     )

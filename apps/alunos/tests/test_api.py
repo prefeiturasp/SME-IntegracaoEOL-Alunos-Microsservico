@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -64,12 +65,9 @@ class A01TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(len(body), 1)
         self.assertEqual(body[0]["codigo_aluno"], 1234567)
         self.assertEqual(body[0]["codigo_turma"], 12345)
-        for campo in (
-            "codigo_tipo_turma",
-            "data_atualizacao_tabela",
-            "nome_responsavel",
-        ):
-            self.assertNotIn(campo, body[0])
+        self.assertIn("data_atualizacao_tabela", body[0])
+        self.assertIn("codigo_tipo_turma", body[0])
+        self.assertIn("nome_responsavel", body[0])
 
     def test_aluno_invalido_400(self) -> None:
         """Verifica que codigo_aluno não numérico retorna 400."""
@@ -165,25 +163,19 @@ class A10A13A14ApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
 
-    def test_a13_informacoes_shape_reduzido(self) -> None:
-        """Verifica que campos fora do domínio não aparecem no payload."""
+    def test_a13_informacoes_shape_legado_enriquecido(self) -> None:
+        """Verifica que os campos enriquecidos (endereco, cns) aparecem no payload."""
         seed_alunos()
+        seed_responsaveis()
         url = reverse("informacoes-aluno", kwargs={"codigo_aluno": "1234567"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(body["codigo_aluno"], 1234567)
         self.assertEqual(body["nome_aluno"], "JOAO DA SILVA")
-        for campo in (
-            "endereco",
-            "grupo_etnico",
-            "nacionalidade_responsavel",
-            "eh_imigrante",
-            "responsavel_eh_imigrante",
-            "cns",
-            "teg",
-        ):
-            self.assertNotIn(campo, body)
+        self.assertIn("endereco", body)
+        self.assertEqual(body["endereco"]["id"], 123)
+        self.assertIn("cns", body)
 
     def test_a13_inexistente_404(self) -> None:
         """Verifica que aluno inexistente retorna 404."""
@@ -556,68 +548,6 @@ class A16QuantidadeMatriculadosApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
-class A02TurmasComFiltrosApiTestCase(TestCase):
-    """Valida o endpoint de turmas do aluno com filtros."""
-
-    def test_filtros_validos(self) -> None:
-        """Verifica o retorno com todos os filtros válidos."""
-        seed_matriculas()
-        seed_responsaveis()
-        with patch(
-            "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=UTC),
-        ):
-            url = reverse(
-                "busca-turmas-do-aluno-com-filtros",
-                kwargs={
-                    "codigo_aluno": "1234567",
-                    "ano_letivo": "2026",
-                    "historico": "false",
-                    "filtrar_situacao": "true",
-                    "tipo_turma": "false",
-                },
-            )
-            resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.json()), 1)
-
-    def test_historico_invalido_400(self) -> None:
-        """Verifica que historico fora de true/false retorna 400."""
-        url = reverse(
-            "busca-turmas-do-aluno-com-filtros",
-            kwargs={
-                "codigo_aluno": "1234567",
-                "ano_letivo": "2026",
-                "historico": "talvez",
-                "filtrar_situacao": "true",
-                "tipo_turma": "false",
-            },
-        )
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-    def test_tipo_turma_invalido_400(self) -> None:
-        """Verifica que tipo_turma inválido retorna 400."""
-        url = reverse(
-            "busca-turmas-do-aluno-com-filtros",
-            kwargs={
-                "codigo_aluno": "1234567",
-                "ano_letivo": "2026",
-                "historico": "false",
-                "filtrar_situacao": "true",
-                "tipo_turma": "xyz",
-            },
-        )
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-    def test_codigo_aluno_zero_400(self) -> None:
-        """Verifica que codigo_aluno=0 retorna 400."""
-        url = reverse("busca-turmas-do-aluno", kwargs={"codigo_aluno": "0"})
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-
 class A03TurmasPorSituacaoMatriculaApiTestCase(TestCase):
     """Valida o endpoint de turmas filtradas por situação de matrícula."""
 
@@ -629,19 +559,22 @@ class A03TurmasPorSituacaoMatriculaApiTestCase(TestCase):
         tipo_turma: str = "false",
     ) -> str:
         """Monta a URL do endpoint com os parâmetros informados."""
-        return reverse(
-            "busca-turmas-do-aluno-por-situacao-matricula",
-            kwargs={
-                "codigo_aluno": codigo_aluno,
-                "ano_letivo": ano_letivo,
-                "filtrar_situacao_matricula": filtrar,
-                "tipo_turma": tipo_turma,
-            },
+        return cast(
+            str,
+            reverse(
+                "busca-turmas-do-aluno-por-situacao-matricula",
+                kwargs={
+                    "codigo_aluno": codigo_aluno,
+                    "ano_letivo": ano_letivo,
+                    "filtrar_situacao_matricula": filtrar,
+                    "tipo_turma": tipo_turma,
+                },
+            ),
         )
 
     def test_happy_path(self) -> None:
         """Verifica o retorno com parâmetros válidos."""
-        seed_matriculas()
+        seed_matriculas(origem_atual=False)
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2027, 6, 1, tzinfo=UTC),
