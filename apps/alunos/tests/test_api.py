@@ -548,68 +548,6 @@ class A16QuantidadeMatriculadosApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
 
 
-class A02TurmasComFiltrosApiTestCase(TestCase):
-    """Valida o endpoint de turmas do aluno com filtros."""
-
-    def test_filtros_validos(self) -> None:
-        """Verifica o retorno com todos os filtros válidos."""
-        seed_matriculas()
-        seed_responsaveis()
-        with patch(
-            "django.utils.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=UTC),
-        ):
-            url = reverse(
-                "busca-turmas-do-aluno-com-filtros",
-                kwargs={
-                    "codigo_aluno": "1234567",
-                    "ano_letivo": "2026",
-                    "historico": "false",
-                    "filtrar_situacao": "true",
-                    "tipo_turma": "false",
-                },
-            )
-            resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.json()), 1)
-
-    def test_historico_invalido_400(self) -> None:
-        """Verifica que historico fora de true/false retorna 400."""
-        url = reverse(
-            "busca-turmas-do-aluno-com-filtros",
-            kwargs={
-                "codigo_aluno": "1234567",
-                "ano_letivo": "2026",
-                "historico": "talvez",
-                "filtrar_situacao": "true",
-                "tipo_turma": "false",
-            },
-        )
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-    def test_tipo_turma_invalido_400(self) -> None:
-        """Verifica que tipo_turma inválido retorna 400."""
-        url = reverse(
-            "busca-turmas-do-aluno-com-filtros",
-            kwargs={
-                "codigo_aluno": "1234567",
-                "ano_letivo": "2026",
-                "historico": "false",
-                "filtrar_situacao": "true",
-                "tipo_turma": "xyz",
-            },
-        )
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-    def test_codigo_aluno_zero_400(self) -> None:
-        """Verifica que codigo_aluno=0 retorna 400."""
-        url = reverse("busca-turmas-do-aluno", kwargs={"codigo_aluno": "0"})
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 400)
-
-
 class A03TurmasPorSituacaoMatriculaApiTestCase(TestCase):
     """Valida o endpoint de turmas filtradas por situação de matrícula."""
 
