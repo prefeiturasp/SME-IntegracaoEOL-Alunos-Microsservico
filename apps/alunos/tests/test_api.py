@@ -164,7 +164,7 @@ class A10A13A14ApiTestCase(TestCase):
         self.assertEqual(len(resp.json()), 1)
 
     def test_a13_informacoes_shape_legado_enriquecido(self) -> None:
-        """Verifica que os campos enriquecidos (endereco, cns) aparecem no payload."""
+        """Verifica campos enriquecidos no payload."""
         seed_alunos()
         seed_responsaveis()
         url = reverse("informacoes-aluno", kwargs={"codigo_aluno": "1234567"})
@@ -259,6 +259,8 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["cpf"], "12345678901")
+        self.assertEqual(resp.json()["data_nascimento"], "1980-05-20")
+        self.assertEqual(resp.json()["nome_mae"], "Mae do Responsavel")
 
 
 class A22A23EscritaApiTestCase(TestCase):

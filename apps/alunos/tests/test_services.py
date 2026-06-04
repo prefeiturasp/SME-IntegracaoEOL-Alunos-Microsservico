@@ -8,6 +8,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.alunos import services
+from apps.alunos.models import Matricula, MatriculaTurma, ResponsavelAluno
 from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
@@ -109,6 +110,38 @@ class A05A06AutocompleteTestCase(TestCase):
             limite=10,
         )
         self.assertEqual(len(dados), 1)
+
+    def test_a06_alunos_ativos_ignora_turma_programa(self) -> None:
+        """Verifica que turmas tipo programa nao entram no autocomplete."""
+        seed_matriculas()
+        Matricula.objects.create(
+            codigo_matricula=998879,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 3, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=33333,
+            numero_chamada="01",
+            data_situacao_aluno=date(2026, 3, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=3,
+        )
+
+        dados = services.buscar_alunos_ativos_autocomplete(
+            ue_codigo="100001",
+            aluno_nome="JOAO",
+            data_referencia=datetime(2026, 6, 3, tzinfo=UTC),
+            limite=10,
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 12345)
 
 
 class A07TotalAtivosTestCase(TestCase):
@@ -276,6 +309,33 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         self.assertIsNotNone(dado)
         assert dado is not None
         self.assertEqual(dado.cpf, "12345678901")
+        self.assertEqual(dado.data_nascimento, date(1980, 5, 20))
+        self.assertEqual(dado.nome_mae, "Mae do Responsavel")
+
+    def test_a21_resumido_ignora_vinculo_encerrado_mais_recente(
+        self,
+    ) -> None:
+        """Verifica que o resumido segue o filtro legado de vínculo ativo."""
+        seed_alunos()
+        seed_responsaveis()
+        ResponsavelAluno.objects.create(
+            codigo_responsavel=5502,
+            aluno_id=7654321,
+            tipo_responsavel=1,
+            nome="Responsavel Exemplo",
+            cpf="12345678901",
+            email="contato.exemplo@sme.com.br",
+            data_atualizacao_tabela=datetime(2026, 2, 10, tzinfo=UTC),
+            data_fim_vinculo=date(2026, 2, 10),
+        )
+
+        dado = services.obter_dados_responsavel_resumido(
+            cpf_responsavel="12345678901"
+        )
+
+        self.assertIsNotNone(dado)
+        assert dado is not None
+        self.assertEqual(dado.id, 5501)
 
 
 class A22A23EscritaTestCase(TestCase):

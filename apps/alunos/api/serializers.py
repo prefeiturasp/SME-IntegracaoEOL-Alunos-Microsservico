@@ -1,5 +1,7 @@
 """Serializers do domínio Alunos."""
 
+from typing import Any, cast
+
 from rest_framework import serializers
 
 
@@ -20,7 +22,7 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
     codigo_turma = serializers.IntegerField()
     data_atualizacao_contato = serializers.SerializerMethodField()
 
-    def get_data_atualizacao_contato(self, obj) -> str:
+    def get_data_atualizacao_contato(self, obj: Any) -> str:
         """Retorna data de atualização de contato formatada.
 
         Returns:
@@ -30,7 +32,7 @@ class TurmaDoAlunoSerializer(serializers.Serializer):
         if val is None:
             return "0001-01-01T00:00:00"
         if hasattr(val, "isoformat"):
-            return val.isoformat()
+            return cast(str, val.isoformat())
         return str(val)
 
     nome_responsavel = serializers.CharField(allow_null=True)
@@ -50,6 +52,8 @@ class AlunoAutocompleteSerializer(serializers.Serializer):
     nome_social_aluno = serializers.CharField(allow_null=True)
     codigo_turma = serializers.IntegerField()
     numero_aluno_chamada = serializers.CharField(allow_null=True)
+    turma = serializers.CharField(allow_null=True)
+    modalidade = serializers.CharField(allow_null=True)
 
 
 class AlunoAtivoTurmaSerializer(serializers.Serializer):
@@ -102,11 +106,14 @@ class InformacoesAlunoTurmaSerializer(serializers.Serializer):
     """Serializa resumo de aluno em turma."""
 
     numero_aluno_chamada = serializers.CharField(allow_null=True)
+    numero_chamada = serializers.IntegerField(allow_null=True)
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
     nome_social_aluno = serializers.CharField(allow_null=True)
     sexo = serializers.CharField(allow_null=True)
     raca_cor = serializers.CharField(allow_null=True)
+    raca = serializers.CharField(allow_null=True)
+    codigo_raca = serializers.IntegerField(allow_null=True)
 
 
 class QuantidadeMatriculadosCCSerializer(serializers.Serializer):
@@ -175,14 +182,17 @@ class DadosResponsavelSerializer(serializers.Serializer):
 class DadosResponsavelResumidoSerializer(serializers.Serializer):
     """Serializa os dados resumidos do responsável."""
 
-    codigo_responsavel = serializers.IntegerField()
+    id = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
     email = serializers.CharField(allow_null=True)
     nome = serializers.CharField(allow_null=True)
     tipo_responsavel = serializers.IntegerField(allow_null=True)
+    data_nascimento = serializers.DateField(allow_null=True)
+    data_atualizacao = serializers.DateTimeField(allow_null=True)
+    nome_mae = serializers.CharField(allow_null=True)
     ddd_celular = serializers.CharField(allow_null=True)
     numero_celular = serializers.CharField(allow_null=True)
-    codigo_aluno = serializers.CharField()
+    codigo_aluno = serializers.CharField(allow_null=True)
 
 
 class TotalAlunosAtivosPeriodoSerializer(serializers.Serializer):
