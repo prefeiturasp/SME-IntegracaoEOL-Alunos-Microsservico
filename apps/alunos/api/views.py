@@ -1,6 +1,5 @@
 """Views do domínio Alunos."""
 
-from datetime import datetime
 from typing import Any
 
 from django.http import HttpResponse
@@ -30,6 +29,13 @@ from apps.alunos.api.serializers import (
     TotalAlunosAtivosPeriodoSerializer,
     TurmaDoAlunoSerializer,
 )
+from apps.core.utils import (
+    query_bool,
+    query_int_list,
+    to_bool,
+    to_datetime,
+    to_int,
+)
 
 _TAG_ALUNO = ["Alunos"]
 _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
@@ -42,124 +48,6 @@ ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
 CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
     "Código da UE e ano letivo são obrigatórios."
 )
-
-# ---------------------------------------------------------------------------
-# Helpers de parsing
-# ---------------------------------------------------------------------------
-
-
-def _to_int(valor: str, nome_param: str) -> int:
-    """Converte um path/query param para inteiro.
-
-    Args:
-        valor: Valor recebido na URL.
-        nome_param: Nome usado na mensagem de erro.
-
-    Returns:
-        Valor convertido para inteiro.
-
-    Raises:
-        ValueError: Se ``valor`` não puder ser convertido.
-    """
-    try:
-        return int(valor)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            f"Parâmetro '{nome_param}' deve ser um inteiro válido: "
-            f"recebido {valor!r}."
-        ) from exc
-
-
-def _to_bool(valor: str, nome_param: str) -> bool:
-    """Converte um path/query param para booleano.
-
-    Args:
-        valor: Valor recebido (``true``/``false`` e variantes em PT/EN).
-        nome_param: Nome usado na mensagem de erro.
-
-    Raises:
-        ValueError: Se ``valor`` for ``None`` ou não representar booleano.
-    """
-    if valor is None:
-        raise ValueError(f"Parâmetro '{nome_param}' obrigatório.")
-    val = str(valor).strip().lower()
-    if val in ("true", "1", "t", "yes", "sim"):
-        return True
-    if val in ("false", "0", "f", "no", "nao", "não"):
-        return False
-    raise ValueError(
-        f"Parâmetro '{nome_param}' deve ser booleano: recebido {valor!r}."
-    )
-
-
-def _to_datetime(valor: str, nome_param: str) -> datetime:
-    """Converte um path/query param para datetime.
-
-    Aceita formato ISO 8601 com ou sem horário; ``Z`` é tratado como UTC.
-
-    Args:
-        valor: Valor recebido na URL.
-        nome_param: Nome usado na mensagem de erro.
-
-    Raises:
-        ValueError: Se o valor não for uma data ISO válida.
-    """
-    try:
-        if "T" in valor or " " in valor:
-            return datetime.fromisoformat(valor.replace("Z", "+00:00"))
-        return datetime.strptime(valor, "%Y-%m-%d")
-    except ValueError as exc:
-        raise ValueError(
-            f"Parâmetro '{nome_param}' deve ser uma data ISO 8601 válida:"
-            f" recebido {valor!r}."
-        ) from exc
-
-
-def _query_int_list(request: Request, nome: str) -> list[int]:
-    """Extrai uma lista de inteiros da query string.
-
-    Args:
-        request: Requisição DRF.
-        nome: Nome do parâmetro repetível.
-
-    Returns:
-        Inteiros recebidos, ignorando entradas vazias.
-
-    Raises:
-        ValueError: Se qualquer entrada não puder ser convertida.
-    """
-    raw = request.query_params.getlist(nome)
-    saida: list[int] = []
-    for v in raw:
-        if v == "":
-            continue
-        try:
-            saida.append(int(v))
-        except (TypeError, ValueError) as exc:
-            raise ValueError(
-                f"Parâmetro '{nome}' deve conter inteiros: recebido {v!r}."
-            ) from exc
-    return saida
-
-
-def _query_bool(request: Request, nome: str, default: bool) -> bool:
-    """Lê um parâmetro de consulta booleano.
-
-    Args:
-        request: Requisição com os parâmetros de consulta.
-        nome: Nome do parâmetro lido.
-        default: Valor usado quando o parâmetro não é informado.
-
-    Returns:
-        Booleano informado, ou ``default`` quando o parâmetro está ausente.
-
-    Raises:
-        ValueError: Se o valor informado não representa um booleano.
-    """
-    raw = request.query_params.get(nome)
-    if raw is None:
-        return default
-    return _to_bool(raw, nome)
 
 
 def _erro_400(detalhe: str) -> Response:
@@ -199,9 +87,9 @@ class BuscaTurmasDoAlunoView(APIView):
             Turmas do aluno, ou ausência de conteúdo quando não há turmas.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
-            tipo_turma = _query_bool(request, "tipo_turma", default=True)
-            filtrar_situacao = _query_bool(
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            tipo_turma = query_bool(request, "tipo_turma", default=True)
+            filtrar_situacao = query_bool(
                 request, "filtrar_situacao", default=True
             )
         except ValueError as exc:
@@ -261,12 +149,12 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             quando não há turmas.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
-            ano = _to_int(ano_letivo, "ano_letivo")
-            filtra = _to_bool(
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            ano = to_int(ano_letivo, "ano_letivo")
+            filtra = to_bool(
                 filtrar_situacao_matricula, "filtrar_situacao_matricula"
             )
-            _to_bool(tipo_turma, "tipo_turma")
+            to_bool(tipo_turma, "tipo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -316,7 +204,7 @@ class BuscarAlunosDaUeView(APIView):
         if not codigo_ue or not ano_letivo:
             return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
+            ano = to_int(ano_letivo, "ano_letivo")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -371,8 +259,8 @@ class AutocompleteAlunosUeView(APIView):
         if not codigo_ue:
             return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
-            codigos_turmas = _query_int_list(request, "codigos_turmas")
+            ano = to_int(ano_letivo, "ano_letivo")
+            codigos_turmas = query_int_list(request, "codigos_turmas")
             limite = int(request.query_params.get("limite", "10"))
         except ValueError as exc:
             return _erro_400(str(exc))
@@ -440,7 +328,7 @@ class AutocompleteAlunosAtivosView(APIView):
             limite = int(request.query_params.get("limite", "10"))
             data_ref = request.query_params.get("data_referencia")
             data_ref_dt = (
-                _to_datetime(data_ref, "data_referencia") if data_ref else None
+                to_datetime(data_ref, "data_referencia") if data_ref else None
             )
         except ValueError as exc:
             return _erro_400(str(exc))
@@ -503,10 +391,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             Total de alunos ativos no período.
         """
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
-            inicio = _to_datetime(data_inicio, "data_inicio")
-            fim = _to_datetime(data_fim, "data_fim")
-            modalidades = _query_int_list(request, "modalidades")
+            ano = to_int(ano_letivo, "ano_letivo")
+            inicio = to_datetime(data_inicio, "data_inicio")
+            fim = to_datetime(data_fim, "data_fim")
+            modalidades = query_int_list(request, "modalidades")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -556,11 +444,11 @@ class AlunosAtivosPeriodoTurmaView(APIView):
             Alunos ativos na turma no período.
         """
         try:
-            codigo = _to_int(codigo_turma, "codigo_turma")
-            fim = _to_datetime(data_referencia_fim, "data_referencia_fim")
+            codigo = to_int(codigo_turma, "codigo_turma")
+            fim = to_datetime(data_referencia_fim, "data_referencia_fim")
             inicio_raw = request.query_params.get("data_referencia_inicio")
             inicio = (
-                _to_datetime(inicio_raw, "data_referencia_inicio")
+                to_datetime(inicio_raw, "data_referencia_inicio")
                 if inicio_raw
                 else None
             )
@@ -596,7 +484,7 @@ class AlunosAtivosTurmaView(APIView):
             Alunos ativos na turma.
         """
         try:
-            codigo = _to_int(codigo_turma, "codigo_turma")
+            codigo = to_int(codigo_turma, "codigo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -625,7 +513,7 @@ class NecessidadesEspeciaisAlunoView(APIView):
             Necessidades especiais do aluno.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -664,8 +552,8 @@ class AlunosPorCodigosEAnoView(APIView):
             Alunos correspondentes aos códigos no ano letivo.
         """
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
-            codigos = _query_int_list(request, "codigos_aluno")
+            ano = to_int(ano_letivo, "ano_letivo")
+            codigos = query_int_list(request, "codigos_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -702,7 +590,7 @@ class AlunosPorCodigosView(APIView):
             Alunos correspondentes aos códigos.
         """
         try:
-            codigos = _query_int_list(request, "codigos_aluno")
+            codigos = query_int_list(request, "codigos_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -732,7 +620,7 @@ class InformacoesAlunoView(APIView):
             encontrado.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -766,7 +654,7 @@ class InformacoesAlunosTurmaView(APIView):
             Informações dos alunos da turma.
         """
         try:
-            codigo = _to_int(codigo_turma, "codigo_turma")
+            codigo = to_int(codigo_turma, "codigo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -806,8 +694,8 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
             Quantidade de matriculados por componente curricular.
         """
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
-            componentes = _query_int_list(request, "componentes_curriculares")
+            ano = to_int(ano_letivo, "ano_letivo")
+            componentes = query_int_list(request, "componentes_curriculares")
         except ValueError as exc:
             return _erro_400(str(exc))
         if not componentes:
@@ -852,9 +740,9 @@ class QuantidadeMatriculadosView(APIView):
             Quantidade de matriculados conforme os filtros.
         """
         try:
-            ano = _to_int(ano_letivo, "ano_letivo")
-            modalidade = _query_int_list(request, "modalidade")
-            ano_lst = _query_int_list(request, "ano")
+            ano = to_int(ano_letivo, "ano_letivo")
+            modalidade = query_int_list(request, "modalidade")
+            ano_lst = query_int_list(request, "ano")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -904,7 +792,7 @@ class DadosAcompanhamentoEscolarView(APIView):
             )
         try:
             codigo_aluno = (
-                _to_int(codigo_aluno_raw, "codigo_aluno")
+                to_int(codigo_aluno_raw, "codigo_aluno")
                 if codigo_aluno_raw
                 else None
             )
@@ -1059,7 +947,7 @@ class ResponsavelAlunoView(APIView):
             ValidationError: Quando os dados informados são inválidos.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -1105,7 +993,7 @@ class ResponsavelAlunoView(APIView):
             ValidationError: Quando os dados informados são inválidos.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -1147,7 +1035,7 @@ class FiliacaoAlunoView(APIView):
             encontrado.
         """
         try:
-            codigo = _to_int(codigo_aluno, "codigo_aluno")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -1190,7 +1078,7 @@ class MatriculasAnoAtualView(APIView):
         if not ano_raw or not ue_codigo:
             return _erro_400("ano_letivo e ue_codigo são obrigatórios.")
         try:
-            ano = _to_int(ano_raw, "ano_letivo")
+            ano = to_int(ano_raw, "ano_letivo")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -1230,7 +1118,7 @@ class MatriculasAnosAnterioresView(APIView):
         if not ano_raw or not ue_codigo:
             return _erro_400("ano_letivo e ue_codigo são obrigatórios.")
         try:
-            ano = _to_int(ano_raw, "ano_letivo")
+            ano = to_int(ano_raw, "ano_letivo")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -1351,7 +1239,7 @@ class MatriculasAlunoEscolaView(APIView):
         if not codigo_escola:
             return _erro_400("O código da escola e do aluno são obrigatórios")
         try:
-            codigo_a = _to_int(codigo_aluno, "codigo_aluno")
+            codigo_a = to_int(codigo_aluno, "codigo_aluno")
         except ValueError:
             return _erro_400("O código da escola e do aluno são obrigatórios")
         dados = services.obter_matriculas_aluno_na_escola(

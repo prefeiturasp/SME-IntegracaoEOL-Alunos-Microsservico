@@ -7,6 +7,7 @@ from typing import cast
 
 from apps.alunos.models import (
     Aluno,
+    DadosAlunoAcompanhamentoEscolar,
     Matricula,
     MatriculaTurma,
     NecessidadeEspecialAluno,
@@ -89,6 +90,24 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
     )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=1234567,
+        nome="JOAO DA SILVA",
+        nome_social=None,
+        codigo_ue="100001",
+        codigo_turma=12345,
+        turma="5A",
+        codigo_etapa_ensino=5,
+    )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=7654321,
+        nome="MARIA OLIVEIRA",
+        nome_social="MARIA SOCIAL",
+        codigo_ue="100001",
+        codigo_turma=22222,
+        turma="6A",
+        codigo_etapa_ensino=5,
+    )
     return [m1, m2]
 
 
@@ -105,6 +124,8 @@ def seed_responsaveis() -> ResponsavelAluno:
             ddd_celular="11",
             numero_celular="977778888",
             email="contato.exemplo@sme.com.br",
+            data_nascimento=date(1980, 5, 20),
+            nome_mae="Mae do Responsavel",
             autoriza_sms="S",
             endereco_id=123,
             numero_endereco="100",
