@@ -24,6 +24,7 @@ from apps.alunos.models import (
     ResponsavelAluno,
     TipoNecessidadeEspecial,
 )
+from apps.core.utils import numero_chamada_int
 
 # ---------------------------------------------------------------------------
 # DTOs de saída (1 por endpoint ou família de endpoints)
@@ -295,16 +296,6 @@ def _colunas_responsavel_aluno() -> set[str]:
     return {col.name for col in descricao}
 
 
-def _numero_chamada_int(numero_chamada: str | None) -> int | None:
-    """Converta número de chamada para inteiro, preservando ausência."""
-    if numero_chamada in (None, ""):
-        return None
-    try:
-        return int(cast(str, numero_chamada))
-    except (TypeError, ValueError):
-        return None
-
-
 def _dados_turma_acompanhamento_idx(
     matriculas: Sequence[dict[str, Any]],
     mts_idx: dict[int, dict[str, Any]],
@@ -345,29 +336,6 @@ def _dados_turma_acompanhamento_idx(
         )
         dados.setdefault(chave, row)
     return dados
-
-
-def _calcular_idade(
-    nascimento: date | datetime | None, referencia: date | None = None
-) -> int | None:
-    """Calcula idade em anos completos.
-
-    Args:
-        nascimento: Data de nascimento usada no cálculo.
-        referencia: Data de referência. Quando ausente, usa a data atual.
-
-    Returns:
-        Idade calculada, ou ``None`` quando não houver nascimento.
-    """
-    if nascimento is None:
-        return None
-    if isinstance(nascimento, datetime):
-        nascimento = nascimento.date()
-    ref = referencia or timezone.now().date()
-    idade = ref.year - nascimento.year
-    if (ref.month, ref.day) < (nascimento.month, nascimento.day):
-        idade -= 1
-    return idade
 
 
 def _alunos_indexados(
@@ -417,21 +385,23 @@ def _matricula_turma_por_matricula(
     if not codigos_matricula:
         return {}
     saida: dict[int, dict[str, Any]] = {}
-    for mt in MatriculaTurma.objects.filter(
-        codigo_matricula__in=codigos_matricula
-    ).values(
-        "codigo_matricula",
-        "codigo_turma",
-        "numero_chamada",
-        "data_situacao_aluno",
-        "data_situacao_aluno_data_hora",
-        "codigo_situacao_aluno",
-        "codigo_tipo_turma",
-        "data_atualizacao_tabela",
-    ).order_by(
-        "codigo_matricula",
-        "-data_situacao_aluno_data_hora",
-        "-data_situacao_aluno",
+    for mt in (
+        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
+        .values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "data_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+            "codigo_situacao_aluno",
+            "codigo_tipo_turma",
+            "data_atualizacao_tabela",
+        )
+        .order_by(
+            "codigo_matricula",
+            "-data_situacao_aluno_data_hora",
+            "-data_situacao_aluno",
+        )
     ):
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
@@ -451,21 +421,23 @@ def _todas_turmas_por_matricula(
     if not codigos_matricula:
         return {}
     saida: dict[int, list[dict[str, Any]]] = {}
-    for mt in MatriculaTurma.objects.filter(
-        codigo_matricula__in=codigos_matricula
-    ).values(
-        "codigo_matricula",
-        "codigo_turma",
-        "numero_chamada",
-        "data_situacao_aluno",
-        "data_situacao_aluno_data_hora",
-        "codigo_situacao_aluno",
-        "codigo_tipo_turma",
-        "data_atualizacao_tabela",
-    ).order_by(
-        "codigo_matricula",
-        "-data_situacao_aluno_data_hora",
-        "-data_situacao_aluno",
+    for mt in (
+        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
+        .values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "data_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+            "codigo_situacao_aluno",
+            "codigo_tipo_turma",
+            "data_atualizacao_tabela",
+        )
+        .order_by(
+            "codigo_matricula",
+            "-data_situacao_aluno_data_hora",
+            "-data_situacao_aluno",
+        )
     ):
         saida.setdefault(mt["codigo_matricula"], []).append(mt)
     return saida
@@ -707,7 +679,8 @@ def _consultar_turmas_do_aluno(
             "situacao_matricula",
             "data_situacao_matricula",
             "data_situacao_matricula_data_hora",
-        ).order_by("-ano_letivo", "codigo_situacao_matricula")
+        )
+        .order_by("-ano_letivo", "codigo_situacao_matricula")
     )
     if not matriculas:
         return []
@@ -1593,7 +1566,7 @@ def obter_informacoes_alunos_da_turma(
             ),
             sexo=alunos_idx.get(r["aluno_id"], {}).get("sexo"),
             raca_cor=alunos_idx.get(r["aluno_id"], {}).get("raca_cor"),
-            numero_chamada=_numero_chamada_int(r["numero_chamada"]),
+            numero_chamada=numero_chamada_int(r["numero_chamada"]),
             raca=alunos_idx.get(r["aluno_id"], {}).get("raca_cor"),
             codigo_raca=_codigo_raca(
                 alunos_idx.get(r["aluno_id"], {}).get("raca_cor")

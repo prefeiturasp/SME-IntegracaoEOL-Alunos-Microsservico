@@ -513,30 +513,6 @@ class HelpersInternosTestCase(TestCase):
 
         self.assertIsNone(_responsavel_principal(99999999))
 
-    def test_calcular_idade_none(self) -> None:
-        """Verifica que data de nascimento None resulta em None."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertIsNone(_calcular_idade(None))
-
-    def test_calcular_idade_aniversario_nao_completo(self) -> None:
-        """Verifica que aniversário não atingido subtrai um ano."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertEqual(
-            _calcular_idade(date(2010, 12, 31), referencia=date(2026, 6, 1)),
-            15,
-        )
-
-    def test_calcular_idade_com_datetime(self) -> None:
-        """Verifica que datetime é aceito como data de nascimento."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertEqual(
-            _calcular_idade(datetime(2010, 1, 1), referencia=date(2026, 6, 1)),
-            16,
-        )
-
 
 class AutocompleteCenariosServiceTestCase(TestCase):
     """Valida cenários de borda do autocomplete de alunos."""
