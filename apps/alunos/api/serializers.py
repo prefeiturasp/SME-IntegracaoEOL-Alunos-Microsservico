@@ -160,7 +160,7 @@ class ResponsavelTurmaSerializer(serializers.Serializer):
 
 
 class DadosResponsavelSerializer(serializers.Serializer):
-    """Serializa os dados do responsável."""
+    """Serializa dados completos do responsável."""
 
     codigo_responsavel = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
@@ -180,7 +180,7 @@ class DadosResponsavelSerializer(serializers.Serializer):
 
 
 class DadosResponsavelResumidoSerializer(serializers.Serializer):
-    """Serializa os dados resumidos do responsável."""
+    """Serializa dados resumidos do responsável."""
 
     id = serializers.IntegerField()
     cpf = serializers.CharField(allow_null=True)
@@ -223,7 +223,7 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
 
 
 class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
-    """Serializa os dados para atualizar o responsável do aluno."""
+    """Serializa dados de atualização de contato do responsável."""
 
     codigo_aluno = serializers.IntegerField(required=False)
     cpf = serializers.CharField(required=False, allow_blank=True)
@@ -239,7 +239,7 @@ class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
 
 
 class CadastrarResponsavelRequestSerializer(serializers.Serializer):
-    """Serializa os dados para cadastrar um novo responsável."""
+    """Serializa dados de cadastro de responsável."""
 
     cpf = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)

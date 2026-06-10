@@ -101,7 +101,7 @@ class NecessidadeEspecialDTO:
 
 @dataclass(frozen=True)
 class InformacoesAlunoDTO:
-    """Informações do Aluno."""
+    """Dados cadastrais do aluno."""
 
     codigo_aluno: int
     nome_aluno: str
@@ -1572,9 +1572,6 @@ def obter_informacoes_alunos_da_turma(
 
     Args:
         codigo_turma: Código EOL da turma.
-
-    Returns:
-        Alunos da turma no formato usado por chamada/diário.
     """
     rows = _matriculas_por_codigos_turma([codigo_turma])
     rows_validas = [
@@ -1943,13 +1940,13 @@ def obter_dados_responsavel(
 def obter_dados_responsavel_resumido(
     cpf_responsavel: str,
 ) -> DadosResponsavelResumidoDTO | None:
-    """Lista dados resumidos do responsável.
+    """Retorna dados resumidos do responsável.
 
     Args:
         cpf_responsavel: CPF do responsável.
 
     Returns:
-        Dados resumidos do primeiro vínculo encontrado, ou ``None``.
+        Dados resumidos do responsável, ou ``None`` se não encontrado.
     """
     cpf = (cpf_responsavel or "").strip()
     if not cpf:
@@ -2241,9 +2238,6 @@ def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> list[Any]:
 
     Args:
         ue_codigo: Código EOL da UE.
-
-    Returns:
-        Lista vazia enquanto a funcionalidade estiver fora do escopo.
     """
     _ = ue_codigo
     return []
@@ -2254,9 +2248,6 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[Any]:
 
     Args:
         dre_codigo: Código EOL da DRE.
-
-    Returns:
-        Lista vazia enquanto a funcionalidade estiver fora do escopo.
     """
     _ = dre_codigo
     return []
