@@ -1054,30 +1054,23 @@ def buscar_alunos_autocomplete(
     )
 
 
-def buscar_alunos_ativos_autocomplete(
+def _qs_matriculas_ativas_ue(
     ue_codigo: str,
-    aluno_nome: str | None = None,
-    aluno_codigo: int = 0,
-    data_referencia: datetime | date | None = None,
-    limite: int = 10,
-) -> list[AlunoAutocompleteDTO]:
-    """Busca alunos ativos para autocomplete.
+    referencia: date | None,
+    aluno_codigo: int,
+    nome_l: str,
+) -> Any:
+    """Monta o queryset de matrículas ativas da UE para autocomplete.
 
     Args:
         ue_codigo: Código EOL da UE.
-        aluno_nome: Substring do nome do aluno.
+        referencia: Inclui situações alteradas após a data, quando informada.
         aluno_codigo: Código EOL do aluno, ou ``0`` para ignorar.
-        data_referencia: Mantido por compatibilidade; sem efeito atual.
-        limite: Máximo de resultados retornados.
+        nome_l: Substring do nome em minúsculas, ou vazia para ignorar.
 
     Returns:
-        Alunos ativos compatíveis com os filtros.
+        QuerySet de matrículas com os filtros aplicados, ordenado por nome.
     """
-    referencia = (
-        data_referencia.date()
-        if isinstance(data_referencia, datetime)
-        else data_referencia
-    )
     qs = Matricula.objects.filter(codigo_ue=ue_codigo)
     if referencia is not None:
         qs = qs.filter(
@@ -1090,19 +1083,26 @@ def buscar_alunos_ativos_autocomplete(
         )
     if aluno_codigo:
         qs = qs.filter(aluno_id=aluno_codigo)
-    nome_l = (aluno_nome or "").strip().lower()
     if nome_l:
         qs = qs.filter(aluno__nome__icontains=nome_l)
-    qs = qs.order_by("aluno__nome", "aluno__nome_social")
+    return qs.order_by("aluno__nome", "aluno__nome_social")
 
-    matriculas = list(
-        qs.values("codigo_matricula", "aluno_id", "codigo_ue")[: limite + 500]
-    )
-    if not matriculas:
-        return []
 
-    codigos_matricula = [m["codigo_matricula"] for m in matriculas]
-    mts = list(
+def _mts_ativas_idx(
+    codigos_matricula: list[int],
+) -> dict[int, dict[str, Any]]:
+    """Indexa matrículas-turma ativas regulares por matrícula.
+
+    Considera apenas situações ativas de matrícula-turma e exclui turmas
+    de programa (tipo 3).
+
+    Args:
+        codigos_matricula: Códigos de matrícula consultados.
+
+    Returns:
+        Índice de matrícula-turma por ``codigo_matricula``.
+    """
+    mts = (
         MatriculaTurma.objects.filter(
             codigo_matricula__in=codigos_matricula,
             codigo_situacao_aluno__in=SITUACOES_MATRICULA_TURMA_ATIVAS,
@@ -1116,11 +1116,27 @@ def buscar_alunos_ativos_autocomplete(
         )
         .order_by("codigo_matricula")
     )
-    mts_idx = {mt["codigo_matricula"]: mt for mt in mts}
-    matriculas = [m for m in matriculas if m["codigo_matricula"] in mts_idx]
-    if not matriculas:
-        return []
+    return {mt["codigo_matricula"]: mt for mt in mts}
 
+
+def _montar_autocomplete_ativos(
+    matriculas: list[dict[str, Any]],
+    mts_idx: dict[int, dict[str, Any]],
+    nome_l: str,
+    limite: int,
+) -> list[AlunoAutocompleteDTO]:
+    """Monta os DTOs de autocomplete de alunos ativos.
+
+    Args:
+        matriculas: Matrículas elegíveis ao retorno.
+        mts_idx: Índice de matrícula-turma por ``codigo_matricula``.
+        nome_l: Substring do nome em minúsculas, ou vazia para ignorar.
+        limite: Máximo de itens retornados.
+
+    Returns:
+        DTOs ordenados por nome, restritos a alunos com dados de turma
+        no acompanhamento escolar.
+    """
     alunos_idx = _alunos_indexados([m["aluno_id"] for m in matriculas])
     dados_turma_idx = _dados_turma_acompanhamento_idx(matriculas, mts_idx)
     saida: list[AlunoAutocompleteDTO] = []
@@ -1158,6 +1174,46 @@ def buscar_alunos_ativos_autocomplete(
         if len(saida) >= limite:
             break
     return saida
+
+
+def buscar_alunos_ativos_autocomplete(
+    ue_codigo: str,
+    aluno_nome: str | None = None,
+    aluno_codigo: int = 0,
+    data_referencia: datetime | date | None = None,
+    limite: int = 10,
+) -> list[AlunoAutocompleteDTO]:
+    """Busca alunos ativos para autocomplete.
+
+    Args:
+        ue_codigo: Código EOL da UE.
+        aluno_nome: Substring do nome do aluno.
+        aluno_codigo: Código EOL do aluno, ou ``0`` para ignorar.
+        data_referencia: Mantido por compatibilidade; sem efeito atual.
+        limite: Máximo de resultados retornados.
+
+    Returns:
+        Alunos ativos compatíveis com os filtros.
+    """
+    referencia = (
+        data_referencia.date()
+        if isinstance(data_referencia, datetime)
+        else data_referencia
+    )
+    nome_l = (aluno_nome or "").strip().lower()
+    qs = _qs_matriculas_ativas_ue(ue_codigo, referencia, aluno_codigo, nome_l)
+    matriculas = list(
+        qs.values("codigo_matricula", "aluno_id", "codigo_ue")[: limite + 500]
+    )
+    if not matriculas:
+        return []
+
+    mts_idx = _mts_ativas_idx([m["codigo_matricula"] for m in matriculas])
+    matriculas = [m for m in matriculas if m["codigo_matricula"] in mts_idx]
+    if not matriculas:
+        return []
+
+    return _montar_autocomplete_ativos(matriculas, mts_idx, nome_l, limite)
 
 
 def obter_total_alunos_ativos_periodo(

@@ -29,11 +29,12 @@ def to_int(valor: str, nome_param: str) -> int:
         ) from exc
 
 
-def to_bool(valor: str, nome_param: str) -> bool:
+def to_bool(valor: str | None, nome_param: str) -> bool:
     """Transforma um path/query param em booleano.
 
     Args:
-        valor: Valor recebido (``true``/``false`` e variantes em PT/EN).
+        valor: Valor recebido (``true``/``false`` e variantes em PT/EN),
+            ou ``None`` quando ausente.
         nome_param: Nome usado na mensagem de erro.
 
     Returns:

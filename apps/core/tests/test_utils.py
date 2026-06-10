@@ -50,7 +50,7 @@ class ToBoolTestCase(TestCase):
     def test_none_lanca_value_error(self) -> None:
         """Verifica que None lança ValueError."""
         with self.assertRaises(ValueError):
-            to_bool(None, "flag")  # type: ignore[arg-type]
+            to_bool(None, "flag")
 
 
 class ToDatetimeTestCase(TestCase):
