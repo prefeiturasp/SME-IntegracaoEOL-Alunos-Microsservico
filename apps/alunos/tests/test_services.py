@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
@@ -557,3 +557,37 @@ class AutocompleteCenariosServiceTestCase(TestCase):
             limite=1,
         )
         self.assertEqual(len(dados), 1)
+
+
+class BuscarTurmasDoAlunoFiltrosTestCase(TestCase):
+    """Valida o repasse de filtros em buscar_turmas_do_aluno."""
+
+    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    def test_default_exclui_programa_e_filtra_situacao(
+        self, mock_consultar: MagicMock
+    ) -> None:
+        """Verifica que os defaults preservam o comportamento padrão."""
+        mock_consultar.return_value = []
+
+        services.buscar_turmas_do_aluno(codigo_aluno=1234567)
+
+        mock_consultar.assert_called_once_with(
+            codigo_aluno=1234567, tipo_turma=True, filtrar_situacao=True
+        )
+
+    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    def test_repassa_tipo_turma_e_filtrar_situacao(
+        self, mock_consultar: MagicMock
+    ) -> None:
+        """Verifica que os filtros informados chegam à consulta."""
+        mock_consultar.return_value = []
+
+        services.buscar_turmas_do_aluno(
+            codigo_aluno=1234567,
+            tipo_turma=False,
+            filtrar_situacao=False,
+        )
+
+        mock_consultar.assert_called_once_with(
+            codigo_aluno=1234567, tipo_turma=False, filtrar_situacao=False
+        )

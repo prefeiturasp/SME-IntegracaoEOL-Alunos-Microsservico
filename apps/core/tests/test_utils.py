@@ -8,6 +8,7 @@ from rest_framework.request import Request
 from apps.core.utils import (
     calcular_idade,
     numero_chamada_int,
+    query_bool,
     query_int_list,
     to_bool,
     to_datetime,
@@ -73,6 +74,37 @@ class ToDatetimeTestCase(TestCase):
         """Verifica que valor não ISO lança ValueError."""
         with self.assertRaises(ValueError):
             to_datetime("03/02/2026", "data")
+
+
+class QueryBoolTestCase(TestCase):
+    """Valida a leitura de parâmetro booleano da query string."""
+
+    def setUp(self) -> None:
+        """Configura o RequestFactory dos testes."""
+        self.factory = RequestFactory()
+
+    def _request(self, query: str) -> Request:
+        return Request(self.factory.get(f"/?{query}"))
+
+    def test_ausente_usa_default(self) -> None:
+        """Verifica que parâmetro ausente retorna o default."""
+        request = self._request("")
+
+        self.assertTrue(query_bool(request, "flag", default=True))
+        self.assertFalse(query_bool(request, "flag", default=False))
+
+    def test_valor_informado_sobrescreve_default(self) -> None:
+        """Verifica que o valor informado prevalece sobre o default."""
+        request = self._request("flag=false")
+
+        self.assertFalse(query_bool(request, "flag", default=True))
+
+    def test_valor_invalido_lanca_value_error(self) -> None:
+        """Verifica que valor não booleano lança ValueError."""
+        request = self._request("flag=talvez")
+
+        with self.assertRaises(ValueError):
+            query_bool(request, "flag", default=True)
 
 
 class QueryIntListTestCase(TestCase):

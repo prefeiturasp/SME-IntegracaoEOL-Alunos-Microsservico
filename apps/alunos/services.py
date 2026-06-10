@@ -771,16 +771,27 @@ def _consultar_turmas_do_aluno(
     return saida
 
 
-def buscar_turmas_do_aluno(codigo_aluno: int) -> list[TurmaDoAlunoDTO]:
+def buscar_turmas_do_aluno(
+    codigo_aluno: int,
+    tipo_turma: bool = True,
+    filtrar_situacao: bool = True,
+) -> list[TurmaDoAlunoDTO]:
     """Lista as turmas do aluno no ano corrente.
 
     Args:
         codigo_aluno: Código EOL do aluno.
+        tipo_turma: Exclui turmas do tipo programa (tipo 3) quando verdadeiro.
+        filtrar_situacao: Restringe às situações de matrícula válidas quando
+            verdadeiro.
 
     Returns:
-        Turmas do aluno com situações válidas no ano corrente.
+        Turmas do aluno no ano corrente.
     """
-    return _consultar_turmas_do_aluno(codigo_aluno=codigo_aluno)
+    return _consultar_turmas_do_aluno(
+        codigo_aluno=codigo_aluno,
+        tipo_turma=tipo_turma,
+        filtrar_situacao=filtrar_situacao,
+    )
 
 
 def buscar_turmas_do_aluno_por_situacao_matricula(

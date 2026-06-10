@@ -29,7 +29,13 @@ from apps.alunos.api.serializers import (
     TotalAlunosAtivosPeriodoSerializer,
     TurmaDoAlunoSerializer,
 )
-from apps.core.utils import query_int_list, to_bool, to_datetime, to_int
+from apps.core.utils import (
+    query_bool,
+    query_int_list,
+    to_bool,
+    to_datetime,
+    to_int,
+)
 
 _TAG_ALUNO = ["Alunos"]
 _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
@@ -57,19 +63,46 @@ class BuscaTurmasDoAlunoView(APIView):
         summary="Turmas do aluno",
         parameters=[
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "tipo_turma", bool, OpenApiParameter.QUERY, required=False
+            ),
+            OpenApiParameter(
+                "filtrar_situacao",
+                bool,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
         ],
         responses={200: TurmaDoAlunoSerializer(many=True)},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Retorna as turmas do aluno no ano corrente.
+
+        Args:
+            request: Requisição com os filtros opcionais ``tipo_turma`` e
+                ``filtrar_situacao``.
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Turmas do aluno, ou ausência de conteúdo quando não há turmas.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
+            tipo_turma = query_bool(request, "tipo_turma", default=True)
+            filtrar_situacao = query_bool(
+                request, "filtrar_situacao", default=True
+            )
         except ValueError as exc:
             return _erro_400(str(exc))
 
         if codigo <= 0:
             return _erro_400("Código do aluno obrigatório.")
 
-        dados = services.buscar_turmas_do_aluno(codigo_aluno=codigo)
+        dados = services.buscar_turmas_do_aluno(
+            codigo_aluno=codigo,
+            tipo_turma=tipo_turma,
+            filtrar_situacao=filtrar_situacao,
+        )
         if not dados:
             return Response(
                 {"detail": ALUNO_SEM_TURMA},
@@ -102,6 +135,19 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
         filtrar_situacao_matricula: str,
         tipo_turma: str,
     ) -> Response:
+        """Retorna as turmas do aluno filtradas por situação de matrícula.
+
+        Args:
+            codigo_aluno: Código EOL do aluno.
+            ano_letivo: Ano letivo consultado.
+            filtrar_situacao_matricula: Restringe às situações de matrícula
+                válidas quando verdadeiro.
+            tipo_turma: Indicador de tipo de turma recebido na rota.
+
+        Returns:
+            Turmas do aluno conforme os filtros, ou ausência de conteúdo
+            quando não há turmas.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
             ano = to_int(ano_letivo, "ano_letivo")
@@ -145,6 +191,16 @@ class BuscarAlunosDaUeView(APIView):
     def get(
         self, request: Request, codigo_ue: str, ano_letivo: str
     ) -> Response:
+        """Lista os alunos de uma UE no ano letivo.
+
+        Args:
+            request: Requisição com os filtros opcionais de nome e código EOL.
+            codigo_ue: Código da unidade educacional.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Alunos da UE, ou ausência de conteúdo quando não há alunos.
+        """
         if not codigo_ue or not ano_letivo:
             return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
@@ -189,6 +245,17 @@ class AutocompleteAlunosUeView(APIView):
     def get(
         self, request: Request, codigo_ue: str, ano_letivo: str
     ) -> Response:
+        """Lista dados de autocomplete de alunos da UE no ano letivo.
+
+        Args:
+            request: Requisição com os filtros de turma, nome, código e limite.
+            codigo_ue: Código da unidade educacional.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Alunos para autocomplete, ou ausência de conteúdo quando não há
+            alunos.
+        """
         if not codigo_ue:
             return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
         try:
@@ -242,6 +309,16 @@ class AutocompleteAlunosAtivosView(APIView):
         responses={200: AlunoAutocompleteSerializer(many=True)},
     )
     def get(self, request: Request, ue_codigo: str) -> Response:
+        """Lista dados de autocomplete de alunos ativos por referência.
+
+        Args:
+            request: Requisição com nome, código, data de referência e limite.
+            ue_codigo: Código da unidade educacional.
+
+        Returns:
+            Alunos ativos para autocomplete, ou ausência de conteúdo quando
+            não há alunos.
+        """
         if not ue_codigo:
             return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
 
@@ -301,6 +378,18 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         data_inicio: str,
         data_fim: str,
     ) -> Response:
+        """Retorna o total de alunos ativos no período informado.
+
+        Args:
+            request: Requisição com os filtros de UE, DRE e modalidades.
+            ano_turma: Ano da turma consultado.
+            ano_letivo: Ano letivo consultado.
+            data_inicio: Início do período de referência.
+            data_fim: Fim do período de referência.
+
+        Returns:
+            Total de alunos ativos no período.
+        """
         try:
             ano = to_int(ano_letivo, "ano_letivo")
             inicio = to_datetime(data_inicio, "data_inicio")
@@ -344,6 +433,16 @@ class AlunosAtivosPeriodoTurmaView(APIView):
         codigo_turma: str,
         data_referencia_fim: str,
     ) -> Response:
+        """Lista os alunos ativos em uma turma no período informado.
+
+        Args:
+            request: Requisição com a data de referência inicial opcional.
+            codigo_turma: Código da turma consultada.
+            data_referencia_fim: Fim do período de referência.
+
+        Returns:
+            Alunos ativos na turma no período.
+        """
         try:
             codigo = to_int(codigo_turma, "codigo_turma")
             fim = to_datetime(data_referencia_fim, "data_referencia_fim")
@@ -376,6 +475,14 @@ class AlunosAtivosTurmaView(APIView):
         responses={200: AlunoAtivoTurmaSerializer(many=True)},
     )
     def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista os alunos ativos em uma turma.
+
+        Args:
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Alunos ativos na turma.
+        """
         try:
             codigo = to_int(codigo_turma, "codigo_turma")
         except ValueError as exc:
@@ -397,6 +504,14 @@ class NecessidadesEspeciaisAlunoView(APIView):
         responses={200: NecessidadeEspecialSerializer(many=True)},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Lista as necessidades especiais do aluno.
+
+        Args:
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Necessidades especiais do aluno.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
@@ -427,6 +542,15 @@ class AlunosPorCodigosEAnoView(APIView):
         responses={200: TurmaDoAlunoSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
+        """Lista os alunos pelos códigos e ano letivo informados.
+
+        Args:
+            request: Requisição com a lista de códigos de aluno.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Alunos correspondentes aos códigos no ano letivo.
+        """
         try:
             ano = to_int(ano_letivo, "ano_letivo")
             codigos = query_int_list(request, "codigos_aluno")
@@ -457,6 +581,14 @@ class AlunosPorCodigosView(APIView):
         responses={200: TurmaDoAlunoSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Lista os alunos pelos códigos informados.
+
+        Args:
+            request: Requisição com a lista de códigos de aluno.
+
+        Returns:
+            Alunos correspondentes aos códigos.
+        """
         try:
             codigos = query_int_list(request, "codigos_aluno")
         except ValueError as exc:
@@ -478,6 +610,15 @@ class InformacoesAlunoView(APIView):
         responses={200: InformacoesAlunoSerializer},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Retorna as informações completas do aluno.
+
+        Args:
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Informações do aluno, ou ausência de conteúdo quando não
+            encontrado.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
@@ -504,6 +645,14 @@ class InformacoesAlunosTurmaView(APIView):
         responses={200: InformacoesAlunoTurmaSerializer(many=True)},
     )
     def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista as informações dos alunos de uma turma.
+
+        Args:
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Informações dos alunos da turma.
+        """
         try:
             codigo = to_int(codigo_turma, "codigo_turma")
         except ValueError as exc:
@@ -534,6 +683,16 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
         responses={200: QuantidadeMatriculadosCCSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
+        """Retorna a quantidade de matriculados por componente e ano.
+
+        Args:
+            request: Requisição com os componentes curriculares e os filtros
+                de DRE e UE.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Quantidade de matriculados por componente curricular.
+        """
         try:
             ano = to_int(ano_letivo, "ano_letivo")
             componentes = query_int_list(request, "componentes_curriculares")
@@ -570,6 +729,16 @@ class QuantidadeMatriculadosView(APIView):
         responses={200: QuantidadeMatriculadosSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
+        """Retorna a quantidade de matriculados conforme os filtros.
+
+        Args:
+            request: Requisição com os filtros de DRE, UE, modalidade, ano e
+                turma.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Quantidade de matriculados conforme os filtros.
+        """
         try:
             ano = to_int(ano_letivo, "ano_letivo")
             modalidade = query_int_list(request, "modalidade")
@@ -604,6 +773,14 @@ class DadosAcompanhamentoEscolarView(APIView):
         responses={200: DadosAcompanhamentoEscolarSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Lista os dados de acompanhamento escolar conforme os filtros.
+
+        Args:
+            request: Requisição com os filtros de aluno, DRE, UE e responsável.
+
+        Returns:
+            Dados de acompanhamento escolar conforme os filtros.
+        """
         codigo_aluno_raw = request.query_params.get("codigo_aluno")
         codigo_dre = request.query_params.get("codigo_dre")
         codigo_ue = request.query_params.get("codigo_ue")
@@ -651,6 +828,14 @@ class ResponsaveisDreUeTurmaView(APIView):
         responses={200: ResponsavelTurmaSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Lista os responsáveis por DRE, UE e turma.
+
+        Args:
+            request: Requisição com os filtros de DRE, UE e ano letivo.
+
+        Returns:
+            Responsáveis conforme os filtros.
+        """
         codigo_dre = request.query_params.get("codigo_dre")
         try:
             ano = (
@@ -686,6 +871,14 @@ class DadosResponsavelView(APIView):
         responses={200: DadosResponsavelSerializer(many=True)},
     )
     def get(self, request: Request, cpf_responsavel: str) -> Response:
+        """Lista os dados completos do responsável.
+
+        Args:
+            cpf_responsavel: CPF do responsável consultado.
+
+        Returns:
+            Dados completos do responsável.
+        """
         dados = services.obter_dados_responsavel(
             cpf_responsavel=cpf_responsavel
         )
@@ -704,6 +897,15 @@ class DadosResponsavelResumidoView(APIView):
         responses={200: DadosResponsavelResumidoSerializer},
     )
     def get(self, request: Request, cpf_responsavel: str) -> Response:
+        """Retorna os dados resumidos do responsável.
+
+        Args:
+            cpf_responsavel: CPF do responsável consultado.
+
+        Returns:
+            Dados resumidos do responsável, ou ausência de conteúdo quando não
+            encontrado.
+        """
         dado = services.obter_dados_responsavel_resumido(
             cpf_responsavel=cpf_responsavel
         )
@@ -731,6 +933,19 @@ class ResponsavelAlunoView(APIView):
     def put(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
     ) -> Response:
+        """Atualiza os dados de contato do responsável (busca ativa).
+
+        Args:
+            request: Requisição com os dados de contato no corpo.
+            codigo_aluno: Código EOL do aluno.
+            cpf_responsavel: CPF do responsável atualizado.
+
+        Returns:
+            Dados resumidos do responsável após a atualização.
+
+        Raises:
+            ValidationError: Quando os dados informados são inválidos.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
@@ -764,6 +979,19 @@ class ResponsavelAlunoView(APIView):
     def post(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
     ) -> Response:
+        """Cadastra os dados de um responsável do aluno.
+
+        Args:
+            request: Requisição com os dados do responsável no corpo.
+            codigo_aluno: Código EOL do aluno.
+            cpf_responsavel: CPF do responsável cadastrado.
+
+        Returns:
+            Dados resumidos do responsável cadastrado.
+
+        Raises:
+            ValidationError: Quando os dados informados são inválidos.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
@@ -797,6 +1025,15 @@ class FiliacaoAlunoView(APIView):
         responses={200: InformacoesAlunoSerializer},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Retorna os dados de filiação do responsável do aluno.
+
+        Args:
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Dados de filiação do aluno, ou ausência de conteúdo quando não
+            encontrado.
+        """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
@@ -828,6 +1065,14 @@ class MatriculasAnoAtualView(APIView):
         responses={200: ConsolidacaoMatriculaSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Lista as matrículas consolidadas do ano atual.
+
+        Args:
+            request: Requisição com o ano letivo e o código da UE.
+
+        Returns:
+            Matrículas consolidadas do ano atual.
+        """
         ano_raw = request.query_params.get("ano_letivo")
         ue_codigo = request.query_params.get("ue_codigo")
         if not ano_raw or not ue_codigo:
@@ -860,6 +1105,14 @@ class MatriculasAnosAnterioresView(APIView):
         responses={200: ConsolidacaoMatriculaSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
+        """Lista as matrículas consolidadas de anos anteriores.
+
+        Args:
+            request: Requisição com o ano letivo e o código da UE.
+
+        Returns:
+            Matrículas consolidadas de anos anteriores.
+        """
         ano_raw = request.query_params.get("ano_letivo")
         ue_codigo = request.query_params.get("ue_codigo")
         if not ano_raw or not ue_codigo:
@@ -887,6 +1140,14 @@ class TotalMatriculasPorTurnoUeView(APIView):
         responses={200: {"type": "array", "items": {}}},
     )
     def get(self, request: Request, ue_codigo: str) -> Response:
+        """Retorna o total de matrículas por turno na UE.
+
+        Args:
+            ue_codigo: Código da unidade educacional.
+
+        Returns:
+            Total de matrículas por turno na UE.
+        """
         if not ue_codigo:
             return _erro_400("Código da UE obrigatório.")
         return Response(
@@ -906,6 +1167,14 @@ class TotalMatriculasPorTurnoDreView(APIView):
         responses={200: {"type": "array", "items": {}}},
     )
     def get(self, request: Request, dre_codigo: str) -> Response:
+        """Retorna o total de matrículas por turno na DRE.
+
+        Args:
+            dre_codigo: Código da DRE.
+
+        Returns:
+            Total de matrículas por turno na DRE.
+        """
         if not dre_codigo:
             return _erro_400("Código da DRE obrigatório.")
         return Response(
@@ -927,6 +1196,14 @@ class QuantidadeAlunosPorTurmaEscolaView(APIView):
         responses={200: ConsolidacaoMatriculaSerializer(many=True)},
     )
     def get(self, request: Request, codigo_escola: str) -> Response:
+        """Lista a quantidade de alunos por turma na escola.
+
+        Args:
+            codigo_escola: Código EOL da escola.
+
+        Returns:
+            Quantidade de alunos por turma na escola.
+        """
         if not codigo_escola:
             return _erro_400("Código EOL da escola obrigatório.")
         dados = services.obter_quantidade_alunos_por_turma_da_escola(
@@ -950,6 +1227,15 @@ class MatriculasAlunoEscolaView(APIView):
     def get(
         self, request: Request, codigo_escola: str, codigo_aluno: str
     ) -> Response:
+        """Lista as matrículas de um aluno na escola.
+
+        Args:
+            codigo_escola: Código EOL da escola.
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Matrículas do aluno na escola.
+        """
         if not codigo_escola:
             return _erro_400("O código da escola e do aluno são obrigatórios")
         try:

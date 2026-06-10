@@ -935,3 +935,37 @@ class AutocompleteCenariosApiTestCase(TestCase):
         resp = _autenticado().get(url + "?limite=1")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
+
+
+class TurmasDoAlunoComFiltrosTestCase(TestCase):
+    """Valida os filtros de query do endpoint de turmas do aluno."""
+
+    def test_inclui_programa_e_nao_filtra_situacao(self) -> None:
+        """Verifica que os filtros de query são aceitos e respondem 200."""
+        seed_matriculas()
+        seed_responsaveis()
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            url = reverse(
+                "busca-turmas-do-aluno",
+                kwargs={"codigo_aluno": "1234567"},
+            )
+            resp = _autenticado().get(
+                url + "?tipo_turma=false&filtrar_situacao=false"
+            )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(body)
+        self.assertEqual(body[0]["codigo_aluno"], 1234567)
+        self.assertIn("codigo_tipo_turma", body[0])
+
+    def test_filtro_booleano_invalido_400(self) -> None:
+        """Verifica que filtro booleano inválido retorna 400."""
+        url = reverse(
+            "busca-turmas-do-aluno",
+            kwargs={"codigo_aluno": "1234567"},
+        )
+        resp = _autenticado().get(url + "?tipo_turma=talvez")
+        self.assertEqual(resp.status_code, 400)

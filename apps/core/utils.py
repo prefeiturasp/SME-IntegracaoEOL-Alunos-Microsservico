@@ -80,6 +80,26 @@ def to_datetime(valor: str, nome_param: str) -> datetime:
         ) from exc
 
 
+def query_bool(request: Request, nome: str, default: bool) -> bool:
+    """Lê um parâmetro de consulta booleano.
+
+    Args:
+        request: Requisição com os parâmetros de consulta.
+        nome: Nome do parâmetro lido.
+        default: Valor usado quando o parâmetro não é informado.
+
+    Returns:
+        Booleano informado, ou ``default`` quando o parâmetro está ausente.
+
+    Raises:
+        ValueError: Se o valor informado não representa um booleano.
+    """
+    raw = request.query_params.get(nome)
+    if raw is None:
+        return default
+    return to_bool(raw, nome)
+
+
 def query_int_list(request: Request, nome: str) -> list[int]:
     """Extrai uma lista de inteiros da query string.
 
