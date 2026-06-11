@@ -33,7 +33,7 @@ def seed_alunos() -> dict[int, Aluno]:
         nis="123456789",
         raca_cor="NAO INFORMADO",
         data_nascimento=date(2012, 5, 15),
-        data_atualizacao_contato=date(2026, 1, 15),
+        data_atualizacao_contato=datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
         possui_deficiencia=False,
     )
     a2 = Aluno.objects.create(
