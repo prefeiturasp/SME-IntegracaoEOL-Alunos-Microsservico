@@ -36,7 +36,10 @@ class TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(d.codigo_situacao_matricula, 1)
         self.assertEqual(d.nome_aluno, "JOAO DA SILVA")
         self.assertEqual(d.numero_aluno_chamada, "12")
-        self.assertEqual(d.data_atualizacao_contato, date(2026, 1, 15))
+        self.assertEqual(
+            d.data_atualizacao_contato,
+            datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
+        )
 
     def test_a01_aluno_inexistente_retorna_lista_vazia(self) -> None:
         """Verifica que aluno sem matrículas recebe lista vazia."""
