@@ -375,7 +375,7 @@ def _responsaveis_do_aluno(codigo_aluno: int) -> list[dict[str, Any]]:
         codigo_aluno: Código EOL do aluno.
 
     Returns:
-        Responsáveis na mesma cardinalidade usada pelo legado.
+        Dados dos Responsáveis.
     """
     return list(
         ResponsavelAluno.objects.filter(aluno_id=codigo_aluno)
@@ -431,7 +431,7 @@ def _endereco_responsavel(
 def _codigo_situacao_turma(
     matricula: dict[str, Any], matricula_turma: dict[str, Any]
 ) -> int:
-    """Resolve o código de situação usado no retorno legado.
+    """Resolve o código de situação usado.
 
     Args:
         matricula: Dados da matrícula.
@@ -1323,9 +1323,6 @@ def _turmas_atuais_por_aluno(codigo_aluno: int) -> list[TurmaDoAlunoDTO]:
                         ),
                         numero_aluno_chamada=mt.get("numero_chamada"),
                         codigo_turma=mt.get("codigo_turma") or 0,
-                        # Legado expõe dataAtualizacaoContato a partir de
-                        # aluno.dt_atualizacao_tabela (índice Elastic), não do
-                        # responsável. Ver queries.py:25 do MS-ETL.
                         data_atualizacao_contato=aluno.get(
                             "data_atualizacao_contato"
                         ),
