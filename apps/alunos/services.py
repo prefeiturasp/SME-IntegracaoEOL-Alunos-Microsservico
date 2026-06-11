@@ -669,8 +669,8 @@ def _consultar_turmas_do_aluno(
                     ),
                     numero_aluno_chamada=mt.get("numero_chamada"),
                     codigo_turma=mt.get("codigo_turma") or 0,
-                    data_atualizacao_contato=resp.get(
-                        "data_atualizacao_tabela"
+                    data_atualizacao_contato=aluno.get(
+                        "data_atualizacao_contato"
                     ),
                     nome_responsavel=resp.get("nome"),
                     tipo_responsavel=resp.get("tipo_responsavel"),
@@ -1323,8 +1323,11 @@ def _turmas_atuais_por_aluno(codigo_aluno: int) -> list[TurmaDoAlunoDTO]:
                         ),
                         numero_aluno_chamada=mt.get("numero_chamada"),
                         codigo_turma=mt.get("codigo_turma") or 0,
-                        data_atualizacao_contato=responsavel.get(
-                            "data_atualizacao_tabela"
+                        # Legado expõe dataAtualizacaoContato a partir de
+                        # aluno.dt_atualizacao_tabela (índice Elastic), não do
+                        # responsável. Ver queries.py:25 do MS-ETL.
+                        data_atualizacao_contato=aluno.get(
+                            "data_atualizacao_contato"
                         ),
                         nome_responsavel=responsavel.get("nome"),
                         tipo_responsavel=responsavel.get("tipo_responsavel"),
