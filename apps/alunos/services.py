@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Count, F, Max
+from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 
 from apps.alunos.enums import (
