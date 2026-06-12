@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Count, Max
+from django.db.models import Count, F, Max
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -329,6 +329,7 @@ def _matricula_turma_por_matricula(
         "codigo_matricula",
         "-data_situacao_aluno_data_hora",
         "-data_situacao_aluno",
+        F("numero_chamada").desc(nulls_last=True),
     ):
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
