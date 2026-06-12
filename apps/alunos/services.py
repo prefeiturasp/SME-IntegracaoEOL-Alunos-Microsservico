@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Count, Max, Q
+from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -385,23 +385,22 @@ def _matricula_turma_por_matricula(
     if not codigos_matricula:
         return {}
     saida: dict[int, dict[str, Any]] = {}
-    for mt in (
-        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
-        .values(
-            "codigo_matricula",
-            "codigo_turma",
-            "numero_chamada",
-            "data_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-            "codigo_situacao_aluno",
-            "codigo_tipo_turma",
-            "data_atualizacao_tabela",
-        )
-        .order_by(
-            "codigo_matricula",
-            "-data_situacao_aluno_data_hora",
-            "-data_situacao_aluno",
-        )
+    for mt in MatriculaTurma.objects.filter(
+        codigo_matricula__in=codigos_matricula
+    ).values(
+        "codigo_matricula",
+        "codigo_turma",
+        "numero_chamada",
+        "data_situacao_aluno",
+        "data_situacao_aluno_data_hora",
+        "codigo_situacao_aluno",
+        "codigo_tipo_turma",
+        "data_atualizacao_tabela",
+    ).order_by(
+        "codigo_matricula",
+        "-data_situacao_aluno_data_hora",
+        "-data_situacao_aluno",
+        F("numero_chamada").desc(nulls_last=True),
     ):
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
