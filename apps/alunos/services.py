@@ -17,7 +17,6 @@ from apps.alunos.enums import (
 )
 from apps.alunos.models import (
     Aluno,
-    DadosAlunoAcompanhamentoEscolar,
     Matricula,
     MatriculaTurma,
     NecessidadeEspecialAluno,
@@ -294,48 +293,6 @@ def _colunas_responsavel_aluno() -> set[str]:
             ResponsavelAluno._meta.db_table,
         )
     return {col.name for col in descricao}
-
-
-def _dados_turma_acompanhamento_idx(
-    matriculas: Sequence[dict[str, Any]],
-    mts_idx: dict[int, dict[str, Any]],
-) -> dict[tuple[int, int, str], dict[str, Any]]:
-    """Indexa dados de turma disponíveis na tabela de acompanhamento."""
-    chaves = [
-        (
-            int(m["aluno_id"]),
-            int(mts_idx[m["codigo_matricula"]]["codigo_turma"]),
-            str(m["codigo_ue"]),
-        )
-        for m in matriculas
-        if m.get("codigo_matricula") in mts_idx
-        and mts_idx[m["codigo_matricula"]].get("codigo_turma")
-    ]
-    if not chaves:
-        return {}
-
-    alunos = {aluno for aluno, _turma, _ue in chaves}
-    turmas = {turma for _aluno, turma, _ue in chaves}
-    ues = {ue for _aluno, _turma, ue in chaves}
-    dados: dict[tuple[int, int, str], dict[str, Any]] = {}
-    for row in DadosAlunoAcompanhamentoEscolar.objects.filter(
-        codigo_aluno__in=alunos,
-        codigo_turma__in=turmas,
-        codigo_ue__in=ues,
-    ).values(
-        "codigo_aluno",
-        "codigo_turma",
-        "codigo_ue",
-        "turma",
-        "codigo_etapa_ensino",
-    ):
-        chave = (
-            row["codigo_aluno"],
-            row["codigo_turma"],
-            row["codigo_ue"],
-        )
-        dados.setdefault(chave, row)
-    return dados
 
 
 def _alunos_indexados(
@@ -1105,6 +1062,7 @@ def _mts_ativas_idx(
         MatriculaTurma.objects.filter(
             codigo_matricula__in=codigos_matricula,
             codigo_situacao_aluno__in=SITUACOES_MATRICULA_TURMA_ATIVAS,
+            codigo_etapa_ensino__isnull=False,
         )
         .exclude(codigo_tipo_turma=3)
         .values(
@@ -1112,6 +1070,8 @@ def _mts_ativas_idx(
             "codigo_turma",
             "numero_chamada",
             "codigo_tipo_turma",
+            "nome_turma",
+            "codigo_etapa_ensino",
         )
         .order_by("codigo_matricula")
     )
@@ -1133,11 +1093,9 @@ def _montar_autocomplete_ativos(
         limite: Máximo de itens retornados.
 
     Returns:
-        DTOs ordenados por nome, restritos a alunos com dados de turma
-        no acompanhamento escolar.
+        DTOs de autocomplete ordenados por nome.
     """
     alunos_idx = _alunos_indexados([m["aluno_id"] for m in matriculas])
-    dados_turma_idx = _dados_turma_acompanhamento_idx(matriculas, mts_idx)
     saida: list[AlunoAutocompleteDTO] = []
     for m in sorted(
         matriculas,
@@ -1151,12 +1109,6 @@ def _montar_autocomplete_ativos(
         if nome_l and nome_l not in nome.lower():
             continue
         mt = mts_idx[m["codigo_matricula"]]
-        dados_turma = dados_turma_idx.get(
-            (m["aluno_id"], mt["codigo_turma"], m["codigo_ue"]),
-            {},
-        )
-        if not dados_turma:
-            continue
         saida.append(
             AlunoAutocompleteDTO(
                 codigo_aluno=m["aluno_id"],
@@ -1164,9 +1116,9 @@ def _montar_autocomplete_ativos(
                 nome_social_aluno=a.get("nome_social"),
                 codigo_turma=mt.get("codigo_turma") or 0,
                 numero_aluno_chamada=mt.get("numero_chamada"),
-                turma=dados_turma.get("turma"),
+                turma=mt.get("nome_turma"),
                 modalidade=_modalidade_por_etapa(
-                    dados_turma.get("codigo_etapa_ensino")
+                    mt.get("codigo_etapa_ensino")
                 ),
             )
         )
