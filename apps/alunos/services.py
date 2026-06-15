@@ -1094,9 +1094,7 @@ def _montar_autocomplete_ativos(
         limite: Máximo de itens retornados.
 
     Returns:
-        DTOs ordenados por nome. ``turma`` e ``modalidade`` vêm da própria
-        matrícula-turma (espelhando os joins do legado), sem depender da
-        tabela de acompanhamento escolar.
+        DTOs de autocomplete ordenados por nome.
     """
     alunos_idx = _alunos_indexados([m["aluno_id"] for m in matriculas])
     saida: list[AlunoAutocompleteDTO] = []
