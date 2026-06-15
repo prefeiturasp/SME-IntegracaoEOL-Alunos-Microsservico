@@ -143,6 +143,46 @@ class A05A06AutocompleteTestCase(TestCase):
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].codigo_turma, 12345)
 
+    def test_a06_turma_e_modalidade_vem_da_matricula_turma(self) -> None:
+        """Verifica turma/modalidade da matrícula-turma sem acompanhamento.
+
+        Espelha o legado: aluno ativo aparece mesmo sem registro na tabela
+        de acompanhamento escolar, com turma e modalidade derivadas da
+        própria matrícula-turma.
+        """
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=998900,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998900,
+            codigo_turma=44444,
+            numero_chamada="09",
+            data_situacao_aluno=date(2026, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            nome_turma="9B",
+            codigo_etapa_ensino=6,
+        )
+
+        dados = services.buscar_alunos_ativos_autocomplete(
+            ue_codigo="100001",
+            aluno_nome="JOAO",
+            limite=10,
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 44444)
+        self.assertEqual(dados[0].turma, "9B")
+        self.assertEqual(dados[0].modalidade, "EM")
+
 
 class A07TotalAtivosTestCase(TestCase):
     """Valida a contagem de alunos ativos por período."""

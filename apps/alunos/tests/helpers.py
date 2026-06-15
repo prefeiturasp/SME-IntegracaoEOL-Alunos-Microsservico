@@ -81,6 +81,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
@@ -89,6 +91,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        nome_turma="6A",
+        codigo_etapa_ensino=5,
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=1234567,
