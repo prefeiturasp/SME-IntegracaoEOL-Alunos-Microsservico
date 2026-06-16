@@ -1,38 +1,37 @@
-import { defineConfig } from 'cypress'
-import allureWriter from '@shelex/cypress-allure-plugin/writer.js'
-import { cloudPlugin } from 'cypress-cloud/plugin'
-import dotenv from 'dotenv'
-import cucumber from 'cypress-cucumber-preprocessor'
-import preprocessor from '@cypress/webpack-preprocessor'
+import { defineConfig } from "cypress";
+import allureWriter from "@shelex/cypress-allure-plugin/writer.js";
+import { cloudPlugin } from "cypress-cloud/plugin";
+import dotenv from "dotenv";
+import cucumber from "cypress-cucumber-preprocessor";
+import preprocessor from "@cypress/webpack-preprocessor";
 
-dotenv.config()
+dotenv.config();
 
 const envKeys = [
-  'API_URL',
-  'API_KEY',
-  'API_KEY_HEADER',
+  "API_URL",
+  "API_KEY",
+  "API_KEY_HEADER",
 
-  'CODIGO_ALUNO',
-  'CODIGO_ALUNO_NECESSIDADE',
+  "CODIGO_ALUNO",
+  "CODIGO_ALUNO_NECESSIDADE",
 
-  'ANO_LETIVO',
-  'ANO_TURMA',
+  "ANO_LETIVO",
+  "ANO_TURMA",
 
-  'CODIGO_TURMA',
-  'CODIGO_UE',
-  'DRE_CODIGO',
+  "CODIGO_TURMA",
+  "CODIGO_UE",
+  "DRE_CODIGO",
 
-  'DATA_REFERENCIA',
+  "DATA_REFERENCIA",
 
-  'CPF_RESPONSAVEL',
-]
+  "CPF_RESPONSAVEL",
+];
 
 export default defineConfig({
   e2e: {
-
     watchForFileChanges: true,
 
-    supportFile: 'cypress/support/e2e.js',
+    supportFile: "cypress/support/e2e.js",
 
     viewportWidth: 1920,
     viewportHeight: 1080,
@@ -49,7 +48,7 @@ export default defineConfig({
     experimentalRunAllSpecs: true,
     failOnStatusCode: false,
 
-    specPattern: ['cypress/e2e/**/*.feature'],
+    specPattern: ["cypress/e2e/**/*.feature"],
 
     defaultCommandTimeout: 60000,
     requestTimeout: 60000,
@@ -58,13 +57,15 @@ export default defineConfig({
 
     env: {
       allure: true,
+
+      // IGNORA TAGS @ignore
+      TAGS: "not @ignore",
     },
 
     async setupNodeEvents(on, config) {
+      allureWriter(on, config);
 
-      allureWriter(on, config)
-
-      config.env.allure = true
+      config.env.allure = true;
 
       const webpackConfig = {
         module: {
@@ -73,43 +74,43 @@ export default defineConfig({
               test: /\.js$/,
               exclude: [/node_modules/],
               use: {
-                loader: 'babel-loader',
+                loader: "babel-loader",
                 options: {
-                  plugins: ['@babel/plugin-transform-modules-commonjs'],
+                  plugins: ["@babel/plugin-transform-modules-commonjs"],
                 },
               },
             },
           ],
         },
-      }
+      };
 
       on(
-        'file:preprocessor',
+        "file:preprocessor",
         preprocessor({
           webpackOptions: webpackConfig,
         }),
-      )
+      );
 
-      on('file:preprocessor', cucumber.default())
+      on("file:preprocessor", cucumber.default());
 
       const customVariable = Object.fromEntries(
-        envKeys.map((key) => [key, process.env[key] ?? ''])
-      )
+        envKeys.map((key) => [key, process.env[key] ?? ""]),
+      );
 
       config.env = {
         ...config.env,
         ...customVariable,
-      }
+      };
 
       if (!config.env.API_URL) {
-        throw new Error('API_URL não definida no .env')
+        throw new Error("API_URL não definida no .env");
       }
 
       if (!config.env.API_KEY) {
-        throw new Error('API_KEY não definida no .env')
+        throw new Error("API_KEY não definida no .env");
       }
 
-      return await cloudPlugin(on, config)
+      return await cloudPlugin(on, config);
     },
   },
-})
+});

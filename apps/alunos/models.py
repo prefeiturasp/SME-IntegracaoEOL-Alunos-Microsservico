@@ -37,7 +37,7 @@ class Aluno(models.Model):
     nis = models.CharField(max_length=20, null=True, blank=True)
     raca_cor = models.CharField(max_length=50, null=True, blank=True)
     cns = models.CharField(max_length=20, null=True, blank=True)
-    data_atualizacao_contato = models.DateField(null=True, blank=True)
+    data_atualizacao_contato = models.DateTimeField(null=True, blank=True)
     possui_deficiencia = models.BooleanField(default=False)
 
     class Meta:
@@ -67,6 +67,8 @@ class ResponsavelAluno(models.Model):
     ddd_celular = models.CharField(max_length=4, null=True, blank=True)
     numero_celular = models.CharField(max_length=20, null=True, blank=True)
     email = models.EmailField(max_length=200, null=True, blank=True)
+    data_nascimento = models.DateField(null=True, blank=True)
+    nome_mae = models.CharField(max_length=200, null=True, blank=True)
     autoriza_sms = models.CharField(max_length=1, null=True, blank=True)
     endereco_id = models.BigIntegerField(null=True, blank=True)
     numero_endereco = models.CharField(max_length=20, null=True, blank=True)
@@ -175,6 +177,8 @@ class MatriculaTurma(models.Model):
     codigo_situacao_aluno = models.SmallIntegerField(null=True, blank=True)
     codigo_tipo_turma = models.SmallIntegerField(null=True, blank=True)
     data_atualizacao_tabela = models.DateTimeField(null=True, blank=True)
+    nome_turma = models.CharField(max_length=80, null=True, blank=True)
+    codigo_etapa_ensino = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         app_label = "alunos"
@@ -184,3 +188,41 @@ class MatriculaTurma(models.Model):
 
     def __str__(self) -> str:
         return f"M: {self.codigo_matricula} - T: {self.codigo_turma}"
+
+
+class DadosAlunoAcompanhamentoEscolar(models.Model):
+    """Dados consolidados de acompanhamento escolar do aluno."""
+
+    id = models.BigAutoField(primary_key=True)
+    codigo_aluno = models.BigIntegerField()
+    nome = models.CharField(max_length=200)
+    nome_social = models.CharField(max_length=200, null=True, blank=True)
+    nome_responsavel = models.CharField(max_length=200, null=True, blank=True)
+    cpf_responsavel = models.CharField(max_length=11, null=True, blank=True)
+    data_nascimento = models.DateField(null=True, blank=True)
+    descricao_tipo_escola = models.CharField(
+        max_length=100, null=True, blank=True
+    )
+    tipo_responsavel = models.SmallIntegerField(null=True, blank=True)
+    codigo_dre = models.CharField(max_length=20, null=True, blank=True)
+    sigla_dre = models.CharField(max_length=20, null=True, blank=True)
+    codigo_ue = models.CharField(max_length=20)
+    unidade_educacional = models.CharField(
+        max_length=200, null=True, blank=True
+    )
+    codigo_turma = models.BigIntegerField()
+    turma = models.CharField(max_length=50, null=True, blank=True)
+    codigo_tipo_escola = models.SmallIntegerField(null=True, blank=True)
+    situacao_matricula = models.CharField(
+        max_length=100, null=True, blank=True
+    )
+    data_situacao_matricula = models.DateField(null=True, blank=True)
+    codigo_etapa_ensino = models.SmallIntegerField(null=True, blank=True)
+    codigo_ciclo_ensino = models.SmallIntegerField(null=True, blank=True)
+    serie_resumida = models.CharField(max_length=50, null=True, blank=True)
+    codigo_modalidade_turma = models.SmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        app_label = "alunos"
+        db_table = "dados_aluno_acompanhamento_escolar"
+        managed = False

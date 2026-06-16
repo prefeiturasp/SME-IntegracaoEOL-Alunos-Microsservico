@@ -7,6 +7,7 @@ from typing import cast
 
 from apps.alunos.models import (
     Aluno,
+    DadosAlunoAcompanhamentoEscolar,
     Matricula,
     MatriculaTurma,
     NecessidadeEspecialAluno,
@@ -33,7 +34,7 @@ def seed_alunos() -> dict[int, Aluno]:
         nis="123456789",
         raca_cor="NAO INFORMADO",
         data_nascimento=date(2012, 5, 15),
-        data_atualizacao_contato=date(2026, 1, 15),
+        data_atualizacao_contato=datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
         possui_deficiencia=False,
     )
     a2 = Aluno.objects.create(
@@ -80,6 +81,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
@@ -88,6 +91,26 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        nome_turma="6A",
+        codigo_etapa_ensino=5,
+    )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=1234567,
+        nome="JOAO DA SILVA",
+        nome_social=None,
+        codigo_ue="100001",
+        codigo_turma=12345,
+        turma="5A",
+        codigo_etapa_ensino=5,
+    )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=7654321,
+        nome="MARIA OLIVEIRA",
+        nome_social="MARIA SOCIAL",
+        codigo_ue="100001",
+        codigo_turma=22222,
+        turma="6A",
+        codigo_etapa_ensino=5,
     )
     return [m1, m2]
 
@@ -105,6 +128,8 @@ def seed_responsaveis() -> ResponsavelAluno:
             ddd_celular="11",
             numero_celular="977778888",
             email="contato.exemplo@sme.com.br",
+            data_nascimento=date(1980, 5, 20),
+            nome_mae="Mae do Responsavel",
             autoriza_sms="S",
             endereco_id=123,
             numero_endereco="100",

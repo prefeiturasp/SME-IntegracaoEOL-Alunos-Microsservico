@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
 from apps.alunos import services
+from apps.alunos.models import Matricula, MatriculaTurma, ResponsavelAluno
 from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
@@ -35,6 +36,10 @@ class TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(d.codigo_situacao_matricula, 1)
         self.assertEqual(d.nome_aluno, "JOAO DA SILVA")
         self.assertEqual(d.numero_aluno_chamada, "12")
+        self.assertEqual(
+            d.data_atualizacao_contato,
+            datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
+        )
 
     def test_a01_aluno_inexistente_retorna_lista_vazia(self) -> None:
         """Verifica que aluno sem matrículas recebe lista vazia."""
@@ -109,6 +114,78 @@ class A05A06AutocompleteTestCase(TestCase):
             limite=10,
         )
         self.assertEqual(len(dados), 1)
+
+    def test_a06_alunos_ativos_ignora_turma_programa(self) -> None:
+        """Verifica que turmas tipo programa nao entram no autocomplete."""
+        seed_matriculas()
+        Matricula.objects.create(
+            codigo_matricula=998879,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 3, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=33333,
+            numero_chamada="01",
+            data_situacao_aluno=date(2026, 3, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=3,
+        )
+
+        dados = services.buscar_alunos_ativos_autocomplete(
+            ue_codigo="100001",
+            aluno_nome="JOAO",
+            data_referencia=datetime(2026, 6, 3, tzinfo=UTC),
+            limite=10,
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 12345)
+
+    def test_a06_turma_e_modalidade_vem_da_matricula_turma(self) -> None:
+        """Verifica turma/modalidade da matrícula-turma sem acompanhamento.
+
+        Espelha o legado: aluno ativo aparece mesmo sem registro na tabela
+        de acompanhamento escolar, com turma e modalidade derivadas da
+        própria matrícula-turma.
+        """
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=998900,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998900,
+            codigo_turma=44444,
+            numero_chamada="09",
+            data_situacao_aluno=date(2026, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            nome_turma="9B",
+            codigo_etapa_ensino=6,
+        )
+
+        dados = services.buscar_alunos_ativos_autocomplete(
+            ue_codigo="100001",
+            aluno_nome="JOAO",
+            limite=10,
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 44444)
+        self.assertEqual(dados[0].turma, "9B")
+        self.assertEqual(dados[0].modalidade, "EM")
 
 
 class A07TotalAtivosTestCase(TestCase):
@@ -276,6 +353,33 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         self.assertIsNotNone(dado)
         assert dado is not None
         self.assertEqual(dado.cpf, "12345678901")
+        self.assertEqual(dado.data_nascimento, date(1980, 5, 20))
+        self.assertEqual(dado.nome_mae, "Mae do Responsavel")
+
+    def test_a21_resumido_ignora_vinculo_encerrado_mais_recente(
+        self,
+    ) -> None:
+        """Verifica que o resumido segue o filtro legado de vínculo ativo."""
+        seed_alunos()
+        seed_responsaveis()
+        ResponsavelAluno.objects.create(
+            codigo_responsavel=5502,
+            aluno_id=7654321,
+            tipo_responsavel=1,
+            nome="Responsavel Exemplo",
+            cpf="12345678901",
+            email="contato.exemplo@sme.com.br",
+            data_atualizacao_tabela=datetime(2026, 2, 10, tzinfo=UTC),
+            data_fim_vinculo=date(2026, 2, 10),
+        )
+
+        dado = services.obter_dados_responsavel_resumido(
+            cpf_responsavel="12345678901"
+        )
+
+        self.assertIsNotNone(dado)
+        assert dado is not None
+        self.assertEqual(dado.id, 5501)
 
 
 class A22A23EscritaTestCase(TestCase):
@@ -453,30 +557,6 @@ class HelpersInternosTestCase(TestCase):
 
         self.assertIsNone(_responsavel_principal(99999999))
 
-    def test_calcular_idade_none(self) -> None:
-        """Verifica que data de nascimento None resulta em None."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertIsNone(_calcular_idade(None))
-
-    def test_calcular_idade_aniversario_nao_completo(self) -> None:
-        """Verifica que aniversário não atingido subtrai um ano."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertEqual(
-            _calcular_idade(date(2010, 12, 31), referencia=date(2026, 6, 1)),
-            15,
-        )
-
-    def test_calcular_idade_com_datetime(self) -> None:
-        """Verifica que datetime é aceito como data de nascimento."""
-        from apps.alunos.services import _calcular_idade
-
-        self.assertEqual(
-            _calcular_idade(datetime(2010, 1, 1), referencia=date(2026, 6, 1)),
-            16,
-        )
-
 
 class AutocompleteCenariosServiceTestCase(TestCase):
     """Valida cenários de borda do autocomplete de alunos."""
@@ -521,3 +601,37 @@ class AutocompleteCenariosServiceTestCase(TestCase):
             limite=1,
         )
         self.assertEqual(len(dados), 1)
+
+
+class BuscarTurmasDoAlunoFiltrosTestCase(TestCase):
+    """Valida o repasse de filtros em buscar_turmas_do_aluno."""
+
+    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    def test_default_exclui_programa_e_filtra_situacao(
+        self, mock_consultar: MagicMock
+    ) -> None:
+        """Verifica que os defaults preservam o comportamento padrão."""
+        mock_consultar.return_value = []
+
+        services.buscar_turmas_do_aluno(codigo_aluno=1234567)
+
+        mock_consultar.assert_called_once_with(
+            codigo_aluno=1234567, tipo_turma=True, filtrar_situacao=True
+        )
+
+    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    def test_repassa_tipo_turma_e_filtrar_situacao(
+        self, mock_consultar: MagicMock
+    ) -> None:
+        """Verifica que os filtros informados chegam à consulta."""
+        mock_consultar.return_value = []
+
+        services.buscar_turmas_do_aluno(
+            codigo_aluno=1234567,
+            tipo_turma=False,
+            filtrar_situacao=False,
+        )
+
+        mock_consultar.assert_called_once_with(
+            codigo_aluno=1234567, tipo_turma=False, filtrar_situacao=False
+        )

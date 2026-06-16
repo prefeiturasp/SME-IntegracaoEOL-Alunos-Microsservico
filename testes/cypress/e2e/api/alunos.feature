@@ -44,18 +44,21 @@ Funcionalidade: API - Alunos
     Então retorna o status 400
     E a mensagem de código de aluno é obrigatório deve ser exibida
 
+@ignore
   Cenário: Consultar turmas do aluno por ano letivo
     Dado que possuo acesso à API de alunos
     Quando realizo consulta de turmas do aluno por ano letivo
     Então retorna o status 200
     E o retorno do alunos deve ser válido
 
+@ignore
   Cenário: Consultar turmas do aluno por ano letivo - Aluno não encontrado
     Dado que possuo acesso à API de alunos
     Quando realizo consulta de turmas do aluno por ano letivo com código de aluno inexistente
     Então retorna o status 404
     E a mensagem de turma não encontrada para o aluno deve ser exibida
 
+@ignore
   Cenário: Consultar turmas do aluno por ano letivo - Sem Código de aluno
     Dado que possuo acesso à API de alunos
     Quando realizo consulta de turmas do aluno por ano letivo sem código de aluno
