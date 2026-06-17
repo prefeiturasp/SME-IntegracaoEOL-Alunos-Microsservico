@@ -416,14 +416,16 @@ And("o retorno do responsável por CPF deve ser válido", () => {
 And("o retorno do resumo do responsável deve ser válido", () => {
   cy.get("@response").then((response) => {
     if (response.status === 200) {
-      expect(response.body).to.have.property("codigo_responsavel");
+      expect(response.body).to.have.property("id");
       expect(response.body).to.have.property("cpf");
       expect(response.body).to.have.property("email");
       expect(response.body).to.have.property("nome");
       expect(response.body).to.have.property("tipo_responsavel");
+      expect(response.body).to.have.property("data_nascimento");
+      expect(response.body).to.have.property("data_atualizacao");
       expect(response.body).to.have.property("ddd_celular");
       expect(response.body).to.have.property("numero_celular");
-      expect(response.body).to.have.property("numero_celular");
+      expect(response.body).to.have.property("nome_mae");
       expect(response.body).to.have.property("codigo_aluno");
     }
   });
