@@ -7,9 +7,11 @@ from rest_framework.request import Request
 
 from apps.core.utils import (
     calcular_idade,
+    fim_do_dia,
     numero_chamada_int,
     query_bool,
     query_int_list,
+    ticks_to_datetime,
     to_bool,
     to_datetime,
     to_int,
@@ -74,6 +76,47 @@ class ToDatetimeTestCase(TestCase):
         """Verifica que valor não ISO lança ValueError."""
         with self.assertRaises(ValueError):
             to_datetime("03/02/2026", "data")
+
+
+class TicksToDatetimeTestCase(TestCase):
+    """Valida a conversão de .NET ticks para datetime."""
+
+    def test_converte_ticks_conhecido(self) -> None:
+        """Verifica que ticks conhecido vira o datetime esperado."""
+        self.assertEqual(
+            ticks_to_datetime(639059616000000000),
+            datetime(2026, 2, 6, 8, 0, 0),
+        )
+
+    def test_converte_epoch_dotnet(self) -> None:
+        """Verifica que ticks zero corresponde a 0001-01-01."""
+        self.assertEqual(
+            ticks_to_datetime(0),
+            datetime(1, 1, 1, 0, 0, 0),
+        )
+
+    def test_ticks_fora_de_range_lanca_value_error(self) -> None:
+        """Verifica que ticks acima do range de datetime lança ValueError."""
+        with self.assertRaises(ValueError):
+            ticks_to_datetime(10**19)
+
+
+class FimDoDiaTestCase(TestCase):
+    """Valida o ajuste de um datetime para o fim do dia."""
+
+    def test_leva_ao_ultimo_instante_do_dia(self) -> None:
+        """Verifica que a hora é levada a 23:59:59.999999 do mesmo dia."""
+        self.assertEqual(
+            fim_do_dia(datetime(2026, 2, 6, 8, 0, 0)),
+            datetime(2026, 2, 6, 23, 59, 59, 999999),
+        )
+
+    def test_preserva_fuso(self) -> None:
+        """Verifica que o fuso do datetime original é preservado."""
+        self.assertEqual(
+            fim_do_dia(datetime(2026, 2, 6, 8, 0, tzinfo=UTC)),
+            datetime(2026, 2, 6, 23, 59, 59, 999999, tzinfo=UTC),
+        )
 
 
 class QueryBoolTestCase(TestCase):

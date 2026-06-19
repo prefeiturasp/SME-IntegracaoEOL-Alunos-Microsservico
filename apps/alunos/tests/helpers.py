@@ -83,6 +83,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_tipo_turma=1,
         nome_turma="5A",
         codigo_etapa_ensino=5,
+        sequencia=1,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
@@ -93,6 +94,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_tipo_turma=1,
         nome_turma="6A",
         codigo_etapa_ensino=5,
+        sequencia=1,
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=1234567,
@@ -143,6 +145,80 @@ def seed_responsaveis() -> ResponsavelAluno:
             data_atualizacao_tabela=date(2026, 1, 10),
         ),
     )
+
+
+def seed_turma_data_aula() -> int:
+    """Cria dados de turma para o endpoint de alunos ativos por data de aula.
+
+    Monta dois alunos com matrículas na mesma turma, com
+    ``data_situacao_matricula_data_hora`` preenchida, número de chamada e
+    sequência, mais um responsável vinculado ao primeiro aluno.
+
+    Returns:
+        Código da turma criada.
+    """
+    seed_alunos()
+    codigo_turma = 3015603
+    Matricula.objects.create(
+        codigo_matricula=700001,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108800",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        data_situacao_matricula_data_hora=datetime(
+            2026, 2, 1, 8, 30, tzinfo=UTC
+        ),
+    )
+    Matricula.objects.create(
+        codigo_matricula=700002,
+        aluno_id=7654321,
+        codigo_ue="100001",
+        codigo_dre="108800",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        data_situacao_matricula_data_hora=datetime(
+            2026, 2, 1, 9, 0, tzinfo=UTC
+        ),
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=700001,
+        codigo_turma=codigo_turma,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 10),
+        data_situacao_aluno_data_hora=datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
+        sequencia=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=700002,
+        codigo_turma=codigo_turma,
+        numero_chamada="07",
+        data_situacao_aluno=date(2026, 2, 1),
+        data_situacao_aluno_data_hora=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
+        sequencia=2,
+    )
+    ResponsavelAluno.objects.create(
+        codigo_responsavel=6601,
+        aluno_id=1234567,
+        tipo_responsavel=1,
+        nome="Responsavel Data Aula",
+        ddd_celular="11",
+        numero_celular="988887777",
+        data_atualizacao_tabela=datetime(2026, 1, 20, 10, 0, tzinfo=UTC),
+    )
+    return codigo_turma
 
 
 def seed_necessidades(

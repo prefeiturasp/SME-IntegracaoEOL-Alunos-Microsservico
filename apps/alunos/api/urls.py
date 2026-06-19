@@ -3,6 +3,7 @@
 from django.urls import path
 
 from apps.alunos.api.views import (
+    AlunosAtivosDataAulaTicksView,
     AlunosAtivosPeriodoTurmaView,
     AlunosAtivosTurmaView,
     AlunosPorCodigosEAnoView,
@@ -65,6 +66,12 @@ urlpatterns = [
         "inicio/<str:data_inicio>/fim/<str:data_fim>",
         TotalAlunosAtivosPorPeriodoView.as_view(),
         name="total-alunos-ativos-por-periodo",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/alunos-ativos/"
+        "data-aula-ticks/<str:data_aula_ticks>/",
+        AlunosAtivosDataAulaTicksView.as_view(),
+        name="alunos-ativos-data-aula-ticks",
     ),
     path(
         "turmas/<str:codigo_turma>/ativos/<str:data_referencia_fim>",

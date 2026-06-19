@@ -23,11 +23,7 @@ from apps.alunos.models import (
     ResponsavelAluno,
     TipoNecessidadeEspecial,
 )
-from apps.core.utils import numero_chamada_int
-
-# ---------------------------------------------------------------------------
-# DTOs de saída (1 por endpoint ou família de endpoints)
-# ---------------------------------------------------------------------------
+from apps.core.utils import fim_do_dia, numero_chamada_int
 
 
 @dataclass(frozen=True)
@@ -86,6 +82,32 @@ class AlunoAtivoTurmaDTO:
     codigo_turma: int
     codigo_escola: str
     ano_letivo: int
+
+
+@dataclass(frozen=True)
+class AlunoAtivoDataAulaDTO:
+    """Aluno ativo em uma turma até uma data de aula."""
+
+    codigo_aluno: int
+    nome_aluno: str
+    nome_social_aluno: str | None
+    data_nascimento: date | None
+    codigo_situacao_matricula: int
+    situacao_matricula: str
+    data_situacao: datetime | None
+    numero_aluno_chamada: str | None
+    possui_deficiencia: bool
+    codigo_matricula: int
+    codigo_turma: int
+    codigo_escola: str
+    ano_letivo: int
+    data_matricula: datetime | None
+    nome_responsavel: str | None
+    tipo_responsavel: int | None
+    celular_responsavel: str | None
+    data_atualizacao_contato: datetime | None
+    sequencia: int | None
+    codigo_dre: str
 
 
 @dataclass(frozen=True)
@@ -342,22 +364,24 @@ def _matricula_turma_por_matricula(
     if not codigos_matricula:
         return {}
     saida: dict[int, dict[str, Any]] = {}
-    for mt in MatriculaTurma.objects.filter(
-        codigo_matricula__in=codigos_matricula
-    ).values(
-        "codigo_matricula",
-        "codigo_turma",
-        "numero_chamada",
-        "data_situacao_aluno",
-        "data_situacao_aluno_data_hora",
-        "codigo_situacao_aluno",
-        "codigo_tipo_turma",
-        "data_atualizacao_tabela",
-    ).order_by(
-        "codigo_matricula",
-        "-data_situacao_aluno_data_hora",
-        "-data_situacao_aluno",
-        F("numero_chamada").desc(nulls_last=True),
+    for mt in (
+        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
+        .values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "data_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+            "codigo_situacao_aluno",
+            "codigo_tipo_turma",
+            "data_atualizacao_tabela",
+        )
+        .order_by(
+            "codigo_matricula",
+            "-data_situacao_aluno_data_hora",
+            "-data_situacao_aluno",
+            F("numero_chamada").desc(nulls_last=True),
+        )
     ):
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
@@ -1335,6 +1359,203 @@ def obter_alunos_ativos_por_turma(
         Alunos ativos encontrados para a turma.
     """
     return _consultar_alunos_ativos_turma(codigo_turma=codigo_turma)
+
+
+def _responsaveis_por_aluno(
+    codigos_alunos: Sequence[int],
+) -> dict[int, dict[str, Any]]:
+    """Indexa o responsável prioritário por aluno.
+
+    Args:
+        codigos_alunos: Códigos EOL dos alunos consultados.
+
+    Returns:
+        Dicionário indexado por ``codigo_aluno``.
+    """
+    if not codigos_alunos:
+        return {}
+    saida: dict[int, dict[str, Any]] = {}
+    for resp in (
+        ResponsavelAluno.objects.filter(
+            aluno_id__in=codigos_alunos, data_fim_vinculo__isnull=True
+        )
+        .order_by("aluno_id", "tipo_responsavel", "codigo_responsavel")
+        .values(
+            "aluno_id",
+            "nome",
+            "tipo_responsavel",
+            "ddd_celular",
+            "numero_celular",
+            "data_atualizacao_tabela",
+        )
+    ):
+        saida.setdefault(resp["aluno_id"], resp)
+    return saida
+
+
+def _chave_dedup(row: dict[str, Any]) -> tuple[datetime, str]:
+    """Chave de desempate da dedup legada (data de situação, chamada).
+
+    Simula ``OrderByDescending(DataSituacao).ThenByDescending(
+    NumeroAlunoChamada).First()`` do handler legado: vence a linha de
+    maior ``data_situacao_aluno_data_hora`` e, no empate, maior
+    ``numero_chamada`` (comparação de string, como no legado).
+    """
+    return (
+        row["data_situacao_aluno_data_hora"] or datetime.min,
+        row["numero_chamada"] or "",
+    )
+
+
+def _dedup_alunos_ativos_turma(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Deduplica os registros da turma conforme o legado.
+
+    Args:
+        rows: Registros combinados de matrícula e matrícula-turma.
+
+    Returns:
+        Um registro por aluno distinto, na ordem do primeiro encontrado.
+    """
+    por_aluno: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        atual = por_aluno.get(row["aluno_id"])
+        if atual is None or _chave_dedup(row) > _chave_dedup(atual):
+            por_aluno[row["aluno_id"]] = row
+    return list(por_aluno.values())
+
+
+def _data_matricula_original_por_matricula(
+    mts: list[dict[str, Any]],
+) -> dict[int, datetime | None]:
+    """Indexa a data da alocação original do aluno em cada matrícula.
+
+    Args:
+        mts: Linhas de matrícula-turma consultadas para a turma.
+
+    Returns:
+        Menor ``data_situacao_aluno_data_hora`` por ``codigo_matricula``.
+    """
+    saida: dict[int, datetime | None] = {}
+    for mt in mts:
+        codigo = mt["codigo_matricula"]
+        data = mt["data_situacao_aluno_data_hora"]
+        atual = saida.get(codigo, ...)
+        if atual is ... or (
+            data is not None and (atual is None or data < atual)
+        ):
+            saida[codigo] = data
+    return saida
+
+
+def _montar_aluno_ativo_data_aula(
+    row: dict[str, Any],
+    alunos_idx: dict[int, dict[str, Any]],
+    responsaveis_idx: dict[int, dict[str, Any]],
+) -> AlunoAtivoDataAulaDTO:
+    """Monta o DTO enriquecido a partir do registro deduplicado."""
+    aluno = alunos_idx.get(row["aluno_id"], {})
+    resp = responsaveis_idx.get(row["aluno_id"], {})
+    celular = None
+    if resp.get("ddd_celular") or resp.get("numero_celular"):
+        celular = f"{resp.get('ddd_celular') or ''}" + (
+            resp.get("numero_celular") or ""
+        )
+    codigo_situacao = row["codigo_situacao_aluno"]
+    return AlunoAtivoDataAulaDTO(
+        codigo_aluno=row["aluno_id"],
+        nome_aluno=aluno.get("nome", ""),
+        nome_social_aluno=aluno.get("nome_social"),
+        data_nascimento=aluno.get("data_nascimento"),
+        codigo_situacao_matricula=codigo_situacao,
+        situacao_matricula=SituacaoMatricula.get_descricao(codigo_situacao),
+        data_situacao=row["data_situacao_aluno_data_hora"],
+        numero_aluno_chamada=row["numero_chamada"],
+        possui_deficiencia=aluno.get("possui_deficiencia", False),
+        codigo_matricula=row["codigo_matricula"],
+        codigo_turma=row["codigo_turma"],
+        codigo_escola=row["codigo_ue"],
+        ano_letivo=row["ano_letivo"],
+        data_matricula=row["data_matricula_original"],
+        nome_responsavel=resp.get("nome"),
+        tipo_responsavel=resp.get("tipo_responsavel"),
+        celular_responsavel=celular,
+        data_atualizacao_contato=aluno.get("data_atualizacao_contato"),
+        sequencia=row["sequencia"],
+        codigo_dre=row["codigo_dre"],
+    )
+
+
+def obter_alunos_ativos_turma_por_data_aula(
+    codigo_turma: int,
+    data_aula: datetime,
+) -> list[AlunoAtivoDataAulaDTO]:
+    """Lista os alunos ativos em uma turma até a data de aula.
+
+    Reproduz o contrato legado de ``ObterAlunosAtivosNaTurmaAsync``: filtra
+    pela data de situação do aluno na turma (até o fim do dia) e mantém um
+    registro por aluno.
+
+    Args:
+        codigo_turma: Código EOL da turma.
+        data_aula: Data de aula derivada dos ticks .NET.
+
+    Returns:
+        Alunos distintos na turma até a data informada.
+    """
+    limite = fim_do_dia(data_aula)
+    mts = list(
+        MatriculaTurma.objects.filter(
+            codigo_turma=codigo_turma,
+            data_situacao_aluno_data_hora__lte=limite,
+        ).values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "sequencia",
+            "codigo_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+        )
+    )
+    if not mts:
+        return []
+
+    matriculas_idx = {
+        m["codigo_matricula"]: m
+        for m in Matricula.objects.filter(
+            codigo_matricula__in=[mt["codigo_matricula"] for mt in mts],
+        ).values(
+            "codigo_matricula",
+            "aluno_id",
+            "codigo_ue",
+            "codigo_dre",
+            "ano_letivo",
+        )
+    }
+    data_matricula_idx = _data_matricula_original_por_matricula(mts)
+    rows = [
+        {
+            **matriculas_idx[mt["codigo_matricula"]],
+            **mt,
+            "data_matricula_original": data_matricula_idx.get(
+                mt["codigo_matricula"]
+            ),
+        }
+        for mt in mts
+        if mt["codigo_matricula"] in matriculas_idx
+    ]
+    if not rows:
+        return []
+
+    finais = _dedup_alunos_ativos_turma(rows)
+    codigos_alunos = [r["aluno_id"] for r in finais]
+    alunos_idx = _alunos_indexados(codigos_alunos)
+    responsaveis_idx = _responsaveis_por_aluno(codigos_alunos)
+    return [
+        _montar_aluno_ativo_data_aula(r, alunos_idx, responsaveis_idx)
+        for r in finais
+    ]
 
 
 def obter_necessidades_especiais_por_aluno(
@@ -2672,6 +2893,7 @@ def obter_responsaveis_dre_ue_turma_json(
 
 
 __all__ = [
+    "AlunoAtivoDataAulaDTO",
     "AlunoAtivoTurmaDTO",
     "AlunoAutocompleteDTO",
     "ConsolidacaoMatriculaDTO",
@@ -2697,6 +2919,7 @@ __all__ = [
     "dto_to_dict",
     "obter_alunos_ativos_por_periodo_e_turma",
     "obter_alunos_ativos_por_turma",
+    "obter_alunos_ativos_turma_por_data_aula",
     "obter_alunos_por_codigos",
     "obter_alunos_por_codigos_e_ano",
     "obter_dados_acompanhamento_escolar",

@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from apps.alunos import services
 from apps.alunos.api.serializers import (
+    AlunoAtivoDataAulaSerializer,
     AlunoAtivoTurmaSerializer,
     AlunoAutocompleteSerializer,
     AtualizarResponsavelBuscaAtivaRequestSerializer,
@@ -32,6 +33,7 @@ from apps.alunos.api.serializers import (
 from apps.core.utils import (
     query_bool,
     query_int_list,
+    ticks_to_datetime,
     to_bool,
     to_datetime,
     to_int,
@@ -490,6 +492,50 @@ class AlunosAtivosTurmaView(APIView):
 
         dados = services.obter_alunos_ativos_por_turma(codigo_turma=codigo)
         return Response(AlunoAtivoTurmaSerializer(dados, many=True).data)
+
+
+class AlunosAtivosDataAulaTicksView(APIView):
+    """Lista os alunos ativos em uma turma até uma data de aula."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter("data_aula_ticks", int, OpenApiParameter.PATH),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(
+        self,
+        request: Request,
+        codigo_turma: str,
+        data_aula_ticks: str,
+    ) -> Response:
+        """Lista os alunos ativos na turma até a data de aula informada.
+
+        Args:
+            codigo_turma: Código da turma consultada.
+            data_aula_ticks: Data de aula em .NET DateTime ticks.
+
+        Returns:
+            Alunos ativos distintos na turma até a data de aula.
+        """
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            ticks = to_int(data_aula_ticks, "data_aula_ticks")
+            if ticks <= 0:
+                raise ValueError(
+                    "O código da turma e data da aula são obrigatórios."
+                )
+            data_aula = ticks_to_datetime(ticks)
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_alunos_ativos_turma_por_data_aula(
+            codigo_turma=codigo,
+            data_aula=data_aula,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
 
 class NecessidadesEspeciaisAlunoView(APIView):

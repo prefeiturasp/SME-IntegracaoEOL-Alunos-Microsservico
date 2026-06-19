@@ -16,6 +16,7 @@ from apps.alunos.tests.helpers import (
     seed_matriculas,
     seed_necessidades,
     seed_responsaveis,
+    seed_turma_data_aula,
 )
 
 
@@ -146,6 +147,71 @@ class A07A08A09TurmaApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
+
+
+class AlunosAtivosDataAulaTicksApiTestCase(TestCase):
+    """Valida o endpoint de alunos ativos por data de aula (ticks)."""
+
+    def _url(self, codigo_turma: str, data_aula_ticks: str) -> str:
+        return reverse(
+            "alunos-ativos-data-aula-ticks",
+            kwargs={
+                "codigo_turma": codigo_turma,
+                "data_aula_ticks": data_aula_ticks,
+            },
+        )
+
+    # Ticks .NET equivalentes a 2026-06-01, após as datas do seed.
+    TICKS_2026_06_01 = "639158688000000000"
+
+    def test_retorna_alunos_em_snake_case(self) -> None:
+        """Verifica 200, dedup por aluno e contrato em snake_case."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), self.TICKS_2026_06_01)
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/json")
+        body = resp.json()
+        self.assertEqual(len(body), 2)
+        joao = {item["codigo_aluno"]: item for item in body}[1234567]
+        self.assertEqual(joao["nome_aluno"], "JOAO DA SILVA")
+        self.assertEqual(joao["codigo_dre"], "108800")
+        self.assertEqual(joao["sequencia"], 1)
+        self.assertEqual(joao["celular_responsavel"], "11988887777")
+        self.assertIn("data_situacao", joao)
+        self.assertIn("data_matricula", joao)
+
+    def test_sem_api_key_retorna_401(self) -> None:
+        """Verifica que requisição sem API key retorna 401."""
+        resp = APIClient().get(self._url("3015603", "639059616000000000"))
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_codigo_turma_invalido_retorna_400(self) -> None:
+        """Verifica que codigo_turma não numérico retorna 400."""
+        resp = _autenticado().get(self._url("abc", "639059616000000000"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_ticks_invalido_retorna_400(self) -> None:
+        """Verifica que ticks não numérico retorna 400."""
+        resp = _autenticado().get(self._url("3015603", "abc"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_ticks_fora_de_range_retorna_400(self) -> None:
+        """Verifica que ticks fora do range de datetime retorna 400."""
+        resp = _autenticado().get(self._url("3015603", str(10**19)))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_ticks_zero_retorna_400(self) -> None:
+        """Verifica que ticks igual a zero retorna 400, como no legado."""
+        resp = _autenticado().get(self._url("3015603", "0"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_turma_vazia_retorna_lista_vazia(self) -> None:
+        """Verifica que turma sem alunos retorna 200 com lista vazia."""
+        resp = _autenticado().get(self._url("999999", "639059616000000000"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
 
 
 class A10A13A14ApiTestCase(TestCase):
