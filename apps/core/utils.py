@@ -1,6 +1,6 @@
 """Utilitários genéricos compartilhados entre apps."""
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import cast
 
 from django.utils import timezone
@@ -79,6 +79,42 @@ def to_datetime(valor: str, nome_param: str) -> datetime:
             f"Parâmetro '{nome_param}' deve ser uma data ISO 8601 válida:"
             f" recebido {valor!r}."
         ) from exc
+
+
+def ticks_to_datetime(ticks: int) -> datetime:
+    """Transforma .NET DateTime ticks em datetime.
+
+    Args:
+        ticks: Quantidade de ticks já convertida para inteiro.
+
+    Returns:
+        Datetime correspondente aos ticks informados.
+
+    Raises:
+        ValueError: Se os ticks estiverem fora do range suportado por
+            ``datetime``.
+    """
+    try:
+        return datetime(1, 1, 1) + timedelta(microseconds=ticks // 10)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(
+            f"Ticks fora do intervalo de datas suportado: {ticks!r}."
+        ) from exc
+
+
+def fim_do_dia(momento: datetime) -> datetime:
+    """Leva um datetime ao último instante do seu dia.
+
+    Para compatibilidade com o legado (``.Date.AddDays(1).AddTicks(-1)``),
+    preservando o fuso quando presente.
+
+    Args:
+        momento: Datetime a ser ajustado.
+
+    Returns:
+        Datetime no mesmo dia às ``23:59:59.999999``.
+    """
+    return datetime.combine(momento.date(), time.max, tzinfo=momento.tzinfo)
 
 
 def query_bool(request: Request, nome: str, default: bool) -> bool:

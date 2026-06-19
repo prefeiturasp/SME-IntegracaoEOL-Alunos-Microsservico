@@ -74,6 +74,31 @@ class AlunoAtivoTurmaSerializer(serializers.Serializer):
     ano_letivo = serializers.IntegerField()
 
 
+class AlunoAtivoDataAulaSerializer(serializers.Serializer):
+    """Serializa alunos ativos na turma por data de aula."""
+
+    codigo_aluno = serializers.IntegerField()
+    nome_aluno = serializers.CharField()
+    nome_social_aluno = serializers.CharField(allow_null=True)
+    data_nascimento = serializers.DateField(allow_null=True)
+    codigo_situacao_matricula = serializers.IntegerField()
+    situacao_matricula = serializers.CharField()
+    data_situacao = serializers.DateTimeField(allow_null=True)
+    numero_aluno_chamada = serializers.CharField(allow_null=True)
+    possui_deficiencia = serializers.BooleanField()
+    codigo_matricula = serializers.IntegerField()
+    codigo_turma = serializers.IntegerField()
+    codigo_escola = serializers.CharField()
+    ano_letivo = serializers.IntegerField()
+    data_matricula = serializers.DateTimeField(allow_null=True)
+    nome_responsavel = serializers.CharField(allow_null=True)
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    celular_responsavel = serializers.CharField(allow_null=True)
+    data_atualizacao_contato = serializers.DateTimeField(allow_null=True)
+    sequencia = serializers.IntegerField(allow_null=True)
+    codigo_dre = serializers.CharField()
+
+
 class NecessidadeEspecialSerializer(serializers.Serializer):
     """Serializa necessidades especiais do aluno."""
 

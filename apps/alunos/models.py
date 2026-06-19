@@ -139,6 +139,7 @@ class Matricula(models.Model):
         related_name="matriculas",
     )
     codigo_ue = models.CharField(max_length=20)
+    codigo_dre = models.CharField(max_length=20)
     ano_letivo = models.SmallIntegerField()
     data_situacao_matricula = models.DateField(null=True, blank=True)
     data_situacao_matricula_data_hora = models.DateTimeField(
@@ -179,12 +180,13 @@ class MatriculaTurma(models.Model):
     data_atualizacao_tabela = models.DateTimeField(null=True, blank=True)
     nome_turma = models.CharField(max_length=80, null=True, blank=True)
     codigo_etapa_ensino = models.SmallIntegerField(null=True, blank=True)
+    sequencia = models.SmallIntegerField()
 
     class Meta:
         app_label = "alunos"
         db_table = "matricula_turma"
         managed = False
-        unique_together = [("codigo_matricula", "codigo_turma")]
+        unique_together = [("codigo_matricula", "codigo_turma", "sequencia")]
 
     def __str__(self) -> str:
         return f"M: {self.codigo_matricula} - T: {self.codigo_turma}"
