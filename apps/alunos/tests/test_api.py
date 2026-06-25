@@ -161,9 +161,12 @@ class AlunosTurmaApiTestCase(TestCase):
     """Valida o endpoint unificado de alunos de uma turma."""
 
     def _path(self, codigo_turma: str) -> str:
-        return reverse(
-            "alunos-turma",
-            kwargs={"codigo_turma": codigo_turma},
+        return cast(
+            str,
+            reverse(
+                "alunos-turma",
+                kwargs={"codigo_turma": codigo_turma},
+            ),
         )
 
     def _url(self, codigo_turma: str, **params: str) -> str:

@@ -15,6 +15,8 @@ from apps.alunos.models import (
     TipoNecessidadeEspecial,
 )
 
+DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL = "Ensino Fundamental"
+
 
 def agora() -> datetime:
     """Retorna um datetime fixo para os testes."""
@@ -86,7 +88,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_ue_turma="100001",
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
-        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
         descricao_ciclo_ensino="Ciclo Interdisciplinar",
         sequencia=1,
         origem_atual=origem_atual,
@@ -104,7 +106,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_ue_turma="100001",
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=3,
-        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
         descricao_ciclo_ensino="Ciclo Autoral",
         sequencia=1,
         origem_atual=origem_atual,
@@ -119,7 +121,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         turma="5A",
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
-        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
         descricao_ciclo_ensino="Ciclo Interdisciplinar",
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
@@ -131,7 +133,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         turma="6A",
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=3,
-        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
         descricao_ciclo_ensino="Ciclo Autoral",
     )
     return [m1, m2]
