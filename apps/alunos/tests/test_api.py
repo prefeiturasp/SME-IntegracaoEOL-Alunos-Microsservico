@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import cast
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from apps.alunos.models import MatriculaTurma
 from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
@@ -149,17 +151,18 @@ class A07A08A09TurmaApiTestCase(TestCase):
         self.assertEqual(len(resp.json()), 1)
 
 
-class AlunosAtivosDataAulaTicksApiTestCase(TestCase):
-    """Valida o endpoint de alunos ativos por data de aula (ticks)."""
+class AlunosTurmaApiTestCase(TestCase):
+    """Valida o endpoint unificado de alunos de uma turma."""
 
-    def _url(self, codigo_turma: str, data_aula_ticks: str) -> str:
+    def _path(self, codigo_turma: str) -> str:
         return reverse(
-            "alunos-ativos-data-aula-ticks",
-            kwargs={
-                "codigo_turma": codigo_turma,
-                "data_aula_ticks": data_aula_ticks,
-            },
+            "alunos-turma",
+            kwargs={"codigo_turma": codigo_turma},
         )
+
+    def _url(self, codigo_turma: str, **params: str) -> str:
+        query = {"considerar_inativos": "false", **params}
+        return f"{self._path(codigo_turma)}?{urlencode(query)}"
 
     # Ticks .NET equivalentes a 2026-06-01, após as datas do seed.
     TICKS_2026_06_01 = "639158688000000000"
@@ -168,7 +171,7 @@ class AlunosAtivosDataAulaTicksApiTestCase(TestCase):
         """Verifica 200, dedup por aluno e contrato em snake_case."""
         codigo_turma = seed_turma_data_aula()
         resp = _autenticado().get(
-            self._url(str(codigo_turma), self.TICKS_2026_06_01)
+            self._url(str(codigo_turma), data_aula_ticks=self.TICKS_2026_06_01)
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/json")
@@ -182,36 +185,185 @@ class AlunosAtivosDataAulaTicksApiTestCase(TestCase):
         self.assertIn("data_situacao", joao)
         self.assertIn("data_matricula", joao)
 
+    def test_sem_query_params_retorna_todos(self) -> None:
+        """Verifica 200 sem filtros de data, com a turma completa."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 2)
+
     def test_sem_api_key_retorna_401(self) -> None:
         """Verifica que requisição sem API key retorna 401."""
-        resp = APIClient().get(self._url("3015603", "639059616000000000"))
+        resp = APIClient().get(self._url("3015603"))
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_codigo_turma_invalido_retorna_400(self) -> None:
         """Verifica que codigo_turma não numérico retorna 400."""
-        resp = _autenticado().get(self._url("abc", "639059616000000000"))
+        resp = _autenticado().get(self._url("abc"))
         self.assertEqual(resp.status_code, 400)
 
     def test_ticks_invalido_retorna_400(self) -> None:
         """Verifica que ticks não numérico retorna 400."""
-        resp = _autenticado().get(self._url("3015603", "abc"))
+        resp = _autenticado().get(self._url("3015603", data_aula_ticks="abc"))
         self.assertEqual(resp.status_code, 400)
 
     def test_ticks_fora_de_range_retorna_400(self) -> None:
         """Verifica que ticks fora do range de datetime retorna 400."""
-        resp = _autenticado().get(self._url("3015603", str(10**19)))
+        resp = _autenticado().get(
+            self._url("3015603", data_aula_ticks=str(10**19))
+        )
         self.assertEqual(resp.status_code, 400)
 
-    def test_ticks_zero_retorna_400(self) -> None:
-        """Verifica que ticks igual a zero retorna 400, como no legado."""
-        resp = _autenticado().get(self._url("3015603", "0"))
+    def test_ticks_negativo_retorna_400(self) -> None:
+        """Verifica que ticks negativo retorna 400."""
+        resp = _autenticado().get(self._url("3015603", data_aula_ticks="-1"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_ticks_zero_retorna_200(self) -> None:
+        """Verifica que ticks zero retorna 200 sem filtro por data."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), data_aula_ticks="0")
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 2)
+
+    def test_ticks_zero_e_primeira_sequencia_ordena_chamada(self) -> None:
+        """Verifica ordenação por chamada com ticks zero e sequência 1."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), data_aula_ticks="0", sequencia="1")
+        )
+        self.assertEqual(resp.status_code, 200)
+        codigos = [item["numero_aluno_chamada"] for item in resp.json()]
+        self.assertEqual(codigos, ["07", "12"])
+
+    def test_sequencia_filtra_via_query_param(self) -> None:
+        """Verifica filtro de sequência via query param inteiro."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(
+                str(codigo_turma),
+                data_aula_ticks=self.TICKS_2026_06_01,
+                sequencia="1",
+            )
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigo_aluno"], 1234567)
+
+    def test_sequencia_invalida_retorna_400(self) -> None:
+        """Verifica que sequência não inteira retorna 400."""
+        resp = _autenticado().get(self._url("3015603", sequencia="abc"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_considerar_inativos_traz_todas_situacoes(self) -> None:
+        """Verifica que considerar inativos traz situações fora do conjunto."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+        resp = _autenticado().get(
+            self._path(str(codigo_turma)),
+            {
+                "data_aula_ticks": self.TICKS_2026_06_01,
+                "considerar_inativos": "true",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 2)
+
+    def test_considerar_inativos_false_restringe_situacoes(self) -> None:
+        """Verifica que considerar inativos falso exclui fora do conjunto."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+        resp = _autenticado().get(
+            self._path(str(codigo_turma)),
+            {
+                "data_aula_ticks": self.TICKS_2026_06_01,
+                "considerar_inativos": "false",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigo_aluno"], 1234567)
+
+    def test_sem_considerar_inativos_retorna_400(self) -> None:
+        """Verifica que considerar_inativos é obrigatório."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._path(str(codigo_turma)),
+            {"data_aula_ticks": self.TICKS_2026_06_01},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        """Verifica que codigo_aluno restringe o resultado ao aluno."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), codigo_aluno="7654321")
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigo_aluno"], 7654321)
+
+    def test_data_matricula_ordena_por_nome(self) -> None:
+        """Verifica ordenação por nome ao informar data_matricula_ticks."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(
+                str(codigo_turma),
+                data_matricula_ticks=self.TICKS_2026_06_01,
+            )
+        )
+        self.assertEqual(resp.status_code, 200)
+        nomes = [item["nome_aluno"] for item in resp.json()]
+        self.assertEqual(nomes, sorted(nomes))
+
+    def test_data_matricula_ticks_invalido_retorna_400(self) -> None:
+        """Verifica que data_matricula_ticks inválido retorna 400."""
+        resp = _autenticado().get(
+            self._url("3015603", data_matricula_ticks="abc")
+        )
         self.assertEqual(resp.status_code, 400)
 
     def test_turma_vazia_retorna_lista_vazia(self) -> None:
         """Verifica que turma sem alunos retorna 200 com lista vazia."""
-        resp = _autenticado().get(self._url("999999", "639059616000000000"))
+        resp = _autenticado().get(
+            self._url("999999", data_aula_ticks=self.TICKS_2026_06_01)
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
+
+
+class TurmasRotaResolucaoTestCase(TestCase):
+    """Garante que as rotas de turma não colidem entre si."""
+
+    def test_rota_ativos_resolve_para_view_propria(self) -> None:
+        """Verifica que turmas/<codigo>/ativos não cai na rota genérica."""
+        url = reverse("alunos-ativos-turma", kwargs={"codigo_turma": "30156"})
+        self.assertTrue(url.endswith("/turmas/30156/ativos"))
+
+    def test_rota_ativos_periodo_resolve_para_view_propria(self) -> None:
+        """Verifica a rota de período por data de referência."""
+        url = reverse(
+            "alunos-ativos-periodo-turma",
+            kwargs={"codigo_turma": "30156", "data_referencia_fim": "2026"},
+        )
+        self.assertTrue(url.endswith("/turmas/30156/ativos/2026"))
+
+    def test_rota_unificada_resolve_para_view_generica(self) -> None:
+        """Verifica que turmas/<codigo>/ resolve para a rota unificada."""
+        url = reverse("alunos-turma", kwargs={"codigo_turma": "30156"})
+        self.assertTrue(url.endswith("/turmas/30156/"))
 
 
 class A10A13A14ApiTestCase(TestCase):

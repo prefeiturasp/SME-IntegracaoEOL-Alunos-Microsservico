@@ -3,11 +3,11 @@
 from django.urls import path
 
 from apps.alunos.api.views import (
-    AlunosAtivosDataAulaTicksView,
     AlunosAtivosPeriodoTurmaView,
     AlunosAtivosTurmaView,
     AlunosPorCodigosEAnoView,
     AlunosPorCodigosView,
+    AlunosTurmaView,
     AutocompleteAlunosAtivosView,
     AutocompleteAlunosUeView,
     BuscarAlunosDaUeView,
@@ -68,12 +68,6 @@ urlpatterns = [
         name="total-alunos-ativos-por-periodo",
     ),
     path(
-        "turmas/<str:codigo_turma>/alunos-ativos/"
-        "data-aula-ticks/<str:data_aula_ticks>/",
-        AlunosAtivosDataAulaTicksView.as_view(),
-        name="alunos-ativos-data-aula-ticks",
-    ),
-    path(
         "turmas/<str:codigo_turma>/ativos/<str:data_referencia_fim>",
         AlunosAtivosPeriodoTurmaView.as_view(),
         name="alunos-ativos-periodo-turma",
@@ -82,6 +76,11 @@ urlpatterns = [
         "turmas/<str:codigo_turma>/ativos",
         AlunosAtivosTurmaView.as_view(),
         name="alunos-ativos-turma",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/",
+        AlunosTurmaView.as_view(),
+        name="alunos-turma",
     ),
     path(
         "<str:codigo_aluno>/necessidades-especiais",
