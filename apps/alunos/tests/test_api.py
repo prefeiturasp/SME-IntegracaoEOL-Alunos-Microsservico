@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
 
 from django.test import TestCase
@@ -99,7 +99,13 @@ class A04A05A06AutocompleteApiTestCase(TestCase):
         )
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(len(resp.json()), 2)
+        body = resp.json()
+        self.assertEqual(len(body), 2)
+        self.assertEqual(body[0]["tipo_turno"], 2)
+        self.assertEqual(body[0]["turma_nome"], "5A")
+        self.assertEqual(body[0]["etapa_ensino"], 5)
+        self.assertEqual(body[0]["ciclo_ensino"], 2)
+        self.assertEqual(body[0]["desc_etapa_ensino"], "Ensino Fundamental")
 
     def test_a05_autocomplete(self) -> None:
         """Verifica o autocomplete por substring do nome."""
@@ -538,13 +544,18 @@ class A22A23EscritaApiTestCase(TestCase):
 class A27FiliacaoApiTestCase(TestCase):
     """Valida o endpoint de filiação do responsável do aluno."""
 
-    def test_retorna_informacoes(self) -> None:
-        """Verifica o retorno das informações de filiação."""
+    def test_retorna_responsaveis_de_filiacao(self) -> None:
+        """Verifica o retorno dos responsáveis de filiação."""
         seed_alunos()
+        seed_responsaveis()
         url = reverse("filiacao-aluno", kwargs={"codigo_aluno": "1234567"})
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json()["codigo_aluno"], 1234567)
+        dados = resp.json()
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]["nome_responsavel"], "Responsavel Exemplo")
+        self.assertEqual(dados[0]["ddd_residencial"], "11")
+        self.assertEqual(dados[0]["endereco"]["id"], 123)
 
 
 class A12AlunosPorCodigosApiTestCase(TestCase):
@@ -802,6 +813,24 @@ class A03TurmasPorSituacaoMatriculaApiTestCase(TestCase):
             resp = _autenticado().get(self._url())
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
+
+    @patch(
+        "apps.alunos.api.views.services."
+        "buscar_turmas_do_aluno_por_situacao_matricula"
+    )
+    def test_repassa_tipo_turma(self, mock_buscar: MagicMock) -> None:
+        """Verifica que o filtro de tipo de turma chega ao serviço."""
+        mock_buscar.return_value = []
+
+        resp = _autenticado().get(self._url(tipo_turma="true"))
+
+        self.assertEqual(resp.status_code, 404)
+        mock_buscar.assert_called_once_with(
+            codigo_aluno=1234567,
+            ano_letivo=2026,
+            filtrar_situacao_matricula=True,
+            tipo_turma=True,
+        )
 
     def test_codigo_aluno_invalido_400(self) -> None:
         """Verifica que codigo_aluno não numérico retorna 400."""
@@ -1072,11 +1101,12 @@ class ValidacoesParametros400ApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 400)
 
-    def test_a27_inexistente_404(self) -> None:
-        """Verifica que aluno inexistente em A27 retorna 404."""
+    def test_a27_inexistente_retorna_lista_vazia(self) -> None:
+        """Verifica que aluno sem filiação retorna lista vazia."""
         url = reverse("filiacao-aluno", kwargs={"codigo_aluno": "9999999"})
         resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
 
     def test_a21_inexistente_404(self) -> None:
         """Verifica que CPF inexistente em A21 retorna 404."""

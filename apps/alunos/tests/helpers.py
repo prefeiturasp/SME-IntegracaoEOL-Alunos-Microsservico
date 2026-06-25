@@ -81,9 +81,16 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        tipo_turno=2,
         nome_turma="5A",
+        codigo_ue_turma="100001",
         codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_ciclo_ensino="Ciclo Interdisciplinar",
         sequencia=1,
+        origem_atual=origem_atual,
+        ano_letivo_turma=2026,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
@@ -92,9 +99,16 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_aluno=date(2026, 2, 1),
         codigo_situacao_aluno=1,
         codigo_tipo_turma=1,
+        tipo_turno=3,
         nome_turma="6A",
+        codigo_ue_turma="100001",
         codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=3,
+        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_ciclo_ensino="Ciclo Autoral",
         sequencia=1,
+        origem_atual=origem_atual,
+        ano_letivo_turma=2026,
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=1234567,
@@ -104,6 +118,9 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_turma=12345,
         turma="5A",
         codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_ciclo_ensino="Ciclo Interdisciplinar",
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=7654321,
@@ -113,6 +130,9 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_turma=22222,
         turma="6A",
         codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=3,
+        descricao_etapa_ensino="Ensino Fundamental",
+        descricao_ciclo_ensino="Ciclo Autoral",
     )
     return [m1, m2]
 
@@ -129,6 +149,10 @@ def seed_responsaveis() -> ResponsavelAluno:
             cpf="12345678901",
             ddd_celular="11",
             numero_celular="977778888",
+            ddd_telefone_fixo="11",
+            nr_telefone_fixo="33334444",
+            ddd_telefone_comercial="11",
+            nr_telefone_comercial="55556666",
             email="contato.exemplo@sme.com.br",
             data_nascimento=date(1980, 5, 20),
             nome_mae="Mae do Responsavel",
