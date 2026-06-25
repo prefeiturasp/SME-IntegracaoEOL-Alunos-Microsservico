@@ -1453,15 +1453,16 @@ class MapeamentosInternosTestCase(TestCase):
 class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
     """Valida o filtro de janela de datas em alunos ativos por turma."""
 
-    def test_matricula_anterior_ao_inicio_e_excluida(self) -> None:
-        """Verifica exclusão de matrícula antes da data inicial."""
+    def test_matricula_ativa_anterior_ao_inicio_e_incluida(self) -> None:
+        """Verifica inclusão de matrícula ativa anterior à data inicial."""
         seed_matriculas()
         dados = services.obter_alunos_ativos_por_periodo_e_turma(
             codigo_turma=12345,
             data_referencia_inicio=date(2026, 3, 1),
             data_referencia_fim=date(2026, 12, 31),
         )
-        self.assertEqual(dados, [])
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_aluno, 1234567)
 
     def test_matricula_posterior_ao_fim_e_excluida(self) -> None:
         """Verifica exclusão de matrícula após a data final."""
