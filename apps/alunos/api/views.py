@@ -591,7 +591,7 @@ class AlunosTurmaView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo,
             data_aula=data_aula,
             data_matricula=data_matricula,

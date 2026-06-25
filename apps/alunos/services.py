@@ -1385,11 +1385,6 @@ def _data_matricula_por_matricula(
     }
 
 
-def _responsavel_tem_celular(resp: dict[str, Any]) -> bool:
-    """Indica se o responsável possui DDD ou número de celular."""
-    return bool(resp.get("ddd_celular") or resp.get("numero_celular"))
-
-
 def _responsaveis_por_aluno(
     codigos_alunos: Sequence[int],
 ) -> dict[int, dict[str, Any]]:
@@ -1417,12 +1412,7 @@ def _responsaveis_por_aluno(
             "numero_celular",
         )
     ):
-        atual = saida.get(resp["aluno_id"])
-        if atual is None or (
-            not _responsavel_tem_celular(atual)
-            and _responsavel_tem_celular(resp)
-        ):
-            saida[resp["aluno_id"]] = resp
+        saida.setdefault(resp["aluno_id"], resp)
     return saida
 
 
@@ -1502,7 +1492,7 @@ def _atende_condicao_data_matricula(row: dict[str, Any], limite: date) -> bool:
     """Avalia a condição composta do legado por data de matrícula.
 
     Aplica a mesma condição do legado ``BuscaAlunosPorTurmaDataMatricula``
-    onde se verifica se a data de situação da matrícula 
+    onde se verifica se a data de situação da matrícula
     for anterior ou igual ao limite.
 
     Args:
@@ -1525,7 +1515,7 @@ def _atende_condicao_data_matricula(row: dict[str, Any], limite: date) -> bool:
     return por_situacao or por_matricula
 
 
-def obter_alunos_ativos_turma_por_data_aula(
+def obter_alunos_turma(
     codigo_turma: int,
     data_aula: datetime | None,
     data_matricula: datetime | None = None,
@@ -2999,7 +2989,7 @@ __all__ = [
     "dto_to_dict",
     "obter_alunos_ativos_por_periodo_e_turma",
     "obter_alunos_ativos_por_turma",
-    "obter_alunos_ativos_turma_por_data_aula",
+    "obter_alunos_turma",
     "obter_alunos_por_codigos",
     "obter_alunos_por_codigos_e_ano",
     "obter_dados_acompanhamento_escolar",
