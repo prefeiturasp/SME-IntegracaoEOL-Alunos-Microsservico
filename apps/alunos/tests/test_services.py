@@ -646,7 +646,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     def test_retorna_alunos_dedup_por_aluno(self) -> None:
         """Verifica dedup por aluno e campos enriquecidos do contrato."""
         codigo_turma = seed_turma_data_aula()
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
@@ -677,7 +677,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     def test_aluno_sem_responsavel_tem_campos_nulos(self) -> None:
         """Verifica que aluno sem responsável retorna campos nulos."""
         codigo_turma = seed_turma_data_aula()
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
@@ -687,10 +687,60 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertIsNone(maria.celular_responsavel)
         self.assertIsNone(maria.data_atualizacao_contato)
 
+    def test_ignora_responsavel_com_vinculo_encerrado(self) -> None:
+        """Verifica que responsável sem vínculo ativo é descartado."""
+        codigo_turma = seed_turma_data_aula()
+        ResponsavelAluno.objects.create(
+            codigo_responsavel=6602,
+            aluno_id=1234567,
+            tipo_responsavel=2,
+            nome="Responsavel Encerrado",
+            ddd_celular="11",
+            numero_celular="993786998",
+            data_fim_vinculo=date(2026, 3, 1),
+            data_atualizacao_tabela=datetime(2026, 5, 1, 11, 48, tzinfo=UTC),
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+
+        joao = {d.codigo_aluno: d for d in dados}[1234567]
+        self.assertEqual(joao.nome_responsavel, "Responsavel Data Aula")
+        self.assertEqual(joao.celular_responsavel, "11988887777")
+
+    def test_data_matricula_min_inclui_alocacoes_filtradas(self) -> None:
+        """Verifica data_matricula como min, mesmo de alocação filtrada."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.create(
+            codigo_matricula=700001,
+            codigo_turma=codigo_turma,
+            numero_chamada="12",
+            data_situacao_aluno=date(2024, 11, 1),
+            data_situacao_aluno_data_hora=datetime(
+                2024, 11, 1, 13, 34, 37, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=14,
+            codigo_tipo_turma=1,
+            sequencia=0,
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+
+        joao = {d.codigo_aluno: d for d in dados}[1234567]
+        self.assertEqual(
+            joao.data_matricula,
+            datetime(2024, 11, 1, 13, 34, 37, tzinfo=UTC),
+        )
+
     def test_filtra_data_situacao_posterior_a_data_aula(self) -> None:
         """Verifica que matrícula posterior à data de aula é excluída."""
         codigo_turma = seed_turma_data_aula()
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 1, 1, tzinfo=UTC),
         )
@@ -725,7 +775,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=0,
         )
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 2, 6, 8, 0, tzinfo=UTC),
         )
@@ -735,7 +785,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
 
     def test_turma_inexistente_retorna_vazio(self) -> None:
         """Verifica que turma sem alunos retorna lista vazia."""
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=999999,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
@@ -770,9 +820,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=0,
         )
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            considerar_inativos=True,
         )
 
         joao = {d.codigo_aluno: d for d in dados}[1234567]
@@ -808,9 +859,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=4,
         )
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            considerar_inativos=True,
         )
 
         joao = {d.codigo_aluno: d for d in dados}[1234567]
@@ -819,8 +871,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao.codigo_situacao_matricula, 14)
         self.assertEqual(joao.situacao_matricula, "Remanejado Saída")
 
-    def test_data_matricula_usa_alocacao_original(self) -> None:
-        """Verifica data_matricula da matricula-turma original (menor data)."""
+    def test_data_matricula_usa_menor_alocacao_da_matricula(self) -> None:
+        """Verifica data_matricula como menor alocação da matrícula."""
         codigo_turma = seed_turma_data_aula()
         MatriculaTurma.objects.create(
             codigo_matricula=700001,
@@ -835,9 +887,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=2,
         )
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            considerar_inativos=True,
         )
 
         joao = {d.codigo_aluno: d for d in dados}[1234567]
@@ -878,7 +931,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=1,
         )
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
@@ -887,11 +940,238 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao.codigo_matricula, 700005)
         self.assertEqual(joao.numero_aluno_chamada, "20")
 
+    def test_data_aula_nula_e_primeira_sequencia_ordena_chamada(self) -> None:
+        """Verifica ordenação por chamada com ticks zero e sequência 1."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            sequencia=1,
+        )
+        self.assertEqual([d.numero_aluno_chamada for d in dados], ["07", "12"])
+
+    def test_data_aula_nula_sem_primeira_sequencia_nao_ordena(self) -> None:
+        """Verifica que sem sequência 1 a ordenação por chamada não ocorre."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+        )
+        self.assertEqual({d.codigo_aluno for d in dados}, {1234567, 7654321})
+
+    def test_sem_parametro_default_false_restringe_situacoes(self) -> None:
+        """Verifica que o default (False) restringe as situações inativas."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_considerar_inativos_false_filtra_situacoes(self) -> None:
+        """Verifica que situações fora do conjunto são excluídas com False."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            considerar_inativos=False,
+        )
+
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_considerar_inativos_false_dedup_antes_do_filtro(self) -> None:
+        """Verifica que a dedup ocorre antes do filtro de situação.
+
+        Aluno com duas sequências na turma: a de maior ``data_situacao``
+        tem situação inativa. Pelo legado, a dedup elege essa linha e o
+        filtro de situação a descarta, removendo o aluno por completo —
+        sem cair para a outra sequência ativa.
+        """
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.create(
+            codigo_matricula=700001,
+            codigo_turma=codigo_turma,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 3, 1),
+            data_situacao_aluno_data_hora=datetime(
+                2026, 3, 1, 14, 0, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=14,
+            codigo_tipo_turma=1,
+            nome_turma="5A",
+            codigo_etapa_ensino=5,
+            sequencia=2,
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            codigo_aluno=1234567,
+            considerar_inativos=False,
+        )
+
+        self.assertEqual(dados, [])
+
+    def test_considerar_inativos_true_traz_todas_situacoes(self) -> None:
+        """Verifica que situações fora do conjunto entram quando True."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            considerar_inativos=True,
+        )
+
+        self.assertEqual({d.codigo_aluno for d in dados}, {1234567, 7654321})
+
+    def test_sequencia_filtra_matricula_turma(self) -> None:
+        """Verifica que o filtro de sequência restringe a matrícula-turma."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            sequencia=1,
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_sequencia_ausente_traz_todas(self) -> None:
+        """Verifica que sem sequência todas as alocações são consideradas."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+        self.assertEqual({d.codigo_aluno for d in dados}, {1234567, 7654321})
+
+    def test_considera_inativos_false_sem_data_filtra_situacoes(self) -> None:
+        """Reproduz o legado considera-inativos=false (sem filtro de data)."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            considerar_inativos=False,
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_considera_inativos_true_sem_data_traz_todas(self) -> None:
+        """Reproduz o legado considera-inativos=true (sem filtro de data)."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14
+        )
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            considerar_inativos=True,
+        )
+        self.assertEqual({d.codigo_aluno for d in dados}, {1234567, 7654321})
+
+    def test_codigo_aluno_com_considera_inativos(self) -> None:
+        """Reproduz o legado aluno/{codigo}/considera-inativos."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            codigo_aluno=1234567,
+            considerar_inativos=False,
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        """Verifica que codigo_aluno restringe o resultado ao aluno."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            codigo_aluno=7654321,
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [7654321])
+
+    def test_codigo_aluno_ausente_na_turma_retorna_vazio(self) -> None:
+        """Verifica que aluno fora da turma retorna lista vazia."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            codigo_aluno=999999,
+        )
+        self.assertEqual(dados, [])
+
+    def test_data_matricula_ordena_por_nome(self) -> None:
+        """Verifica ordenação por nome do aluno na variante por matrícula."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+        nomes = [d.nome_aluno for d in dados]
+        self.assertEqual(nomes, sorted(nomes))
+
+    def test_data_matricula_descarta_vinculo_indevido(self) -> None:
+        """Verifica que Vínculo Indevido sai na variante por matrícula."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=4
+        )
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_data_matricula_condicao_por_situacao(self) -> None:
+        """Verifica a condição composta por data de situação/matrícula."""
+        codigo_turma = seed_turma_data_aula()
+        Matricula.objects.filter(codigo_matricula=700002).update(
+            data_situacao_matricula_data_hora=datetime(
+                2026, 5, 1, 9, 0, tzinfo=UTC
+            )
+        )
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=1
+        )
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            data_matricula=datetime(2026, 2, 5, tzinfo=UTC),
+        )
+        self.assertEqual([d.codigo_aluno for d in dados], [1234567])
+
+    def test_data_aula_e_data_matricula_aplicam_ambos(self) -> None:
+        """Verifica que os dois filtros de data convivem (AND)."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
+        )
+        self.assertEqual({d.codigo_aluno for d in dados}, {1234567, 7654321})
+
     def test_sem_n_mais_um(self) -> None:
         """Verifica que a consulta usa um número fixo de queries."""
         codigo_turma = seed_turma_data_aula()
-        with self.assertNumQueries(4):
-            services.obter_alunos_ativos_turma_por_data_aula(
+        with self.assertNumQueries(5):
+            services.obter_alunos_turma(
                 codigo_turma=codigo_turma,
                 data_aula=datetime(2026, 6, 1, tzinfo=UTC),
             )
@@ -901,3 +1181,84 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         with self.assertNumQueries(0):
             resultado = services._responsaveis_por_aluno([])
         self.assertEqual(resultado, {})
+
+
+class MapeamentosInternosTestCase(TestCase):
+    """Valida os mapeamentos puros de modalidade e raça/cor."""
+
+    def test_modalidade_por_etapa_cobre_faixas(self) -> None:
+        """Verifica a sigla legada de cada faixa de etapa de ensino."""
+        self.assertEqual(services._modalidade_por_etapa(1), "EI")
+        self.assertEqual(services._modalidade_por_etapa(2), "EJA")
+        self.assertEqual(services._modalidade_por_etapa(4), "EF")
+        self.assertEqual(services._modalidade_por_etapa(6), "EM")
+
+    def test_modalidade_por_etapa_desconhecida(self) -> None:
+        """Verifica que etapa fora do mapa retorna None."""
+        self.assertIsNone(services._modalidade_por_etapa(99))
+        self.assertIsNone(services._modalidade_por_etapa(None))
+
+    def test_codigo_raca_vazia_retorna_none(self) -> None:
+        """Verifica que raça/cor ausente ou vazia retorna None."""
+        self.assertIsNone(services._codigo_raca(None))
+        self.assertIsNone(services._codigo_raca(""))
+
+
+class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
+    """Valida o filtro de janela de datas em alunos ativos por turma."""
+
+    def test_matricula_anterior_ao_inicio_e_excluida(self) -> None:
+        """Verifica exclusão de matrícula antes da data inicial."""
+        seed_matriculas()
+        dados = services.obter_alunos_ativos_por_periodo_e_turma(
+            codigo_turma=12345,
+            data_referencia_inicio=date(2026, 3, 1),
+            data_referencia_fim=date(2026, 12, 31),
+        )
+        self.assertEqual(dados, [])
+
+    def test_matricula_posterior_ao_fim_e_excluida(self) -> None:
+        """Verifica exclusão de matrícula após a data final."""
+        seed_matriculas()
+        dados = services.obter_alunos_ativos_por_periodo_e_turma(
+            codigo_turma=12345,
+            data_referencia_inicio=date(2026, 1, 1),
+            data_referencia_fim=date(2026, 1, 31),
+        )
+        self.assertEqual(dados, [])
+
+    def test_matricula_dentro_da_janela_e_incluida(self) -> None:
+        """Verifica que matrícula dentro do intervalo é retornada."""
+        seed_matriculas()
+        dados = services.obter_alunos_ativos_por_periodo_e_turma(
+            codigo_turma=12345,
+            data_referencia_inicio=date(2026, 1, 1),
+            data_referencia_fim=date(2026, 12, 31),
+        )
+        self.assertEqual(len(dados), 1)
+
+
+class AcompanhamentoEscolarFiltroTurmaTestCase(TestCase):
+    """Valida o filtro por turma no acompanhamento escolar."""
+
+    def test_turma_codigo_invalido_retorna_vazio(self) -> None:
+        """Verifica que turma não numérica gera saída vazia."""
+        seed_matriculas()
+        dados = services.obter_dados_acompanhamento_escolar(turma_codigo="abc")
+        self.assertEqual(dados, [])
+
+    def test_turma_codigo_sem_match_retorna_vazio(self) -> None:
+        """Verifica que turma sem matrícula vinculada gera saída vazia."""
+        seed_matriculas()
+        dados = services.obter_dados_acompanhamento_escolar(
+            turma_codigo="99999999"
+        )
+        self.assertEqual(dados, [])
+
+    def test_turma_codigo_com_match_retorna_dados(self) -> None:
+        """Verifica que turma vinculada retorna o aluno correspondente."""
+        seed_matriculas()
+        dados = services.obter_dados_acompanhamento_escolar(
+            turma_codigo="12345"
+        )
+        self.assertEqual(len(dados), 1)

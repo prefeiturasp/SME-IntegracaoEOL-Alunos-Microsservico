@@ -1,5 +1,6 @@
 """Views do domínio Alunos."""
 
+from datetime import datetime
 from typing import Any
 
 from django.http import HttpResponse
@@ -494,46 +495,109 @@ class AlunosAtivosTurmaView(APIView):
         return Response(AlunoAtivoTurmaSerializer(dados, many=True).data)
 
 
-class AlunosAtivosDataAulaTicksView(APIView):
-    """Lista os alunos ativos em uma turma até uma data de aula."""
+def _ticks_para_datetime(request: Request, nome: str) -> datetime | None:
+    """Retorna o ``datetime`` correspondente a um query param em .NET ticks.
+
+    Args:
+        request: Requisição com o query param opcional.
+        nome: Nome do query param em ticks.
+
+    Returns:
+        ``datetime`` correspondente, ou ``None`` quando ausente ou ``0``.
+
+    Raises:
+        ValueError: Quando os ticks são inválidos ou negativos.
+    """
+    bruto = request.query_params.get(nome)
+    if bruto is None:
+        return None
+    ticks = to_int(bruto, nome)
+    if ticks < 0:
+        raise ValueError("O código da turma e data da aula são obrigatórios.")
+    return ticks_to_datetime(ticks) if ticks > 0 else None
+
+
+class AlunosTurmaView(APIView):
+    """Lista os alunos de uma turma conforme os filtros informados."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
+        summary="Alunos de uma turma",
         parameters=[
             OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
-            OpenApiParameter("data_aula_ticks", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_aula_ticks",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                "data_matricula_ticks",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                "codigo_aluno", str, OpenApiParameter.QUERY, required=False
+            ),
+            OpenApiParameter(
+                "considerar_inativos",
+                bool,
+                OpenApiParameter.QUERY,
+                required=True,
+            ),
+            OpenApiParameter(
+                "sequencia",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
         ],
         responses={200: AlunoAtivoDataAulaSerializer(many=True)},
     )
-    def get(
-        self,
-        request: Request,
-        codigo_turma: str,
-        data_aula_ticks: str,
-    ) -> Response:
-        """Lista os alunos ativos na turma até a data de aula informada.
+    def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista os alunos de uma turma conforme os filtros informados.
 
         Args:
+            request: Requisição com o filtro obrigatório
+                ``considerar_inativos`` e os opcionais ``data_aula_ticks``,
+                ``data_matricula_ticks``, ``codigo_aluno`` e ``sequencia``.
             codigo_turma: Código da turma consultada.
-            data_aula_ticks: Data de aula em .NET DateTime ticks.
 
         Returns:
-            Alunos ativos distintos na turma até a data de aula.
+            Alunos distintos na turma conforme os filtros informados.
         """
+        if "considerar_inativos" not in request.query_params:
+            return _erro_400("considerar_inativos é obrigatório.")
         try:
             codigo = to_int(codigo_turma, "codigo_turma")
-            ticks = to_int(data_aula_ticks, "data_aula_ticks")
-            if ticks <= 0:
-                raise ValueError(
-                    "O código da turma e data da aula são obrigatórios."
-                )
-            data_aula = ticks_to_datetime(ticks)
+            data_aula = _ticks_para_datetime(request, "data_aula_ticks")
+            data_matricula = _ticks_para_datetime(
+                request, "data_matricula_ticks"
+            )
+            codigo_aluno_raw = request.query_params.get("codigo_aluno")
+            codigo_aluno = (
+                to_int(codigo_aluno_raw, "codigo_aluno")
+                if codigo_aluno_raw
+                else None
+            )
+            considerar_inativos = query_bool(
+                request, "considerar_inativos", False
+            )
+            sequencia_raw = request.query_params.get("sequencia")
+            sequencia = (
+                to_int(sequencia_raw, "sequencia") if sequencia_raw else None
+            )
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        dados = services.obter_alunos_ativos_turma_por_data_aula(
+        dados = services.obter_alunos_turma(
             codigo_turma=codigo,
             data_aula=data_aula,
+            data_matricula=data_matricula,
+            codigo_aluno=codigo_aluno,
+            considerar_inativos=considerar_inativos,
+            sequencia=sequencia,
         )
         return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
