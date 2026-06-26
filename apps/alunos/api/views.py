@@ -15,10 +15,12 @@ from apps.alunos.api.serializers import (
     AlunoAtivoDataAulaSerializer,
     AlunoAtivoTurmaSerializer,
     AlunoAutocompleteSerializer,
+    AlunoDaUeSerializer,
     AtualizarResponsavelBuscaAtivaRequestSerializer,
     CadastrarResponsavelRequestSerializer,
     ConsolidacaoMatriculaSerializer,
     DadosAcompanhamentoEscolarSerializer,
+    DadosResponsavelFiliacaoSerializer,
     DadosResponsavelResumidoSerializer,
     DadosResponsavelSerializer,
     InformacoesAlunoSerializer,
@@ -157,7 +159,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             filtra = to_bool(
                 filtrar_situacao_matricula, "filtrar_situacao_matricula"
             )
-            to_bool(tipo_turma, "tipo_turma")
+            tipo = to_bool(tipo_turma, "tipo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -168,6 +170,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             codigo_aluno=codigo,
             ano_letivo=ano,
             filtrar_situacao_matricula=filtra,
+            tipo_turma=tipo,
         )
         if not dados:
             return Response(
@@ -189,7 +192,7 @@ class BuscarAlunosDaUeView(APIView):
             OpenApiParameter("nome_aluno", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigo_eol", str, OpenApiParameter.QUERY),
         ],
-        responses={200: TurmaDoAlunoSerializer(many=True)},
+        responses={200: AlunoDaUeSerializer(many=True)},
     )
     def get(
         self, request: Request, codigo_ue: str, ano_letivo: str
@@ -210,6 +213,8 @@ class BuscarAlunosDaUeView(APIView):
             ano = to_int(ano_letivo, "ano_letivo")
         except ValueError as exc:
             return _erro_400(str(exc))
+        if ano <= 0:
+            return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
 
         dados = services.buscar_alunos_da_ue(
             codigo_ue=codigo_ue,
@@ -222,7 +227,7 @@ class BuscarAlunosDaUeView(APIView):
                 {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(TurmaDoAlunoSerializer(dados, many=True).data)
+        return Response(AlunoDaUeSerializer(dados, many=True).data)
 
 
 class AutocompleteAlunosUeView(APIView):
@@ -1132,7 +1137,7 @@ class FiliacaoAlunoView(APIView):
         parameters=[
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH)
         ],
-        responses={200: InformacoesAlunoSerializer},
+        responses={200: DadosResponsavelFiliacaoSerializer(many=True)},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
         """Retorna os dados de filiação do responsável do aluno.
@@ -1141,21 +1146,17 @@ class FiliacaoAlunoView(APIView):
             codigo_aluno: Código EOL do aluno.
 
         Returns:
-            Dados de filiação do aluno, ou ausência de conteúdo quando não
-            encontrado.
+            Dados de filiação encontrados para o aluno.
         """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        dado = services.obter_dados_responsavel_filiacao(codigo_aluno=codigo)
-        if dado is None:
-            return Response(
-                {"detail": "Aluno não encontrado."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        return Response(InformacoesAlunoSerializer(dado).data)
+        dados = services.obter_dados_responsavel_filiacao(codigo_aluno=codigo)
+        return Response(
+            DadosResponsavelFiliacaoSerializer(dados, many=True).data
+        )
 
 
 class MatriculasAnoAtualView(APIView):

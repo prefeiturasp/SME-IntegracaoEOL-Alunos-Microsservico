@@ -37,9 +37,11 @@ class TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(d.codigo_situacao_matricula, 1)
         self.assertEqual(d.nome_aluno, "JOAO DA SILVA")
         self.assertEqual(d.numero_aluno_chamada, "12")
+        # DataAtualizacaoContato espelha o legado: vem do responsável
+        # (data_atualizacao_tabela), não do aluno.
         self.assertEqual(
             d.data_atualizacao_contato,
-            datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
+            datetime(2026, 1, 10, 3, 0, tzinfo=UTC),
         )
 
     def test_a01_aluno_inexistente_retorna_lista_vazia(self) -> None:
@@ -65,17 +67,101 @@ class TurmasDoAlunoTestCase(TestCase):
             )
         self.assertEqual(len(dados), 1)
 
+    def test_a03_retorna_turmas_ativas_da_mesma_matricula(self) -> None:
+        """Verifica que vínculos ativos distintos não são sobrescritos."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=998879,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=12345,
+            numero_chamada="24",
+            data_situacao_aluno=date(2026, 2, 25),
+            data_situacao_aluno_data_hora=datetime(
+                2026, 2, 25, 23, 35, 24, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=2,
+            sequencia=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=23456,
+            numero_chamada="09",
+            data_situacao_aluno=date(2026, 2, 3),
+            data_situacao_aluno_data_hora=datetime(
+                2026, 2, 3, 14, 24, 34, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            sequencia=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=34567,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 3),
+            data_situacao_aluno_data_hora=datetime(
+                2026, 2, 3, 14, 24, 35, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=14,
+            codigo_tipo_turma=1,
+            sequencia=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=34567,
+            numero_chamada="12",
+            data_situacao_aluno=date(2025, 11, 3),
+            data_situacao_aluno_data_hora=datetime(
+                2025, 11, 3, 13, 3, 55, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            sequencia=2,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998879,
+            codigo_turma=45678,
+            numero_chamada="01",
+            data_situacao_aluno=date(2026, 2, 3),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=3,
+            sequencia=1,
+        )
+
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            dados = services.buscar_turmas_do_aluno_por_situacao_matricula(
+                codigo_aluno=1234567,
+                ano_letivo=2026,
+                filtrar_situacao_matricula=True,
+                tipo_turma=True,
+            )
+
+        self.assertEqual([d.codigo_turma for d in dados], [12345, 23456])
+        self.assertEqual([d.codigo_situacao_matricula for d in dados], [1, 1])
+
 
 class A04AlunosDaUeTestCase(TestCase):
     """Valida a busca de alunos por UE/ano letivo."""
 
     def test_filtra_por_codigo_eol(self) -> None:
-        """Verifica filtro pelo código EOL exato."""
+        """Verifica filtro por substring do código EOL."""
         seed_matriculas()
         dados = services.buscar_alunos_da_ue(
             codigo_ue="100001",
             ano_letivo=2026,
-            codigo_eol="1234567",
+            codigo_eol="234",
         )
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].codigo_aluno, 1234567)
@@ -89,6 +175,151 @@ class A04AlunosDaUeTestCase(TestCase):
             nome_aluno="JOAO",
         )
         self.assertTrue(all("JOAO" in d.nome_aluno for d in dados))
+
+    def test_retorna_campos_do_contrato_da_listagem(self) -> None:
+        """Verifica os campos complementares da listagem da UE."""
+        seed_matriculas()
+
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="1234567",
+        )
+
+        self.assertEqual(len(dados), 1)
+        aluno = dados[0]
+        self.assertEqual(aluno.tipo_turno, 2)
+        self.assertEqual(aluno.turma_nome, "5A")
+        self.assertEqual(aluno.etapa_ensino, 5)
+        self.assertEqual(aluno.ciclo_ensino, 2)
+        self.assertEqual(aluno.desc_etapa_ensino, "Ensino Fundamental")
+        self.assertEqual(aluno.desc_ciclo_ensino, "Ciclo Interdisciplinar")
+        self.assertEqual(aluno.numero_aluno_chamada, "12")
+        self.assertEqual(aluno.codigo_situacao_matricula, 1)
+        self.assertEqual(aluno.situacao_matricula, "Ativo")
+        self.assertEqual(
+            aluno.data_atualizacao_contato,
+            "0001-01-01T00:00:00",
+        )
+        self.assertEqual(
+            aluno.data_atualizacao_tabela,
+            "0001-01-01T00:00:00",
+        )
+
+    def test_nao_filtra_situacao_da_matricula(self) -> None:
+        """Verifica que a situação considerada vem da matrícula-turma."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=998900,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=2,
+            situacao_matricula="Desistente",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998900,
+            codigo_turma=33333,
+            numero_chamada=None,
+            data_situacao_aluno=date(2026, 3, 1),
+            codigo_situacao_aluno=14,
+            codigo_tipo_turma=1,
+            tipo_turno=2,
+            nome_turma="7A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="1234567",
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_situacao_matricula, 14)
+        self.assertEqual(dados[0].situacao_matricula, "Remanejado Saída")
+        self.assertEqual(dados[0].numero_aluno_chamada, "0")
+
+    def test_filtra_pela_ue_da_turma(self) -> None:
+        """Verifica que a UE considerada vem da turma."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=998901,
+            aluno_id=1234567,
+            codigo_ue="999999",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998901,
+            codigo_turma=44444,
+            numero_chamada="09",
+            data_situacao_aluno=date(2026, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=2,
+            nome_turma="8A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="1234567",
+        )
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_turma, 44444)
+
+    def test_retorna_um_item_por_vinculo_de_turma(self) -> None:
+        """Verifica que vínculos distintos da turma não são deduplicados."""
+        seed_matriculas()
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=33333,
+            numero_chamada="15",
+            data_situacao_aluno=date(2026, 4, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=4,
+            nome_turma="5B",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+
+        dados = services.buscar_alunos_da_ue(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="1234567",
+        )
+
+        self.assertEqual(len(dados), 2)
+        self.assertEqual({d.codigo_turma for d in dados}, {12345, 33333})
 
 
 class A05A06AutocompleteTestCase(TestCase):
@@ -418,15 +649,30 @@ class A22A23EscritaTestCase(TestCase):
 
 
 class A27FiliacaoTestCase(TestCase):
-    """Valida que a filiação reaproveita o shape de informações do aluno."""
+    """Valida os dados de filiação do aluno."""
 
-    def test_retorna_mesmo_shape_de_a13(self) -> None:
-        """Verifica que a filiação devolve o mesmo DTO de informações."""
+    def test_retorna_responsaveis_com_endereco(self) -> None:
+        """Verifica os dados de filiação e endereço retornados."""
         seed_alunos()
-        dado = services.obter_dados_responsavel_filiacao(codigo_aluno=1234567)
-        self.assertIsNotNone(dado)
-        assert dado is not None
-        self.assertEqual(dado.codigo_aluno, 1234567)
+        seed_responsaveis()
+
+        dados = services.obter_dados_responsavel_filiacao(codigo_aluno=1234567)
+
+        self.assertEqual(len(dados), 1)
+        responsavel = dados[0]
+        self.assertEqual(responsavel.nome_responsavel, "Responsavel Exemplo")
+        self.assertEqual(responsavel.ddd_residencial, "11")
+        self.assertEqual(responsavel.numero_comercial, "55556666")
+        self.assertEqual(responsavel.endereco.id, 123)
+        self.assertEqual(responsavel.endereco.nro, "100")
+
+    def test_retorna_lista_vazia_sem_responsaveis_de_filiacao(self) -> None:
+        """Verifica que aluno sem filiação retorna lista vazia."""
+        seed_alunos()
+
+        dados = services.obter_dados_responsavel_filiacao(codigo_aluno=1234567)
+
+        self.assertEqual(dados, [])
 
 
 class A12AlunosPorCodigosTestCase(TestCase):
@@ -1207,15 +1453,16 @@ class MapeamentosInternosTestCase(TestCase):
 class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
     """Valida o filtro de janela de datas em alunos ativos por turma."""
 
-    def test_matricula_anterior_ao_inicio_e_excluida(self) -> None:
-        """Verifica exclusão de matrícula antes da data inicial."""
+    def test_matricula_ativa_anterior_ao_inicio_e_incluida(self) -> None:
+        """Verifica inclusão de matrícula ativa anterior à data inicial."""
         seed_matriculas()
         dados = services.obter_alunos_ativos_por_periodo_e_turma(
             codigo_turma=12345,
             data_referencia_inicio=date(2026, 3, 1),
             data_referencia_fim=date(2026, 12, 31),
         )
-        self.assertEqual(dados, [])
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_aluno, 1234567)
 
     def test_matricula_posterior_ao_fim_e_excluida(self) -> None:
         """Verifica exclusão de matrícula após a data final."""
