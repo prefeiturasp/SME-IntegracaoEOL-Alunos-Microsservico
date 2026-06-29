@@ -60,10 +60,6 @@ def _erro_400(detalhe: str) -> Response:
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Mensagens do `TratamentoExcecaoGlobalMiddleware` do legado, replicadas para
-# manter o mesmo contrato de erro do EP6 enquanto a `alunos_matriculas_norm`
-# segue congelada (ver investigacao-ep6.md). Devem sair quando o legado for
-# corrigido (modalidades parametrizado + COALESCE(SUM)).
 ERRO_LEGADO_SEM_MODALIDADES = (
     "Houve um problema na conexão com o banco do EOL. "
     "Por favor, contate a SME."
