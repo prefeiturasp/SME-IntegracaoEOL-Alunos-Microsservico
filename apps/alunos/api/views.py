@@ -70,7 +70,7 @@ ERRO_LEGADO_SEM_RESULTADO = (
 
 
 def _erro_legado(mensagem: str) -> Response:
-    """Replica o erro 400 do middleware global do legado (corpo = string)."""
+    """Replica a resposta de erro do legado com a mensagem informada."""
     return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -420,8 +420,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        # Replica o legado: sem `modalidades` a query vira `IN ()` ->
-        # SqlException -> 400. Ver investigacao-ep6.md.
+        # Replica o erro do legado quando não há modalidades.
         if not modalidades:
             return _erro_legado(ERRO_LEGADO_SEM_MODALIDADES)
 
@@ -434,7 +433,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             dre_id=request.query_params.get("dre_id"),
             modalidades=modalidades,
         )
-        # Replica o legado: lista vazia -> SUM(NULL) -> cast int falha -> 400.
+        # Replica o erro do legado quando não há resultado.
         if dados.quantidade == 0:
             return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
 

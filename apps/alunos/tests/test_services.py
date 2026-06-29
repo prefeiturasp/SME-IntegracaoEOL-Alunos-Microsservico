@@ -1511,13 +1511,7 @@ class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
         self.assertEqual(len(dados), 1)
 
     def test_turma_de_ano_anterior_e_retornada(self) -> None:
-        """Verifica que o ano letivo é escopado pela turma, não pelo atual.
-
-        Regressão: o EP4 não pode fixar ``ano_letivo = ano atual`` no filtro de
-        matrícula. O legado escopa a coorte pela própria turma e serve qualquer
-        ano; fixar o ano corrente faria turmas de anos anteriores retornarem
-        vazio.
-        """
+        """Verifica que o ano letivo é escopado pela turma, não pelo atual."""
         seed_alunos()
         Matricula.objects.create(
             codigo_matricula=20230001,

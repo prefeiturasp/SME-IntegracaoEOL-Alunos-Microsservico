@@ -154,14 +154,14 @@ class A07A08A09TurmaApiTestCase(TestCase):
         self.assertEqual(resp.json()["quantidade"], 2)
 
     def test_a07_sem_modalidades_replica_erro_legado(self) -> None:
-        """Sem modalidades, replica o 400 do legado (`IN ()`)."""
+        """Verifica que a ausência de modalidades replica o erro do legado."""
         seed_matriculas()
         resp = _autenticado().get(self._url_total())
         self.assertEqual(resp.status_code, 400)
         self.assertIn("conexão com o banco do EOL", resp.json())
 
     def test_a07_sem_resultado_replica_erro_legado(self) -> None:
-        """Sem alunos casando os filtros, replica o 400 do `SUM(NULL)`."""
+        """Verifica que a ausência de resultado replica o erro do legado."""
         seed_matriculas()
         resp = _autenticado().get(self._url_total() + "?modalidades=99")
         self.assertEqual(resp.status_code, 400)

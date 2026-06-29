@@ -1473,7 +1473,7 @@ def buscar_alunos_ativos_autocomplete(
 
 
 def _chamada_valida(numero_chamada: str | None) -> bool:
-    """Replica ``nr_chamada_aluno <> '0' AND IS NOT NULL`` do legado."""
+    """Indica se o número de chamada do aluno é válido (não nulo nem zero)."""
     return numero_chamada is not None and numero_chamada != "0"
 
 
@@ -1484,12 +1484,17 @@ def _ativo_no_periodo_total(
     inicio: date | None,
     fim: date | None,
 ) -> bool:
-    """Janela de período do EP6 (ramo corrente).
+    """Replica a condição de período do total de ativos do legado.
 
-    Espelha a condição da CTE ``lista`` de ``ObterTotalAlunosAtivosPorPeriodo``
-    sobre ``v_matricula_cotic``: situação 10 sempre entra; ``(1, 6, 13, 5)``
-    exige ``DataMatricula < fim``; as demais exigem ``DataMatricula <= fim`` e
-    a janela sobre ``data_situacao``.
+    Args:
+        codigo_situacao: Situação do aluno na matrícula-turma.
+        data_matricula: Data de situação da matrícula (DataMatricula).
+        data_situacao: Data de situação na matrícula-turma.
+        inicio: Início opcional da janela.
+        fim: Fim da janela.
+
+    Returns:
+        ``True`` se o aluno entra na contagem do período.
     """
     if codigo_situacao == 10:
         return True
@@ -1517,14 +1522,10 @@ def obter_total_alunos_ativos_periodo(
     dre_id: str | None = None,
     modalidades: list[int] | None = None,
 ) -> TotalAlunosAtivosPeriodoDTO:
-    """Conta alunos ativos distintos na série/modalidade no período.
+    """Conta alunos ativos distintos na série e modalidade no período.
 
-    Replica ``ObterTotalAlunosAtivosPorPeriodo``: a CTE ``lista`` (turma +
-    série + aluno) nos ramos corrente e histórico, filtrada por ano letivo,
-    turma regular (``tipo = 1``), série (``serie_resumida``), modalidades
-    (``codigo_etapa_ensino``), DRE e UE, e a contagem distinta de alunos. Como
-    o legado filtra por uma única série, ``SUM`` sobre o grupo equivale ao
-    ``COUNT(DISTINCT aluno)``.
+    Replica ``ObterTotalAlunosAtivosPorPeriodo`` do legado, filtrando por ano
+    letivo, turma regular, série, modalidades, DRE e UE.
 
     Args:
         ano_letivo: Ano letivo da consulta.
