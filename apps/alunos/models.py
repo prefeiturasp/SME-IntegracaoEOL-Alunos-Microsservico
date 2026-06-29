@@ -208,6 +208,7 @@ class MatriculaTurma(models.Model):
     sequencia = models.SmallIntegerField()
     origem_atual = models.BooleanField(null=True, blank=True)
     ano_letivo_turma = models.SmallIntegerField(null=True, blank=True)
+    serie_resumida = models.CharField(max_length=20, null=True, blank=True)
 
     class Meta:
         app_label = "alunos"

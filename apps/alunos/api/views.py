@@ -60,6 +60,24 @@ def _erro_400(detalhe: str) -> Response:
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Mensagens do `TratamentoExcecaoGlobalMiddleware` do legado, replicadas para
+# manter o mesmo contrato de erro do EP6 enquanto a `alunos_matriculas_norm`
+# segue congelada (ver investigacao-ep6.md). Devem sair quando o legado for
+# corrigido (modalidades parametrizado + COALESCE(SUM)).
+ERRO_LEGADO_SEM_MODALIDADES = (
+    "Houve um problema na conexão com o banco do EOL. "
+    "Por favor, contate a SME."
+)
+ERRO_LEGADO_SEM_RESULTADO = (
+    "Houve um comportamento inesperado do sistema. Por favor, contate a SME."
+)
+
+
+def _erro_legado(mensagem: str) -> Response:
+    """Replica o erro 400 do middleware global do legado (corpo = string)."""
+    return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
+
+
 class BuscaTurmasDoAlunoView(APIView):
     """Lista as turmas do aluno."""
 
@@ -406,6 +424,11 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
+        # Replica o legado: sem `modalidades` a query vira `IN ()` ->
+        # SqlException -> 400. Ver investigacao-ep6.md.
+        if not modalidades:
+            return _erro_legado(ERRO_LEGADO_SEM_MODALIDADES)
+
         dados = services.obter_total_alunos_ativos_periodo(
             ano_turma=ano_turma,
             ano_letivo=ano,
@@ -415,6 +438,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             dre_id=request.query_params.get("dre_id"),
             modalidades=modalidades,
         )
+        # Replica o legado: lista vazia -> SUM(NULL) -> cast int falha -> 400.
+        if dados.quantidade == 0:
+            return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
+
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
 
 

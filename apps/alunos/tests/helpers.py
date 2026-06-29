@@ -93,6 +93,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         sequencia=1,
         origem_atual=origem_atual,
         ano_letivo_turma=2026,
+        serie_resumida="5",
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998878,
@@ -111,6 +112,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         sequencia=1,
         origem_atual=origem_atual,
         ano_letivo_turma=2026,
+        serie_resumida="5",
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=1234567,

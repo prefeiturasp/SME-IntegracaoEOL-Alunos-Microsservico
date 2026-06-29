@@ -1472,39 +1472,148 @@ def buscar_alunos_ativos_autocomplete(
     return _montar_autocomplete_ativos(matriculas, mts_idx, nome_l, limite)
 
 
+def _chamada_valida(numero_chamada: str | None) -> bool:
+    """Replica ``nr_chamada_aluno <> '0' AND IS NOT NULL`` do legado."""
+    return numero_chamada is not None and numero_chamada != "0"
+
+
+def _ativo_no_periodo_total(
+    codigo_situacao: int | None,
+    data_matricula: date | None,
+    data_situacao: date | None,
+    inicio: date | None,
+    fim: date | None,
+) -> bool:
+    """Janela de período do EP6 (ramo corrente).
+
+    Espelha a condição da CTE ``lista`` de ``ObterTotalAlunosAtivosPorPeriodo``
+    sobre ``v_matricula_cotic``: situação 10 sempre entra; ``(1, 6, 13, 5)``
+    exige ``DataMatricula < fim``; as demais exigem ``DataMatricula <= fim`` e
+    a janela sobre ``data_situacao``.
+    """
+    if codigo_situacao == 10:
+        return True
+    if codigo_situacao in (1, 6, 13, 5):
+        return (
+            data_matricula is not None
+            and fim is not None
+            and data_matricula < fim
+        )
+    if fim is None or data_matricula is None or data_matricula > fim:
+        return False
+    if data_situacao is None:
+        return False
+    if inicio is None:
+        return data_situacao >= fim
+    return data_situacao > fim or (inicio < data_situacao <= fim)
+
+
 def obter_total_alunos_ativos_periodo(
     ano_letivo: int,
     data_inicio: datetime | date,
     data_fim: datetime | date,
     ue_id: str | None = None,
-    ano_turma: str | None = None,  # NOSONAR
-    dre_id: str | None = None,  # NOSONAR
-    modalidades: list[int] | None = None,  # NOSONAR
+    ano_turma: str | None = None,
+    dre_id: str | None = None,
+    modalidades: list[int] | None = None,
 ) -> TotalAlunosAtivosPeriodoDTO:
-    """Conta alunos distintos com matrícula ativa no intervalo.
+    """Conta alunos ativos distintos na série/modalidade no período.
+
+    Replica ``ObterTotalAlunosAtivosPorPeriodo``: a CTE ``lista`` (turma +
+    série + aluno) nos ramos corrente e histórico, filtrada por ano letivo,
+    turma regular (``tipo = 1``), série (``serie_resumida``), modalidades
+    (``codigo_etapa_ensino``), DRE e UE, e a contagem distinta de alunos. Como
+    o legado filtra por uma única série, ``SUM`` sobre o grupo equivale ao
+    ``COUNT(DISTINCT aluno)``.
 
     Args:
         ano_letivo: Ano letivo da consulta.
-        data_inicio: Data inicial do intervalo (inclusiva).
-        data_fim: Data final do intervalo (inclusiva).
-        ue_id: Restringe à UE informada.
-        ano_turma: Mantido por compatibilidade; sem efeito atual.
-        dre_id: Mantido por compatibilidade; sem efeito atual.
-        modalidades: Mantido por compatibilidade; sem efeito atual.
+        data_inicio: Início do intervalo de referência.
+        data_fim: Fim do intervalo de referência.
+        ue_id: Restringe à UE (escola) informada.
+        ano_turma: Série resumida (ex.: ``"5"``), equivalente a ``@turmaAno``.
+        dre_id: Restringe à DRE informada.
+        modalidades: Etapas de ensino aceitas (``cd_etapa_ensino``).
 
     Returns:
-        DTO com a quantidade de alunos ativos distintos no período.
+        DTO com a quantidade de alunos ativos distintos.
     """
-    qs = Matricula.objects.filter(
-        ano_letivo=ano_letivo,
-        codigo_situacao_matricula__in=SITUACOES_MATRICULA_ATIVAS,
-        data_situacao_matricula__gte=data_inicio,
-        data_situacao_matricula__lte=data_fim,
+    fim = _data_simples(data_fim)
+    inicio = _data_simples(data_inicio)
+    modalidades = modalidades or []
+
+    base = MatriculaTurma.objects.filter(
+        ano_letivo_turma=ano_letivo,
+        codigo_tipo_turma=1,
+        serie_resumida=ano_turma,
+        codigo_etapa_ensino__in=modalidades,
     )
     if ue_id:
-        qs = qs.filter(codigo_ue=ue_id)
-    total = qs.values("aluno_id").distinct().count()
-    return TotalAlunosAtivosPeriodoDTO(quantidade=total)
+        base = base.filter(codigo_ue_turma=ue_id)
+
+    mts = list(
+        base.values(
+            "codigo_matricula",
+            "codigo_turma",
+            "codigo_situacao_aluno",
+            "data_situacao_aluno",
+            "numero_chamada",
+            "origem_atual",
+        )
+    )
+    if not mts:
+        return TotalAlunosAtivosPeriodoDTO(quantidade=0)
+
+    matriculas_idx = {
+        m["codigo_matricula"]: m
+        for m in Matricula.objects.filter(
+            codigo_matricula__in=[mt["codigo_matricula"] for mt in mts],
+        ).values(
+            "codigo_matricula",
+            "aluno_id",
+            "data_situacao_matricula",
+            "codigo_dre",
+            "origem_atual",
+        )
+    }
+    # Matrícula-turma presentes no ramo corrente (para o NOT EXISTS histórico).
+    atuais = {
+        (mt["codigo_matricula"], mt["codigo_turma"])
+        for mt in mts
+        if mt["origem_atual"]
+    }
+
+    alunos: set[int] = set()
+    for mt in mts:
+        matricula = matriculas_idx.get(mt["codigo_matricula"])
+        if matricula is None:
+            continue
+        if dre_id and matricula["codigo_dre"] != dre_id:
+            continue
+        cs = mt["codigo_situacao_aluno"]
+        # O legado pareia as fontes: ramo corrente = v_matricula_cotic +
+        # matricula_turma_escola (ambos correntes); ramo histórico = views de
+        # histórico (ambos históricos). Logo a matrícula e a matrícula-turma
+        # precisam ter a mesma origem.
+        if mt["origem_atual"] and matricula["origem_atual"]:
+            if _ativo_no_periodo_total(
+                cs,
+                matricula["data_situacao_matricula"],
+                _data_simples(mt["data_situacao_aluno"]),
+                inicio,
+                fim,
+            ):
+                alunos.add(matricula["aluno_id"])
+        elif (
+            not mt["origem_atual"]
+            and not matricula["origem_atual"]
+            and cs in (5, 10)
+            and _chamada_valida(mt["numero_chamada"])
+            and (mt["codigo_matricula"], mt["codigo_turma"]) not in atuais
+        ):
+            alunos.add(matricula["aluno_id"])
+
+    return TotalAlunosAtivosPeriodoDTO(quantidade=len(alunos))
 
 
 def _matriculas_turma_da_turma(
@@ -1764,8 +1873,9 @@ def _consultar_alunos_ativos_periodo_turma(
     """Lista alunos ativos na turma no período (espelha o legado EP4).
 
     Replica ``ObterAlunosAtivosPorPeriodoETurma``: matrícula-turma corrente
-    (``origem_atual``) cuja matrícula é do ano corrente, filtrada pela janela
-    de datas sobre a situação do aluno e a data da matrícula.
+    (``origem_atual``), com o ano letivo escopado pela própria turma (e não
+    pelo ano atual), filtrada pela janela de datas sobre a situação do aluno e
+    a data da matrícula.
 
     Args:
         codigo_turma: Código EOL da turma.
@@ -1777,7 +1887,6 @@ def _consultar_alunos_ativos_periodo_turma(
     """
     fim = _data_simples(data_referencia_fim)
     inicio = _data_simples(data_referencia_inicio)
-    ano_corrente = date.today().year
 
     mts = list(
         MatriculaTurma.objects.filter(
@@ -1799,7 +1908,6 @@ def _consultar_alunos_ativos_periodo_turma(
         m["codigo_matricula"]: m
         for m in Matricula.objects.filter(
             codigo_matricula__in=[mt["codigo_matricula"] for mt in mts],
-            ano_letivo=ano_corrente,
         ).values(
             "codigo_matricula",
             "aluno_id",

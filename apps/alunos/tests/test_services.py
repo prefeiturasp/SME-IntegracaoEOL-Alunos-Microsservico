@@ -10,6 +10,7 @@ from django.test import TestCase
 from apps.alunos import services
 from apps.alunos.models import Matricula, MatriculaTurma, ResponsavelAluno
 from apps.alunos.tests.helpers import (
+    DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
     seed_alunos,
     seed_matriculas,
     seed_necessidades,
@@ -426,7 +427,7 @@ class A07TotalAtivosTestCase(TestCase):
     """Valida a contagem de alunos ativos por período."""
 
     def test_filtra_por_periodo_e_ue(self) -> None:
-        """Verifica a contagem restrita a UE e intervalo de datas."""
+        """Verifica a contagem restrita a UE, série e modalidade."""
         seed_matriculas()
         total = services.obter_total_alunos_ativos_periodo(
             ano_turma="5",
@@ -434,8 +435,33 @@ class A07TotalAtivosTestCase(TestCase):
             data_inicio=date(2026, 1, 1),
             data_fim=date(2026, 12, 31),
             ue_id="100001",
+            modalidades=[5],
         )
         self.assertEqual(total.quantidade, 2)
+
+    def test_serie_diferente_nao_conta(self) -> None:
+        """Verifica que série diferente da turma não é contabilizada."""
+        seed_matriculas()
+        total = services.obter_total_alunos_ativos_periodo(
+            ano_turma="9",
+            ano_letivo=2026,
+            data_inicio=date(2026, 1, 1),
+            data_fim=date(2026, 12, 31),
+            modalidades=[5],
+        )
+        self.assertEqual(total.quantidade, 0)
+
+    def test_modalidade_diferente_nao_conta(self) -> None:
+        """Verifica que modalidade fora da lista não é contabilizada."""
+        seed_matriculas()
+        total = services.obter_total_alunos_ativos_periodo(
+            ano_turma="5",
+            ano_letivo=2026,
+            data_inicio=date(2026, 1, 1),
+            data_fim=date(2026, 12, 31),
+            modalidades=[6],
+        )
+        self.assertEqual(total.quantidade, 0)
 
 
 class A08A09AlunosTurmaTestCase(TestCase):
@@ -1483,6 +1509,51 @@ class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
             data_referencia_fim=date(2026, 12, 31),
         )
         self.assertEqual(len(dados), 1)
+
+    def test_turma_de_ano_anterior_e_retornada(self) -> None:
+        """Verifica que o ano letivo é escopado pela turma, não pelo atual.
+
+        Regressão: o EP4 não pode fixar ``ano_letivo = ano atual`` no filtro de
+        matrícula. O legado escopa a coorte pela própria turma e serve qualquer
+        ano; fixar o ano corrente faria turmas de anos anteriores retornarem
+        vazio.
+        """
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=20230001,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2023,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2023, 2, 1),
+            origem_atual=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=20230001,
+            codigo_turma=98765,
+            numero_chamada="05",
+            data_situacao_aluno=date(2023, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=2,
+            nome_turma="3A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2023,
+        )
+        dados = services.obter_alunos_ativos_por_periodo_e_turma(
+            codigo_turma=98765,
+            data_referencia_fim=date(2023, 12, 31),
+        )
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].codigo_aluno, 1234567)
+        self.assertEqual(dados[0].ano_letivo, 2023)
 
 
 class AcompanhamentoEscolarFiltroTurmaTestCase(TestCase):
