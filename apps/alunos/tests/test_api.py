@@ -132,10 +132,9 @@ class A04A05A06AutocompleteApiTestCase(TestCase):
 class A07A08A09TurmaApiTestCase(TestCase):
     """Valida endpoints de totais e alunos ativos por turma."""
 
-    def test_a07_total(self) -> None:
-        """Verifica a contagem de alunos ativos no período."""
-        seed_matriculas()
-        url = reverse(
+    def _url_total(self) -> str:
+        """Monta a URL do EP6 com os parâmetros de rota padrão."""
+        return reverse(
             "total-alunos-ativos-por-periodo",
             kwargs={
                 "ano_turma": "5",
@@ -144,9 +143,29 @@ class A07A08A09TurmaApiTestCase(TestCase):
                 "data_fim": "2026-12-31",
             },
         )
-        resp = _autenticado().get(url + "?ue_id=100001")
+
+    def test_a07_total(self) -> None:
+        """Verifica a contagem de alunos ativos no período."""
+        seed_matriculas()
+        resp = _autenticado().get(
+            self._url_total() + "?ue_id=100001&modalidades=5"
+        )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["quantidade"], 2)
+
+    def test_a07_sem_modalidades_replica_erro_legado(self) -> None:
+        """Verifica que a ausência de modalidades replica o erro do legado."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url_total())
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("conexão com o banco do EOL", resp.json())
+
+    def test_a07_sem_resultado_replica_erro_legado(self) -> None:
+        """Verifica que a ausência de resultado replica o erro do legado."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url_total() + "?modalidades=99")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("comportamento inesperado", resp.json())
 
     def test_a09_alunos_ativos(self) -> None:
         """Verifica os alunos ativos na turma informada."""

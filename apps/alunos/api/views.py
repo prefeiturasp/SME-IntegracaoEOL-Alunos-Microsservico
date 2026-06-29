@@ -60,6 +60,20 @@ def _erro_400(detalhe: str) -> Response:
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
 
 
+ERRO_LEGADO_SEM_MODALIDADES = (
+    "Houve um problema na conexão com o banco do EOL. "
+    "Por favor, contate a SME."
+)
+ERRO_LEGADO_SEM_RESULTADO = (
+    "Houve um comportamento inesperado do sistema. Por favor, contate a SME."
+)
+
+
+def _erro_legado(mensagem: str) -> Response:
+    """Replica a resposta de erro do legado com a mensagem informada."""
+    return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
+
+
 class BuscaTurmasDoAlunoView(APIView):
     """Lista as turmas do aluno."""
 
@@ -406,6 +420,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
+        # Replica o erro do legado quando não há modalidades.
+        if not modalidades:
+            return _erro_legado(ERRO_LEGADO_SEM_MODALIDADES)
+
         dados = services.obter_total_alunos_ativos_periodo(
             ano_turma=ano_turma,
             ano_letivo=ano,
@@ -415,6 +433,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             dre_id=request.query_params.get("dre_id"),
             modalidades=modalidades,
         )
+        # Replica o erro do legado quando não há resultado.
+        if dados.quantidade == 0:
+            return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
+
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
 
 
