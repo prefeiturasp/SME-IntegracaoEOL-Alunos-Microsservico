@@ -1513,6 +1513,61 @@ def _ativo_no_periodo_total(
     return data_situacao > fim or (inicio < data_situacao <= fim)
 
 
+def _ramo_historico_total(
+    mt: dict[str, Any],
+    matricula: dict[str, Any],
+    atuais: set[tuple[int, int]],
+) -> bool:
+    """Indica se a matrícula-turma histórica entra na contagem."""
+    return (
+        not mt["origem_atual"]
+        and not matricula["origem_atual"]
+        and mt["codigo_situacao_aluno"] in (5, 10)
+        and _chamada_valida(mt["numero_chamada"])
+        and (mt["codigo_matricula"], mt["codigo_turma"]) not in atuais
+    )
+
+
+def _aluno_no_total(
+    mt: dict[str, Any],
+    matricula: dict[str, Any],
+    atuais: set[tuple[int, int]],
+    inicio: date | None,
+    fim: date | None,
+    dre_id: str | None,
+) -> int | None:
+    """Retorna o aluno se ele entra na contagem do total no período.
+
+    O legado pareia as fontes: o ramo corrente exige matrícula e
+    matrícula-turma correntes; o histórico exige ambos históricos.
+
+    Args:
+        mt: Vínculo de matrícula-turma.
+        matricula: Matrícula correspondente ao vínculo.
+        atuais: Pares (matrícula, turma) presentes no ramo corrente.
+        inicio: Início opcional da janela.
+        fim: Fim da janela.
+        dre_id: Restringe à DRE informada.
+
+    Returns:
+        Código do aluno a contabilizar, ou ``None``.
+    """
+    if dre_id and matricula["codigo_dre"] != dre_id:
+        return None
+    if mt["origem_atual"] and matricula["origem_atual"]:
+        ativo = _ativo_no_periodo_total(
+            mt["codigo_situacao_aluno"],
+            matricula["data_situacao_matricula"],
+            _data_simples(mt["data_situacao_aluno"]),
+            inicio,
+            fim,
+        )
+        return matricula["aluno_id"] if ativo else None
+    if _ramo_historico_total(mt, matricula, atuais):
+        return matricula["aluno_id"]
+    return None
+
+
 def obter_total_alunos_ativos_periodo(
     ano_letivo: int,
     data_inicio: datetime | date,
@@ -1589,30 +1644,9 @@ def obter_total_alunos_ativos_periodo(
         matricula = matriculas_idx.get(mt["codigo_matricula"])
         if matricula is None:
             continue
-        if dre_id and matricula["codigo_dre"] != dre_id:
-            continue
-        cs = mt["codigo_situacao_aluno"]
-        # O legado pareia as fontes: ramo corrente = v_matricula_cotic +
-        # matricula_turma_escola (ambos correntes); ramo histórico = views de
-        # histórico (ambos históricos). Logo a matrícula e a matrícula-turma
-        # precisam ter a mesma origem.
-        if mt["origem_atual"] and matricula["origem_atual"]:
-            if _ativo_no_periodo_total(
-                cs,
-                matricula["data_situacao_matricula"],
-                _data_simples(mt["data_situacao_aluno"]),
-                inicio,
-                fim,
-            ):
-                alunos.add(matricula["aluno_id"])
-        elif (
-            not mt["origem_atual"]
-            and not matricula["origem_atual"]
-            and cs in (5, 10)
-            and _chamada_valida(mt["numero_chamada"])
-            and (mt["codigo_matricula"], mt["codigo_turma"]) not in atuais
-        ):
-            alunos.add(matricula["aluno_id"])
+        aluno = _aluno_no_total(mt, matricula, atuais, inicio, fim, dre_id)
+        if aluno is not None:
+            alunos.add(aluno)
 
     return TotalAlunosAtivosPeriodoDTO(quantidade=len(alunos))
 
