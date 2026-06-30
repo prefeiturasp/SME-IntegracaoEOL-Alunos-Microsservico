@@ -456,11 +456,14 @@ def _matricula_turma_por_matricula(
 
 def _turmas_mais_recentes_por_matricula(
     codigos_matricula: Sequence[int],
+    historico: bool = False,
 ) -> dict[int, list[dict[str, Any]]]:
     """Agrupa o estado mais recente de cada turma por matrícula.
 
     Args:
         codigos_matricula: Códigos de matrícula consultados.
+        historico: Usa os vínculos históricos quando ``True``; caso contrário,
+            apenas os vínculos correntes.
 
     Returns:
         Turmas mais recentes, agrupadas por código de matrícula.
@@ -471,7 +474,10 @@ def _turmas_mais_recentes_por_matricula(
     saida: dict[int, list[dict[str, Any]]] = {}
     turmas_processadas: set[tuple[int, int]] = set()
     for mt in (
-        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
+        MatriculaTurma.objects.filter(
+            codigo_matricula__in=codigos_matricula,
+            origem_atual=not historico,
+        )
         .values(
             "codigo_matricula",
             "codigo_turma",
@@ -944,7 +950,8 @@ def _consultar_turmas_do_aluno(
     responsavel = _responsavel_prioritario_do_aluno(codigo_aluno)
     responsaveis = _responsaveis_do_aluno(codigo_aluno) or [responsavel]
     turmas_por_matricula = _turmas_mais_recentes_por_matricula(
-        [m["codigo_matricula"] for m in matriculas]
+        [m["codigo_matricula"] for m in matriculas],
+        historico=historico,
     )
     return _montar_turmas_do_aluno_dtos(
         matriculas,
