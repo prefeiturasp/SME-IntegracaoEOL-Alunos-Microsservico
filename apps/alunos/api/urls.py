@@ -7,6 +7,7 @@ from apps.alunos.api.views import (
     AlunosAtivosTurmaView,
     AlunosPorCodigosEAnoView,
     AlunosPorCodigosView,
+    AlunosTurmaView,
     AutocompleteAlunosAtivosView,
     AutocompleteAlunosUeView,
     BuscarAlunosDaUeView,
@@ -75,6 +76,11 @@ urlpatterns = [
         "turmas/<str:codigo_turma>/ativos",
         AlunosAtivosTurmaView.as_view(),
         name="alunos-ativos-turma",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/",
+        AlunosTurmaView.as_view(),
+        name="alunos-turma",
     ),
     path(
         "<str:codigo_aluno>/necessidades-especiais",

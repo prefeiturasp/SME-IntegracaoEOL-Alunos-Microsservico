@@ -1,5 +1,6 @@
 """Views do domínio Alunos."""
 
+from datetime import datetime
 from typing import Any
 
 from django.http import HttpResponse
@@ -11,12 +12,15 @@ from rest_framework.views import APIView
 
 from apps.alunos import services
 from apps.alunos.api.serializers import (
+    AlunoAtivoDataAulaSerializer,
     AlunoAtivoTurmaSerializer,
     AlunoAutocompleteSerializer,
+    AlunoDaUeSerializer,
     AtualizarResponsavelBuscaAtivaRequestSerializer,
     CadastrarResponsavelRequestSerializer,
     ConsolidacaoMatriculaSerializer,
     DadosAcompanhamentoEscolarSerializer,
+    DadosResponsavelFiliacaoSerializer,
     DadosResponsavelResumidoSerializer,
     DadosResponsavelSerializer,
     InformacoesAlunoSerializer,
@@ -32,6 +36,7 @@ from apps.alunos.api.serializers import (
 from apps.core.utils import (
     query_bool,
     query_int_list,
+    ticks_to_datetime,
     to_bool,
     to_datetime,
     to_int,
@@ -53,6 +58,20 @@ CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
 def _erro_400(detalhe: str) -> Response:
     """Constrói uma resposta 400 com a mensagem informada."""
     return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
+
+
+ERRO_LEGADO_SEM_MODALIDADES = (
+    "Houve um problema na conexão com o banco do EOL. "
+    "Por favor, contate a SME."
+)
+ERRO_LEGADO_SEM_RESULTADO = (
+    "Houve um comportamento inesperado do sistema. Por favor, contate a SME."
+)
+
+
+def _erro_legado(mensagem: str) -> Response:
+    """Replica a resposta de erro do legado com a mensagem informada."""
+    return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
 
 
 class BuscaTurmasDoAlunoView(APIView):
@@ -154,7 +173,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             filtra = to_bool(
                 filtrar_situacao_matricula, "filtrar_situacao_matricula"
             )
-            to_bool(tipo_turma, "tipo_turma")
+            tipo = to_bool(tipo_turma, "tipo_turma")
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -165,6 +184,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             codigo_aluno=codigo,
             ano_letivo=ano,
             filtrar_situacao_matricula=filtra,
+            tipo_turma=tipo,
         )
         if not dados:
             return Response(
@@ -186,7 +206,7 @@ class BuscarAlunosDaUeView(APIView):
             OpenApiParameter("nome_aluno", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigo_eol", str, OpenApiParameter.QUERY),
         ],
-        responses={200: TurmaDoAlunoSerializer(many=True)},
+        responses={200: AlunoDaUeSerializer(many=True)},
     )
     def get(
         self, request: Request, codigo_ue: str, ano_letivo: str
@@ -207,6 +227,8 @@ class BuscarAlunosDaUeView(APIView):
             ano = to_int(ano_letivo, "ano_letivo")
         except ValueError as exc:
             return _erro_400(str(exc))
+        if ano <= 0:
+            return _erro_400(CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS)
 
         dados = services.buscar_alunos_da_ue(
             codigo_ue=codigo_ue,
@@ -219,7 +241,7 @@ class BuscarAlunosDaUeView(APIView):
                 {"detail": ALUNO_SEM_TURMA},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(TurmaDoAlunoSerializer(dados, many=True).data)
+        return Response(AlunoDaUeSerializer(dados, many=True).data)
 
 
 class AutocompleteAlunosUeView(APIView):
@@ -398,6 +420,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
+        # Replica o erro do legado quando não há modalidades.
+        if not modalidades:
+            return _erro_legado(ERRO_LEGADO_SEM_MODALIDADES)
+
         dados = services.obter_total_alunos_ativos_periodo(
             ano_turma=ano_turma,
             ano_letivo=ano,
@@ -407,6 +433,10 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             dre_id=request.query_params.get("dre_id"),
             modalidades=modalidades,
         )
+        # Replica o erro do legado quando não há resultado.
+        if dados.quantidade == 0:
+            return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
+
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
 
 
@@ -490,6 +520,113 @@ class AlunosAtivosTurmaView(APIView):
 
         dados = services.obter_alunos_ativos_por_turma(codigo_turma=codigo)
         return Response(AlunoAtivoTurmaSerializer(dados, many=True).data)
+
+
+def _ticks_para_datetime(request: Request, nome: str) -> datetime | None:
+    """Retorna o ``datetime`` correspondente a um query param em .NET ticks.
+
+    Args:
+        request: Requisição com o query param opcional.
+        nome: Nome do query param em ticks.
+
+    Returns:
+        ``datetime`` correspondente, ou ``None`` quando ausente ou ``0``.
+
+    Raises:
+        ValueError: Quando os ticks são inválidos ou negativos.
+    """
+    bruto = request.query_params.get(nome)
+    if bruto is None:
+        return None
+    ticks = to_int(bruto, nome)
+    if ticks < 0:
+        raise ValueError("O código da turma e data da aula são obrigatórios.")
+    return ticks_to_datetime(ticks) if ticks > 0 else None
+
+
+class AlunosTurmaView(APIView):
+    """Lista os alunos de uma turma conforme os filtros informados."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Alunos de uma turma",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_aula_ticks",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                "data_matricula_ticks",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                "codigo_aluno", str, OpenApiParameter.QUERY, required=False
+            ),
+            OpenApiParameter(
+                "considerar_inativos",
+                bool,
+                OpenApiParameter.QUERY,
+                required=True,
+            ),
+            OpenApiParameter(
+                "sequencia",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista os alunos de uma turma conforme os filtros informados.
+
+        Args:
+            request: Requisição com o filtro obrigatório
+                ``considerar_inativos`` e os opcionais ``data_aula_ticks``,
+                ``data_matricula_ticks``, ``codigo_aluno`` e ``sequencia``.
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Alunos distintos na turma conforme os filtros informados.
+        """
+        if "considerar_inativos" not in request.query_params:
+            return _erro_400("considerar_inativos é obrigatório.")
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            data_aula = _ticks_para_datetime(request, "data_aula_ticks")
+            data_matricula = _ticks_para_datetime(
+                request, "data_matricula_ticks"
+            )
+            codigo_aluno_raw = request.query_params.get("codigo_aluno")
+            codigo_aluno = (
+                to_int(codigo_aluno_raw, "codigo_aluno")
+                if codigo_aluno_raw
+                else None
+            )
+            considerar_inativos = query_bool(
+                request, "considerar_inativos", False
+            )
+            sequencia_raw = request.query_params.get("sequencia")
+            sequencia = (
+                to_int(sequencia_raw, "sequencia") if sequencia_raw else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo,
+            data_aula=data_aula,
+            data_matricula=data_matricula,
+            codigo_aluno=codigo_aluno,
+            considerar_inativos=considerar_inativos,
+            sequencia=sequencia,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
 
 class NecessidadesEspeciaisAlunoView(APIView):
@@ -1022,7 +1159,7 @@ class FiliacaoAlunoView(APIView):
         parameters=[
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH)
         ],
-        responses={200: InformacoesAlunoSerializer},
+        responses={200: DadosResponsavelFiliacaoSerializer(many=True)},
     )
     def get(self, request: Request, codigo_aluno: str) -> Response:
         """Retorna os dados de filiação do responsável do aluno.
@@ -1031,21 +1168,17 @@ class FiliacaoAlunoView(APIView):
             codigo_aluno: Código EOL do aluno.
 
         Returns:
-            Dados de filiação do aluno, ou ausência de conteúdo quando não
-            encontrado.
+            Dados de filiação encontrados para o aluno.
         """
         try:
             codigo = to_int(codigo_aluno, "codigo_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        dado = services.obter_dados_responsavel_filiacao(codigo_aluno=codigo)
-        if dado is None:
-            return Response(
-                {"detail": "Aluno não encontrado."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        return Response(InformacoesAlunoSerializer(dado).data)
+        dados = services.obter_dados_responsavel_filiacao(codigo_aluno=codigo)
+        return Response(
+            DadosResponsavelFiliacaoSerializer(dados, many=True).data
+        )
 
 
 class MatriculasAnoAtualView(APIView):

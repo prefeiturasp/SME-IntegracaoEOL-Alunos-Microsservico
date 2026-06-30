@@ -79,3 +79,13 @@ SITUACOES_MATRICULA_VALIDAS: tuple[int, ...] = (
     SituacaoMatricula.REMATRICULADO,
     SituacaoMatricula.SEM_CONTINUIDADE,
 )
+
+SITUACOES_MATRICULA_ATIVAS_TURMA: tuple[int, ...] = (
+    SituacaoMatricula.ATIVO,
+    SituacaoMatricula.DESISTENTE,
+    SituacaoMatricula.TRANSFERIDO,
+    SituacaoMatricula.CONCLUIDO,
+    SituacaoMatricula.PENDENTE_REMATRICULA,
+    SituacaoMatricula.REMATRICULADO,
+    SituacaoMatricula.SEM_CONTINUIDADE,
+)
