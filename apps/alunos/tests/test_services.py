@@ -91,6 +91,7 @@ class TurmasDoAlunoTestCase(TestCase):
             codigo_situacao_aluno=1,
             codigo_tipo_turma=2,
             sequencia=1,
+            origem_atual=True,
         )
         MatriculaTurma.objects.create(
             codigo_matricula=998879,
@@ -103,6 +104,7 @@ class TurmasDoAlunoTestCase(TestCase):
             codigo_situacao_aluno=1,
             codigo_tipo_turma=1,
             sequencia=1,
+            origem_atual=True,
         )
         MatriculaTurma.objects.create(
             codigo_matricula=998879,
@@ -115,6 +117,7 @@ class TurmasDoAlunoTestCase(TestCase):
             codigo_situacao_aluno=14,
             codigo_tipo_turma=1,
             sequencia=1,
+            origem_atual=True,
         )
         MatriculaTurma.objects.create(
             codigo_matricula=998879,
@@ -127,6 +130,7 @@ class TurmasDoAlunoTestCase(TestCase):
             codigo_situacao_aluno=1,
             codigo_tipo_turma=1,
             sequencia=2,
+            origem_atual=True,
         )
         MatriculaTurma.objects.create(
             codigo_matricula=998879,
@@ -136,6 +140,7 @@ class TurmasDoAlunoTestCase(TestCase):
             codigo_situacao_aluno=1,
             codigo_tipo_turma=3,
             sequencia=1,
+            origem_atual=True,
         )
 
         with patch(
