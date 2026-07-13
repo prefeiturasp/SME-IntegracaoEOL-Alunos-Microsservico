@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Iterator, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import date, datetime
 from typing import Any, cast
 
@@ -10,6 +10,27 @@ from django.db import connection
 from django.db.models import Count, F, Max, Min, Q
 from django.utils import timezone
 
+from apps.alunos.dtos import (
+    AlunoAtivoDataAulaDTO,
+    AlunoAtivoTurmaDTO,
+    AlunoAutocompleteDTO,
+    AlunoDaUeDTO,
+    ConsolidacaoMatriculaDTO,
+    DadosAcompanhamentoEscolarDTO,
+    DadosResponsavelDTO,
+    DadosResponsavelFiliacaoDTO,
+    DadosResponsavelResumidoDTO,
+    EnderecoFiliacaoDTO,
+    InformacoesAlunoDTO,
+    InformacoesAlunoTurmaDTO,
+    MatriculaEscolaAlunoDTO,
+    NecessidadeEspecialDTO,
+    QuantidadeMatriculadosCCDTO,
+    QuantidadeMatriculadosDTO,
+    ResponsavelTurmaDTO,
+    TotalAlunosAtivosPeriodoDTO,
+    TurmaDoAlunoDTO,
+)
 from apps.alunos.enums import (
     SITUACOES_MATRICULA_ATIVAS,
     SITUACOES_MATRICULA_ATIVAS_TURMA,
@@ -27,317 +48,13 @@ from apps.alunos.models import (
     ResponsavelAluno,
     TipoNecessidadeEspecial,
 )
+from apps.alunos.queries import (
+    SQL_A15_QUANTIDADE_POR_ANO_E_CC,
+    SQL_A16_QUANTIDADE,
+    SQL_A18_ACOMPANHAMENTO,
+    SQL_A19_RESPONSAVEIS,
+)
 from apps.core.utils import fim_do_dia, numero_chamada_int
-
-
-@dataclass(frozen=True)
-class TurmaDoAlunoDTO:
-    """Dados de uma matrícula/turma do aluno."""
-
-    codigo_aluno: int
-    ano_letivo: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    codigo_situacao_matricula: int
-    situacao_matricula: str
-    data_situacao: date | datetime | None
-    data_nascimento: date | None
-    documento_cpf: str | None
-    data_matricula: date | None
-    numero_aluno_chamada: str | None
-    codigo_turma: int
-    data_atualizacao_contato: date | datetime | None
-    nome_responsavel: str | None = None
-    tipo_responsavel: int | None = None
-    ddd_celular: str | None = None
-    numero_celular: str | None = None
-    codigo_escola: str | None = None
-    codigo_tipo_turma: int | None = None
-    data_atualizacao_tabela: date | datetime | None = None
-
-
-@dataclass(frozen=True)
-class AlunoDaUeDTO:
-    """Dados de aluno matriculado em uma unidade educacional."""
-
-    codigo_aluno: int
-    tipo_turno: int | None
-    ano_letivo: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    codigo_situacao_matricula: int
-    situacao_matricula: str
-    data_situacao: date | datetime | None
-    data_nascimento: date | None
-    numero_aluno_chamada: str | None
-    codigo_turma: int
-    data_atualizacao_contato: date | datetime | str | None
-    codigo_tipo_turma: int | None
-    turma_nome: str | None
-    etapa_ensino: int | None
-    ciclo_ensino: int | None
-    desc_etapa_ensino: str | None
-    desc_ciclo_ensino: str | None
-    nome_responsavel: str | None = None
-    tipo_responsavel: int | None = None
-    ddd_celular: str | None = None
-    numero_celular: str | None = None
-    data_atualizacao_tabela: date | datetime | str | None = None
-
-
-@dataclass(frozen=True)
-class AlunoAutocompleteDTO:
-    """Dados básicos do aluno para autocomplete."""
-
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    codigo_turma: int
-    numero_aluno_chamada: str | None
-    turma: str | None = None
-    modalidade: str | None = None
-
-
-@dataclass(frozen=True)
-class AlunoAtivoTurmaDTO:
-    """Dados de alunos ativos em uma turma."""
-
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    data_nascimento: date | None
-    codigo_situacao_matricula: int
-    situacao_matricula: str
-    data_situacao: datetime | None
-    numero_aluno_chamada: str | None
-    possui_deficiencia: bool
-    codigo_matricula: int
-    codigo_turma: int
-    codigo_escola: str
-    ano_letivo: int
-
-
-@dataclass(frozen=True)
-class AlunoAtivoDataAulaDTO:
-    """Aluno ativo em uma turma até uma data de aula."""
-
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    data_nascimento: date | None
-    codigo_situacao_matricula: int
-    situacao_matricula: str
-    data_situacao: datetime | None
-    numero_aluno_chamada: str | None
-    possui_deficiencia: bool
-    codigo_matricula: int
-    codigo_turma: int
-    codigo_escola: str
-    ano_letivo: int
-    data_matricula: datetime | None
-    nome_responsavel: str | None
-    tipo_responsavel: int | None
-    celular_responsavel: str | None
-    data_atualizacao_contato: datetime | None
-    sequencia: int | None
-    codigo_dre: str
-
-
-@dataclass(frozen=True)
-class NecessidadeEspecialDTO:
-    """Necessidade especial vinculada ao aluno."""
-
-    codigo_aluno: int
-    tipo_necessidade_especial: int
-    descricao_necessidade_especial: str
-    tipo_recurso: int | None
-    descricao_recurso: str | None
-
-
-@dataclass(frozen=True)
-class InformacoesAlunoDTO:
-    """Dados cadastrais do aluno."""
-
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    nome_mae: str | None
-    sexo: str | None
-    nacionalidade: str | None
-    raca_cor: str | None
-    nis: str | None
-    cpf: str | None
-    cns: str | None
-    endereco: dict[str, Any] | None
-    data_nascimento: date | None
-    possui_deficiencia: bool
-
-
-@dataclass(frozen=True)
-class InformacoesAlunoTurmaDTO:
-    """Resumo dos alunos de uma turma."""
-
-    numero_aluno_chamada: str | None
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    sexo: str | None
-    raca_cor: str | None
-    numero_chamada: int | None = None
-    raca: str | None = None
-    codigo_raca: int | None = None
-
-
-@dataclass(frozen=True)
-class QuantidadeMatriculadosCCDTO:
-    """Quantidade de matrículas por ano letivo."""
-
-    codigo_turma: int
-    quantidade: int
-    ordem: int
-
-
-@dataclass(frozen=True)
-class QuantidadeMatriculadosDTO:
-    """Quantidade de matrículas por turma, sem distinção de ano letivo."""
-
-    quantidade: int
-    ordem: int
-    codigo_turma: int
-    ue_codigo: str
-
-
-@dataclass(frozen=True)
-class DadosAcompanhamentoEscolarDTO:
-    """Dados de acompanhamento escolar do aluno."""
-
-    codigo_eol: int
-    nome_responsavel: str | None
-    cpf_responsavel: str | None
-    nome: str
-    nome_social: str | None
-    codigo_escola: str
-    tipo_responsavel: int | None
-    codigo_turma: int
-    situacao_matricula: str
-    data_nascimento: date | None
-    data_situacao_matricula: date | None
-    ano_letivo: int
-
-
-@dataclass(frozen=True)
-class ResponsavelTurmaDTO:
-    """Dados do responsável agrupado por turma."""
-
-    codigo_ue: str
-    codigo_turma: int
-    cpf_responsavel: str
-    codigo_aluno: int
-
-
-@dataclass(frozen=True)
-class DadosResponsavelDTO:
-    """Dados do responsável do aluno, incluindo vínculo e contatos."""
-
-    codigo_responsavel: int
-    cpf: str | None
-    email: str | None
-    nome: str | None
-    tipo_responsavel: int | None
-    nome_aluno: str
-    nome_social_aluno: str | None
-    data_nascimento_aluno: date | None
-    codigo_aluno: str
-    ddd_celular: str | None
-    numero_celular: str | None
-    autoriza_sms: str | None
-    logradouro: str | None
-    cep: int | None
-    data_fim_vinculo: date | None
-
-
-@dataclass(frozen=True)
-class DadosResponsavelResumidoDTO:
-    """Dados do responsável resumidos."""
-
-    id: int
-    cpf: str | None
-    email: str | None
-    nome: str | None
-    tipo_responsavel: int | None
-    data_nascimento: date | None
-    data_atualizacao: date | datetime | None
-    nome_mae: str | None
-    ddd_celular: str | None
-    numero_celular: str | None
-    codigo_aluno: str | None
-
-
-@dataclass(frozen=True)
-class EnderecoFiliacaoDTO:
-    """Dados de endereço do responsável."""
-
-    id: int | None
-    nro: str | None
-    complemento: str | None
-    bairro: str | None
-    cep: int | None
-    nome_municipio: str | None
-    sigla_uf: str | None
-    tipo_logradouro: str | None
-    logradouro: str | None
-
-
-@dataclass(frozen=True)
-class DadosResponsavelFiliacaoDTO:
-    """Dados de filiação do responsável do aluno."""
-
-    nome_responsavel: str | None
-    cpf: str | None
-    email: str | None
-    ddd_celular: str | None
-    numero_celular: str | None
-    ddd_residencial: str | None
-    numero_residencial: str | None
-    ddd_comercial: str | None
-    numero_comercial: str | None
-    tipo_responsavel: int | None
-    endereco: EnderecoFiliacaoDTO
-
-
-@dataclass(frozen=True)
-class TotalAlunosAtivosPeriodoDTO:
-    """Total de alunos distintos ativos no intervalo informado."""
-
-    quantidade: int
-
-
-@dataclass(frozen=True)
-class ConsolidacaoMatriculaDTO:
-    """Total de matrículas válidas agrupadas por turma."""
-
-    turma_codigo: str
-    quantidade: int
-
-
-@dataclass(frozen=True)
-class MatriculaEscolaAlunoDTO:
-    """Matrícula do aluno em uma escola específica."""
-
-    codigo_aluno: int
-    nome_aluno: str
-    nome_social_aluno: str | None
-    codigo_situacao_matricula: int
-    situacao_matricula: str
-    data_situacao: date | None
-    codigo_turma: int
-    codigo_matricula: int
-    ano_letivo: int
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 SITUACOES_MATRICULA_TURMA_ATIVAS = (1, 6, 10, 13)
 _DATA_PADRAO_LEGADO = "0001-01-01T00:00:00"
@@ -353,17 +70,22 @@ _CODIGOS_RACA = {
 }
 
 
-def _modalidade_por_etapa(codigo_etapa_ensino: int | None) -> str | None:
-    """Mapeia etapa de ensino para sigla de modalidade legada."""
-    if codigo_etapa_ensino == 1:
-        return "EI"
-    if codigo_etapa_ensino in {2, 3, 7, 11}:
-        return "EJA"
-    if codigo_etapa_ensino in {4, 5, 12, 13}:
-        return "EF"
-    if codigo_etapa_ensino in {6, 8, 9, 14, 17}:
-        return "EM"
-    return None
+_MODALIDADE_POR_ETAPA = {
+    1: "EI",
+    2: "EJA",
+    3: "EJA",
+    7: "EJA",
+    11: "EJA",
+    4: "EF",
+    5: "EF",
+    12: "EF",
+    13: "EF",
+    6: "EM",
+    8: "EM",
+    9: "EM",
+    14: "EM",
+    17: "EM",
+}
 
 
 def _codigo_raca(raca_cor: str | None) -> int | None:
@@ -1557,7 +1279,7 @@ def _montar_autocomplete_ativos(
                 codigo_turma=mt.get("codigo_turma") or 0,
                 numero_aluno_chamada=mt.get("numero_chamada"),
                 turma=mt.get("nome_turma"),
-                modalidade=_modalidade_por_etapa(
+                modalidade=_MODALIDADE_POR_ETAPA.get(
                     mt.get("codigo_etapa_ensino")
                 ),
             )
@@ -3666,23 +3388,6 @@ def _dump_json_camel(payload: list[dict[str, Any]]) -> bytes:
     return json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
 
 
-_SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
-    SELECT
-        mt.codigo_turma AS "codigo_turma",
-        COUNT(*) AS quantidade,
-        ROW_NUMBER() OVER (ORDER BY mt.codigo_turma) AS ordem
-    FROM matricula m
-    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
-    WHERE m.ano_letivo = %(ano)s
-      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
-      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
-    GROUP BY mt.codigo_turma
-    ORDER BY mt.codigo_turma
-) t
-"""
-
-
 def obter_quantidade_matriculados_por_ano_e_cc_json(
     ano_letivo: int,
     ue_id: str | None = None,
@@ -3702,7 +3407,7 @@ def obter_quantidade_matriculados_por_ano_e_cc_json(
     """
     if connection.vendor == "postgresql":
         return _exec_json_agg(
-            _SQL_A15_QUANTIDADE_POR_ANO_E_CC,
+            SQL_A15_QUANTIDADE_POR_ANO_E_CC,
             {
                 "ano": ano_letivo,
                 "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
@@ -3725,24 +3430,6 @@ def obter_quantidade_matriculados_por_ano_e_cc_json(
             for r in rows
         ]
     )
-
-
-_SQL_A16_QUANTIDADE = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
-    SELECT
-        COUNT(*) AS quantidade,
-        ROW_NUMBER() OVER (ORDER BY m.codigo_ue, mt.codigo_turma) AS ordem,
-        mt.codigo_turma AS "codigo_turma",
-        m.codigo_ue AS "ue_codigo"
-    FROM matricula m
-    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
-    WHERE m.ano_letivo = %(ano)s
-      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
-      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
-    GROUP BY m.codigo_ue, mt.codigo_turma
-    ORDER BY m.codigo_ue, mt.codigo_turma
-) t
-"""
 
 
 def obter_quantidade_matriculados_json(
@@ -3768,7 +3455,7 @@ def obter_quantidade_matriculados_json(
     """
     if connection.vendor == "postgresql":
         return _exec_json_agg(
-            _SQL_A16_QUANTIDADE,
+            SQL_A16_QUANTIDADE,
             {
                 "ano": ano_letivo,
                 "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
@@ -3794,55 +3481,6 @@ def obter_quantidade_matriculados_json(
             for r in rows
         ]
     )
-
-
-_SQL_A18_ACOMPANHAMENTO = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
-    SELECT
-        m.codigo_aluno AS "codigo_eol",
-        r.nome AS "nome_responsavel",
-        r.cpf AS "cpf_responsavel",
-        a.nome AS "nome",
-        a.nome_social AS "nome_social",
-        m.codigo_ue AS "codigo_escola",
-        r.tipo_responsavel AS "tipo_responsavel",
-        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
-        m.situacao_matricula AS "situacao_matricula",
-        a.data_nascimento AS "data_nascimento",
-        m.data_situacao_matricula AS "data_situacao_matricula",
-        m.ano_letivo AS "ano_letivo"
-    FROM matricula m
-    JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
-    LEFT JOIN LATERAL (
-        SELECT codigo_turma
-        FROM matricula_turma
-        WHERE codigo_matricula = m.codigo_matricula
-        LIMIT 1
-    ) mt ON TRUE
-    LEFT JOIN LATERAL (
-        SELECT nome, cpf, tipo_responsavel
-        FROM responsavel_aluno
-        WHERE codigo_aluno = a.codigo_aluno
-          AND data_fim_vinculo IS NULL
-        ORDER BY tipo_responsavel DESC NULLS FIRST
-        LIMIT 1
-    ) r ON TRUE
-    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
-      AND (%(codigo_aluno)s::bigint IS NULL
-           OR m.codigo_aluno = %(codigo_aluno)s::bigint)
-      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
-      AND (%(ano_letivo)s::int IS NULL
-           OR m.ano_letivo = %(ano_letivo)s::int)
-      AND (%(turma_codigo)s::bigint IS NULL
-           OR mt.codigo_turma = %(turma_codigo)s::bigint)
-      AND (%(cpf)s::text IS NULL OR EXISTS (
-          SELECT 1 FROM responsavel_aluno r2
-          WHERE r2.codigo_aluno = m.codigo_aluno
-            AND r2.cpf = %(cpf)s
-            AND r2.data_fim_vinculo IS NULL
-      ))
-) t
-"""
 
 
 def obter_dados_acompanhamento_escolar_json(
@@ -3876,7 +3514,7 @@ def obter_dados_acompanhamento_escolar_json(
         except (TypeError, ValueError):
             return b"[]"
         return _exec_json_agg(
-            _SQL_A18_ACOMPANHAMENTO,
+            SQL_A18_ACOMPANHAMENTO,
             {
                 "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
                 "codigo_aluno": codigo_aluno,
@@ -4015,33 +3653,6 @@ def obter_dados_acompanhamento_escolar_contrato(
     return saida
 
 
-_SQL_A19_RESPONSAVEIS = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
-    SELECT
-        m.codigo_ue AS "codigo_ue",
-        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
-        r.cpf AS "cpf_responsavel",
-        m.codigo_aluno AS "codigo_aluno"
-    FROM matricula m
-    JOIN responsavel_aluno r
-        ON r.codigo_aluno = m.codigo_aluno
-       AND r.data_fim_vinculo IS NULL
-       AND r.cpf IS NOT NULL
-       AND r.cpf <> ''
-    LEFT JOIN LATERAL (
-        SELECT codigo_turma
-        FROM matricula_turma
-        WHERE codigo_matricula = m.codigo_matricula
-        LIMIT 1
-    ) mt ON TRUE
-    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
-      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
-      AND (%(ano_letivo)s::int IS NULL
-           OR m.ano_letivo = %(ano_letivo)s::int)
-) t
-"""
-
-
 def obter_responsaveis_dre_ue_turma_json(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
@@ -4059,7 +3670,7 @@ def obter_responsaveis_dre_ue_turma_json(
     """
     if connection.vendor == "postgresql":
         return _exec_json_agg(
-            _SQL_A19_RESPONSAVEIS,
+            SQL_A19_RESPONSAVEIS,
             {
                 "situacoes": list(SITUACOES_MATRICULA_ATIVAS),
                 "codigo_ue": codigo_ue or None,
