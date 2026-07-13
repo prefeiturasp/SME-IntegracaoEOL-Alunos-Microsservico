@@ -12,7 +12,12 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from apps.alunos.models import MatriculaTurma
+from apps.alunos.models import (
+    DadosAlunoAcompanhamentoEscolar,
+    MatriculaAnoLetivo,
+    MatriculaComponenteCurricularAnoLetivo,
+    MatriculaTurma,
+)
 from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
@@ -689,6 +694,230 @@ class EscolasApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class TurmasDoAlunoComHistoricoApiTestCase(TestCase):
+    """Valida as turmas do aluno com origem histórica explícita."""
+
+    def _url(self, historico: str = "false", **extras: str) -> str:
+        kwargs = {
+            "codigo_aluno": "1234567",
+            "ano_letivo": "2026",
+            "historico": historico,
+            "filtrar_situacao": "true",
+            "tipo_turma": "true",
+        }
+        kwargs.update(extras)
+        return reverse("busca-turmas-do-aluno-com-historico", kwargs=kwargs)
+
+    def test_historico_false_retorna_vinculos_correntes(self) -> None:
+        """Verifica o retorno dos vínculos correntes."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
+
+    def test_fallback_para_historico_quando_corrente_vazio(self) -> None:
+        """Verifica o fallback para o histórico, como no legado."""
+        seed_matriculas(origem_atual=False)
+        resp = _autenticado().get(self._url(historico="false"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
+
+    def test_codigo_invalido_400(self) -> None:
+        """Verifica que código de aluno não positivo retorna 400."""
+        resp = _autenticado().get(self._url(codigo_aluno="0"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_sem_turmas_404(self) -> None:
+        """Verifica 404 quando não há turmas para o aluno."""
+        resp = _autenticado().get(self._url())
+        self.assertEqual(resp.status_code, 404)
+
+
+class QuantidadeMatriculadosCCContratoApiTestCase(TestCase):
+    """Valida matriculados por componente no contrato do legado."""
+
+    def _url(self, ano_letivo: str = "2026") -> str:
+        return reverse(
+            "quantidade-matriculados-cc-contrato",
+            kwargs={"ano_letivo": ano_letivo},
+        )
+
+    def test_sem_componentes_replica_erro_legado(self) -> None:
+        """Verifica que a ausência de componentes replica o erro do legado."""
+        resp = _autenticado().get(self._url())
+        self.assertEqual(resp.status_code, 601)
+        self.assertEqual(
+            resp.json(),
+            "Os códigos dos componentes curriculares são obrigatórios.",
+        )
+
+    def test_filtra_por_componente_e_ue(self) -> None:
+        """Verifica o retorno agregado com ordem nula como zero."""
+        MatriculaComponenteCurricularAnoLetivo.objects.create(
+            codigo_ue="093181",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            modalidade=None,
+            ordem=None,
+            componente_curricular_id=1310,
+            ano="1",
+            turma="1A",
+            quantidade=1,
+        )
+        MatriculaComponenteCurricularAnoLetivo.objects.create(
+            codigo_ue="999999",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            modalidade="EM",
+            ordem=3,
+            componente_curricular_id=1310,
+            ano="2",
+            turma="2M",
+            quantidade=5,
+        )
+        resp = _autenticado().get(
+            self._url() + "?componentes_curriculares=1310&ue_id=093181"
+        )
+        self.assertEqual(resp.status_code, 200)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["componente_curricular_id"], 1310)
+        self.assertEqual(corpo[0]["ordem"], 0)
+        self.assertIsNone(corpo[0]["modalidade"])
+        self.assertEqual(corpo[0]["quantidade"], 1)
+
+
+class QuantidadeMatriculadosContratoApiTestCase(TestCase):
+    """Valida a quantidade de matriculados no contrato do legado."""
+
+    def _criar_agregado(self, **extras: object) -> None:
+        campos: dict[str, object] = {
+            "codigo_dre": "108200",
+            "codigo_ue": "019267",
+            "tipo_escola": 1,
+            "ano_letivo": 2026,
+            "codigo_modalidade": 5,
+            "modalidade": "EF",
+            "ordem": 2,
+            "ano": "3",
+            "turma": "3B",
+            "quantidade": 28,
+        }
+        campos.update(extras)
+        MatriculaAnoLetivo.objects.create(**campos)
+
+    def _url(self, ano_letivo: str = "2026") -> str:
+        return reverse(
+            "quantidade-matriculados-contrato",
+            kwargs={"ano_letivo": ano_letivo},
+        )
+
+    def test_ano_letivo_zero_replica_erro_legado(self) -> None:
+        """Verifica que ano letivo zero replica o erro do legado."""
+        resp = _autenticado().get(self._url("0"))
+        self.assertEqual(resp.status_code, 601)
+        self.assertEqual(resp.json(), "Ano Letivo deve ser informado")
+
+    def test_filtra_por_ue(self) -> None:
+        """Verifica o retorno agregado filtrado por UE."""
+        self._criar_agregado()
+        self._criar_agregado(codigo_ue="999999", turma="9Z")
+        resp = _autenticado().get(self._url() + "?ue_codigo=019267")
+        self.assertEqual(resp.status_code, 200)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["quantidade"], 28)
+        self.assertEqual(corpo[0]["modalidade"], "EF")
+        self.assertEqual(corpo[0]["dre_codigo"], "108200")
+        self.assertEqual(corpo[0]["ue_codigo"], "019267")
+
+    def test_modalidade_infantil_restringe_tipo_escola(self) -> None:
+        """Verifica o filtro de tipo de escola da modalidade infantil."""
+        self._criar_agregado(
+            codigo_modalidade=1, modalidade="EI", ordem=1, tipo_escola=1
+        )
+        self._criar_agregado(
+            codigo_modalidade=1,
+            modalidade="EI",
+            ordem=1,
+            tipo_escola=2,
+            turma="EI-A",
+        )
+        resp = _autenticado().get(self._url() + "?modalidade=1")
+        self.assertEqual(resp.status_code, 200)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["turma"], "EI-A")
+
+    def test_ano_menos_99_desativa_filtro(self) -> None:
+        """Verifica que -99 na lista de anos desativa o filtro."""
+        self._criar_agregado()
+        resp = _autenticado().get(self._url() + "?ano=-99&ano=9")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
+
+
+class A18ContratoApiTestCase(TestCase):
+    """Valida o acompanhamento escolar no contrato do legado."""
+
+    def _criar_registro(self, **extras: object) -> None:
+        campos: dict[str, object] = {
+            "codigo_aluno": 1234567,
+            "nome": "JOAO DA SILVA",
+            "nome_responsavel": "MARIA DA SILVA",
+            "cpf_responsavel": "12345678901",
+            "codigo_dre": "108200",
+            "sigla_dre": "DRE - CL",
+            "codigo_ue": "100001",
+            "unidade_educacional": "EMEF TESTE",
+            "codigo_turma": 12345,
+            "turma": "5A",
+            "codigo_tipo_escola": 1,
+            "descricao_tipo_escola": "EMEF",
+            "situacao_matricula": "Ativo",
+            "serie_resumida": "5",
+        }
+        campos.update(extras)
+        DadosAlunoAcompanhamentoEscolar.objects.create(**campos)
+
+    def test_sem_filtro_replica_erro_legado(self) -> None:
+        """Verifica que a ausência de filtros replica o erro do legado."""
+        url = reverse("dados-acompanhamento-escolar-contrato")
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, 601)
+        self.assertIn("Nenhum filtro foi especificado", resp.json())
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        """Verifica o retorno com os campos do contrato do legado."""
+        self._criar_registro()
+        url = reverse("dados-acompanhamento-escolar-contrato")
+        resp = _autenticado().get(url + "?codigo_aluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["codigo_eol"], 1234567)
+        self.assertEqual(corpo[0]["codigo_escola"], "100001")
+        self.assertEqual(corpo[0]["codigo_dre"], "108200")
+        self.assertEqual(corpo[0]["escola"], "EMEF TESTE")
+        self.assertEqual(corpo[0]["serie_resumida"], "5")
+
+    def test_exclui_responsavel_sem_cpf(self) -> None:
+        """Verifica a exclusão de registro sem CPF do responsável."""
+        self._criar_registro(cpf_responsavel=None)
+        url = reverse("dados-acompanhamento-escolar-contrato")
+        resp = _autenticado().get(url + "?codigo_aluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+    def test_exclui_aluno_com_sigilo(self) -> None:
+        """Verifica a exclusão de aluno com sigilo."""
+        self._criar_registro(tipo_sigilo=1)
+        url = reverse("dados-acompanhamento-escolar-contrato")
+        resp = _autenticado().get(url + "?codigo_aluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+
 class A18AcompanhamentoApiTestCase(TestCase):
     """Valida o endpoint de dados de acompanhamento escolar."""
 
@@ -1046,6 +1275,30 @@ class ValidacoesParametros400ApiTestCase(TestCase):
         resp = _autenticado().get(url + "?codigos_aluno=abc")
         self.assertEqual(resp.status_code, 400)
 
+    def test_a11_sem_codigos_replica_erro_legado(self) -> None:
+        """Verifica que a ausência de códigos replica o erro do legado."""
+        url = reverse(
+            "alunos-por-codigos-e-ano", kwargs={"ano_letivo": "2026"}
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, 601)
+        self.assertEqual(
+            resp.json(), "Os códigos dos Alunos são obrigatórios."
+        )
+
+    def test_a11_nao_filtra_situacao_de_matricula(self) -> None:
+        """Verifica que situações fora das ativas também retornam."""
+        seed_matriculas()
+        MatriculaTurma.objects.filter(codigo_matricula=998877).update(
+            codigo_situacao_aluno=2
+        )
+        url = reverse(
+            "alunos-por-codigos-e-ano", kwargs={"ano_letivo": "2026"}
+        )
+        resp = _autenticado().get(url + "?codigos_aluno=1234567")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 1)
+
     def test_a12_codigos_invalidos_400(self) -> None:
         """Verifica que codigos_aluno inválidos em A12 retorna 400."""
         url = reverse("alunos-por-codigos")
@@ -1185,15 +1438,26 @@ class AutocompleteCenariosApiTestCase(TestCase):
         resp = _autenticado().get(url + "?codigo_eol=abc")
         self.assertEqual(resp.status_code, 404)
 
-    def test_a05_eh_historico_true(self) -> None:
-        """Verifica que eh_historico=true é aceito sem alterar o resultado."""
+    def test_a05_eh_historico_true_consulta_vinculos_historicos(self) -> None:
+        """Verifica que eh_historico=true usa apenas vínculos históricos."""
         seed_matriculas()
         url = reverse(
             "autocomplete-alunos-ue",
             kwargs={"codigo_ue": "100001", "ano_letivo": "2026"},
         )
         resp = _autenticado().get(url + "?eh_historico=true")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_a05_eh_historico_true_com_dados_historicos(self) -> None:
+        """Verifica o retorno de vínculos históricos no modo histórico."""
+        seed_matriculas(origem_atual=False)
+        url = reverse(
+            "autocomplete-alunos-ue",
+            kwargs={"codigo_ue": "100001", "ano_letivo": "2026"},
+        )
+        resp = _autenticado().get(url + "?eh_historico=true")
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()), 2)
 
     def test_a05_limite_um(self) -> None:
         """Verifica que limite=1 corta o resultado em um único item."""

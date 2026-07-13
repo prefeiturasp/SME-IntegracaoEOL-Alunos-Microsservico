@@ -1465,15 +1465,15 @@ class MapeamentosInternosTestCase(TestCase):
 
     def test_modalidade_por_etapa_cobre_faixas(self) -> None:
         """Verifica a sigla legada de cada faixa de etapa de ensino."""
-        self.assertEqual(services._modalidade_por_etapa(1), "EI")
-        self.assertEqual(services._modalidade_por_etapa(2), "EJA")
-        self.assertEqual(services._modalidade_por_etapa(4), "EF")
-        self.assertEqual(services._modalidade_por_etapa(6), "EM")
+        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(1), "EI")
+        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(2), "EJA")
+        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(4), "EF")
+        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(6), "EM")
 
     def test_modalidade_por_etapa_desconhecida(self) -> None:
         """Verifica que etapa fora do mapa retorna None."""
-        self.assertIsNone(services._modalidade_por_etapa(99))
-        self.assertIsNone(services._modalidade_por_etapa(None))
+        self.assertIsNone(services._MODALIDADE_POR_ETAPA.get(99))
+        self.assertIsNone(services._MODALIDADE_POR_ETAPA.get(None))
 
     def test_codigo_raca_vazia_retorna_none(self) -> None:
         """Verifica que raça/cor ausente ou vazia retorna None."""

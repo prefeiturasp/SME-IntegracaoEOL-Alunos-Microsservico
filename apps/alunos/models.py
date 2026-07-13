@@ -261,8 +261,67 @@ class DadosAlunoAcompanhamentoEscolar(models.Model):
     )
     serie_resumida = models.CharField(max_length=50, null=True, blank=True)
     codigo_modalidade_turma = models.SmallIntegerField(null=True, blank=True)
+    data_situacao_matricula_data_hora = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    data_fim_vinculo_responsavel = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    tipo_sigilo = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         app_label = "alunos"
         db_table = "dados_aluno_acompanhamento_escolar"
         managed = False
+
+
+class MatriculaAnoLetivo(models.Model):
+    """Contagem agregada de matrículas por turma e ano letivo."""
+
+    id = models.BigAutoField(primary_key=True)
+    codigo_dre = models.CharField(max_length=20)
+    codigo_ue = models.CharField(max_length=20)
+    tipo_escola = models.SmallIntegerField()
+    ano_letivo = models.SmallIntegerField()
+    codigo_modalidade = models.SmallIntegerField(null=True, blank=True)
+    modalidade = models.CharField(max_length=3, null=True, blank=True)
+    ordem = models.SmallIntegerField(null=True, blank=True)
+    ano = models.CharField(max_length=20, null=True, blank=True)
+    turma = models.CharField(max_length=100, null=True, blank=True)
+    quantidade = models.IntegerField()
+
+    class Meta:
+        app_label = "alunos"
+        db_table = "matricula_ano_letivo"
+        managed = False
+
+    def __str__(self) -> str:
+        return f"{self.codigo_ue} - {self.turma} ({self.ano_letivo})"
+
+
+class MatriculaComponenteCurricularAnoLetivo(models.Model):
+    """Contagem agregada de matrículas por componente curricular e turma."""
+
+    id = models.BigAutoField(primary_key=True)
+    codigo_ue = models.CharField(max_length=20)
+    codigo_dre = models.CharField(max_length=20)
+    ano_letivo = models.SmallIntegerField()
+    modalidade = models.CharField(max_length=3, null=True, blank=True)
+    ordem = models.SmallIntegerField(null=True, blank=True)
+    componente_curricular_id = models.IntegerField()
+    ano = models.CharField(max_length=20, null=True, blank=True)
+    turma = models.CharField(max_length=100, null=True, blank=True)
+    quantidade = models.IntegerField()
+
+    class Meta:
+        app_label = "alunos"
+        db_table = "matricula_componente_curricular_ano_letivo"
+        managed = False
+
+    def __str__(self) -> str:
+        return (
+            f"{self.codigo_ue} - CC {self.componente_curricular_id} "
+            f"({self.ano_letivo})"
+        )
