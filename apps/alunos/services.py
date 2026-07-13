@@ -20,6 +20,8 @@ from apps.alunos.models import (
     Aluno,
     DadosAlunoAcompanhamentoEscolar,
     Matricula,
+    MatriculaAnoLetivo,
+    MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
     NecessidadeEspecialAluno,
     ResponsavelAluno,
@@ -1015,6 +1017,46 @@ def buscar_turmas_do_aluno_por_situacao_matricula(
     )
 
 
+def buscar_turmas_do_aluno_com_historico(
+    codigo_aluno: int,
+    ano_letivo: int | None,
+    historico: bool,
+    filtrar_situacao: bool = True,
+    tipo_turma: bool = True,
+) -> list[TurmaDoAlunoDTO]:
+    """Busca turmas do aluno com a origem histórica explícita.
+
+    Como no legado, o chamador escolhe a fonte (corrente ou histórica) e,
+    quando a corrente não retorna turmas, a busca é repetida na histórica.
+
+    Args:
+        codigo_aluno: Código EOL do aluno.
+        ano_letivo: Ano letivo usado no filtro; ``None`` não filtra.
+        historico: Consulta os vínculos históricos quando ``True``.
+        filtrar_situacao: Restringe às situações de matrícula válidas.
+        tipo_turma: Exclui turmas do tipo programa (tipo 3) quando ``True``.
+
+    Returns:
+        Turmas do aluno conforme a origem e os filtros informados.
+    """
+    dados = _consultar_turmas_do_aluno(
+        codigo_aluno=codigo_aluno,
+        ano_letivo=ano_letivo,
+        historico=historico,
+        filtrar_situacao=filtrar_situacao,
+        tipo_turma=tipo_turma,
+    )
+    if not dados and not historico:
+        dados = _consultar_turmas_do_aluno(
+            codigo_aluno=codigo_aluno,
+            ano_letivo=ano_letivo,
+            historico=True,
+            filtrar_situacao=filtrar_situacao,
+            tipo_turma=tipo_turma,
+        )
+    return dados
+
+
 def _matriculas_turma_da_ue(
     codigo_ue: str,
     ano_letivo: int,
@@ -1183,107 +1225,126 @@ def buscar_alunos_da_ue(
     )
 
 
-def _resolver_matriculas_e_mts_idx(
-    matriculas: list[dict],
-    codigo_turmas: Sequence[int] | None,
-) -> tuple[list[dict], dict]:
-    """Resolve matrículas e índice de matrícula-turma.
-
-    Args:
-        matriculas: Matrículas candidatas ao retorno.
-        codigo_turmas: Códigos de turma usados como filtro opcional.
-
-    Returns:
-        Tupla com matrículas filtradas e índice por ``codigo_matricula``.
-    """
-    codigos_matricula = [m["codigo_matricula"] for m in matriculas]
-    if not codigo_turmas:
-        return matriculas, _matricula_turma_por_matricula(codigos_matricula)
-
-    mts = list(
-        MatriculaTurma.objects.filter(
-            codigo_matricula__in=codigos_matricula,
-            codigo_turma__in=list(codigo_turmas),
-        ).values("codigo_matricula", "codigo_turma", "numero_chamada")
-    )
-    codigos_match = {mt["codigo_matricula"] for mt in mts}
-    matriculas = [
-        m for m in matriculas if m["codigo_matricula"] in codigos_match
-    ]
-    return matriculas, {mt["codigo_matricula"]: mt for mt in mts}
-
-
-def _autocomplete_base(
+def _mts_autocomplete_ue(
     codigo_ue: str,
-    ano_letivo: int | None = None,
-    codigo_turmas: Sequence[int] | None = None,
-    nome_aluno: str | None = None,
-    codigo_eol: str | None = None,
-    somente_ativos: bool = False,
-    limite: int = 10,
-) -> list[AlunoAutocompleteDTO]:
-    """Resolve autocomplete de alunos a partir de filtros opcionais.
+    ano_letivo: int,
+    historico: bool,
+) -> list[dict[str, Any]]:
+    """Lista vínculos de turma regular da UE para o autocomplete.
 
     Args:
         codigo_ue: Código EOL da UE.
-        ano_letivo: Ano letivo usado como filtro opcional.
-        codigo_turmas: Turmas usadas como filtro opcional.
-        nome_aluno: Substring de nome usada como filtro opcional.
-        codigo_eol: Código EOL exato do aluno.
-        somente_ativos: Indica se usa apenas situações ativas.
-        limite: Máximo de itens retornados.
+        ano_letivo: Ano letivo, ou ``0`` para não filtrar por ano.
+        historico: Usa os vínculos históricos quando ``True``.
 
     Returns:
-        Alunos compatíveis com os filtros de autocomplete.
+        Vínculos de matrícula-turma do ramo consultado.
     """
-    situacoes = (
-        SITUACOES_MATRICULA_ATIVAS
-        if somente_ativos
-        else SITUACOES_MATRICULA_VALIDAS
+    qs = MatriculaTurma.objects.filter(
+        codigo_ue_turma=codigo_ue,
+        codigo_tipo_turma=1,
+        origem_atual=not historico,
     )
+    if ano_letivo:
+        qs = qs.filter(ano_letivo_turma=ano_letivo)
+    if not historico:
+        qs = qs.filter(
+            codigo_situacao_aluno__in=SITUACOES_MATRICULA_VALIDAS,
+            codigo_etapa_ensino__isnull=False,
+        )
+    return list(
+        qs.values("codigo_matricula", "codigo_turma", "numero_chamada")
+    )
+
+
+def _alunos_com_turma_programa(codigo_turmas: Sequence[int]) -> set[int]:
+    """Identifica alunos com vínculo corrente de turma-programa nas turmas.
+
+    Args:
+        codigo_turmas: Códigos de turma consultados.
+
+    Returns:
+        Códigos dos alunos vinculados às turmas em turma não regular.
+    """
+    codigos = list(
+        MatriculaTurma.objects.filter(
+            codigo_turma__in=list(codigo_turmas),
+            origem_atual=True,
+        )
+        .exclude(codigo_tipo_turma=1)
+        .values_list("codigo_matricula", flat=True)
+    )
+    if not codigos:
+        return set()
+    return set(
+        Matricula.objects.filter(
+            codigo_matricula__in=codigos, origem_atual=True
+        ).values_list("aluno_id", flat=True)
+    )
+
+
+def _matriculas_autocomplete_idx(
+    codigos_matricula: list[int],
+    historico: bool,
+    nome_aluno: str | None,
+    codigo_eol: str | None,
+) -> dict[int, dict[str, Any]]:
+    """Indexa matrículas do autocomplete com dados do aluno.
+
+    Args:
+        codigos_matricula: Códigos de matrícula candidatos.
+        historico: Usa matrículas históricas quando ``True``.
+        nome_aluno: Substring do nome usada como filtro opcional.
+        codigo_eol: Código EOL exato usado como filtro opcional.
+
+    Returns:
+        Índice por ``codigo_matricula`` com aluno, nome e nome social.
+    """
+    if not codigos_matricula:
+        return {}
     qs = Matricula.objects.filter(
-        codigo_ue=codigo_ue,
-        codigo_situacao_matricula__in=situacoes,
+        codigo_matricula__in=codigos_matricula,
+        origem_atual=not historico,
     )
-    if ano_letivo is not None:
-        qs = qs.filter(ano_letivo=ano_letivo)
+    if historico:
+        qs = qs.filter(
+            codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
+        )
     if codigo_eol:
         try:
             qs = qs.filter(aluno_id=int(codigo_eol))
         except (TypeError, ValueError):
-            return []
-
-    matriculas = list(
-        qs.values("codigo_matricula", "aluno_id")[: limite + 200]
-    )
-    if not matriculas:
-        return []
-
-    matriculas, mts_idx = _resolver_matriculas_e_mts_idx(
-        matriculas, codigo_turmas
-    )
-    alunos_idx = _alunos_indexados([m["aluno_id"] for m in matriculas])
-
-    nome_l = (nome_aluno or "").strip().lower()
-    saida: list[AlunoAutocompleteDTO] = []
-    for m in matriculas:
-        a = alunos_idx.get(m["aluno_id"], {})
-        nome = a.get("nome") or ""
-        if nome_l and nome_l not in nome.lower():
-            continue
-        mt = mts_idx.get(m["codigo_matricula"], {})
-        saida.append(
-            AlunoAutocompleteDTO(
-                codigo_aluno=m["aluno_id"],
-                nome_aluno=nome,
-                nome_social_aluno=a.get("nome_social"),
-                codigo_turma=mt.get("codigo_turma") or 0,
-                numero_aluno_chamada=mt.get("numero_chamada"),
-            )
+            return {}
+    if nome_aluno and nome_aluno.strip():
+        qs = qs.filter(aluno__nome__icontains=nome_aluno.strip())
+    return {
+        m["codigo_matricula"]: m
+        for m in qs.values(
+            "codigo_matricula",
+            "aluno_id",
+            "aluno__nome",
+            "aluno__nome_social",
         )
-        if len(saida) >= limite:
-            break
-    return saida
+    }
+
+
+def _autocomplete_aceita_turma(
+    codigo_turma: int,
+    aluno_id: int,
+    codigo_turmas: Sequence[int] | None,
+    alunos_programa: set[int],
+) -> bool:
+    """Aplica o filtro de turmas do autocomplete (turma direta ou programa)."""
+    if not codigo_turmas:
+        return True
+    return codigo_turma in codigo_turmas or aluno_id in alunos_programa
+
+
+def _numero_chamada_autocomplete(numero_chamada: str | None) -> str:
+    """Normaliza o número de chamada no formato numérico do legado."""
+    if numero_chamada and numero_chamada.strip().isdigit():
+        return str(int(numero_chamada))
+    return numero_chamada or "0"
 
 
 def buscar_alunos_autocomplete(
@@ -1292,34 +1353,77 @@ def buscar_alunos_autocomplete(
     codigo_turmas: Sequence[int] | None = None,
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
-    somente_ativos: bool = False,
-    eh_historico: bool = False,  # NOSONAR
+    somente_ativos: bool = False,  # NOSONAR
+    eh_historico: bool = False,
     limite: int = 10,
 ) -> list[AlunoAutocompleteDTO]:
     """Busca alunos para autocomplete da UE/ano.
 
+    Replica o autocomplete do legado: turmas regulares da UE na fonte
+    corrente ou histórica, com filtros de nome, código EOL e turmas.
+    ``somente_ativos`` é aceito por compatibilidade e ignorado, como no
+    legado.
+
     Args:
         codigo_ue: Código EOL da UE.
-        ano_letivo: Ano letivo da consulta.
+        ano_letivo: Ano letivo da consulta; ``0`` não filtra por ano.
         codigo_turmas: Restringe pelas turmas informadas.
         nome_aluno: Filtro por substring do nome (case-insensitive).
         codigo_eol: Filtro pelo código EOL exato.
-        somente_ativos: Se ``True``, considera apenas situações ativas.
-        eh_historico: Mantido por compatibilidade; sem efeito.
+        somente_ativos: Aceito por compatibilidade; sem efeito no legado.
+        eh_historico: Consulta os vínculos históricos quando ``True``.
         limite: Máximo de resultados retornados.
 
     Returns:
         Alunos compatíveis com os filtros, limitados por ``limite``.
     """
-    return _autocomplete_base(
-        codigo_ue=codigo_ue,
-        ano_letivo=ano_letivo,
-        codigo_turmas=codigo_turmas,
-        nome_aluno=nome_aluno,
-        codigo_eol=codigo_eol,
-        somente_ativos=somente_ativos,
-        limite=limite,
+    ano_corrente = timezone.now().year
+    if ano_letivo:
+        ramos = [eh_historico or ano_letivo != ano_corrente]
+    else:
+        ramos = [False, True]
+
+    alunos_programa: set[int] = (
+        _alunos_com_turma_programa(codigo_turmas) if codigo_turmas else set()
     )
+
+    saida: list[AlunoAutocompleteDTO] = []
+    vistos: set[tuple[int, int]] = set()
+    for historico in ramos:
+        mts = _mts_autocomplete_ue(codigo_ue, ano_letivo, historico)
+        matriculas_idx = _matriculas_autocomplete_idx(
+            [mt["codigo_matricula"] for mt in mts],
+            historico,
+            nome_aluno,
+            codigo_eol,
+        )
+        for mt in mts:
+            matricula = matriculas_idx.get(mt["codigo_matricula"])
+            if matricula is None or not _autocomplete_aceita_turma(
+                mt["codigo_turma"],
+                matricula["aluno_id"],
+                codigo_turmas,
+                alunos_programa,
+            ):
+                continue
+            chave = (matricula["aluno_id"], mt["codigo_turma"])
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            saida.append(
+                AlunoAutocompleteDTO(
+                    codigo_aluno=matricula["aluno_id"],
+                    nome_aluno=matricula["aluno__nome"] or "",
+                    nome_social_aluno=matricula["aluno__nome_social"],
+                    codigo_turma=mt["codigo_turma"],
+                    numero_aluno_chamada=_numero_chamada_autocomplete(
+                        mt["numero_chamada"]
+                    ),
+                )
+            )
+            if len(saida) >= limite:
+                return saida
+    return saida
 
 
 def _qs_matriculas_ativas_ue(
@@ -2368,6 +2472,9 @@ def obter_alunos_por_codigos_e_ano(
 ) -> list[TurmaDoAlunoDTO]:
     """Lista turmas dos alunos informados por ano letivo.
 
+    Como no legado, usa os vínculos históricos apenas para anos anteriores
+    ao corrente e não filtra situação de matrícula nem tipo de turma.
+
     Args:
         codigos_aluno: Códigos EOL dos alunos.
         ano_letivo: Ano letivo usado no filtro.
@@ -2377,7 +2484,7 @@ def obter_alunos_por_codigos_e_ano(
     """
     if not codigos_aluno:
         return []
-    eh_historico = ano_letivo != timezone.now().year
+    eh_historico = ano_letivo < timezone.now().year
     saida: list[TurmaDoAlunoDTO] = []
     for codigo in codigos_aluno:
         saida.extend(
@@ -2385,7 +2492,8 @@ def obter_alunos_por_codigos_e_ano(
                 codigo_aluno=codigo,
                 ano_letivo=ano_letivo,
                 historico=eh_historico,
-                filtrar_situacao=True,
+                filtrar_situacao=False,
+                tipo_turma=False,
             )
         )
     return saida
@@ -2676,6 +2784,161 @@ def obter_quantidade_matriculados(
                 codigo_turma=codigo_turma,
                 ue_codigo=ue,
             )
+        )
+    return saida
+
+
+def obter_quantidade_matriculados_cc_contrato(
+    ano_letivo: int,
+    componentes_curriculares: Sequence[int],
+    dre_id: str | None = None,
+    ue_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """Lista matriculados por componente curricular no contrato do legado.
+
+    Agregado de matrículas em turma-programa de alunos que também possuem
+    turma regular, filtrado por componentes curriculares, DRE e UE. A ordem
+    sem modalidade é retornada como zero, como no legado.
+
+    Args:
+        ano_letivo: Ano letivo da consulta.
+        componentes_curriculares: Códigos dos componentes curriculares.
+        dre_id: Código da DRE usado como filtro opcional.
+        ue_id: Código da UE usado como filtro opcional.
+
+    Returns:
+        Registros agregados no formato do contrato interno.
+    """
+    qs = MatriculaComponenteCurricularAnoLetivo.objects.filter(
+        ano_letivo=ano_letivo,
+        componente_curricular_id__in=list(componentes_curriculares),
+    )
+    if dre_id:
+        qs = qs.filter(codigo_dre=dre_id)
+    if ue_id:
+        qs = qs.filter(codigo_ue=ue_id)
+    # Aproxima a ordem de agrupamento do legado (etapa, componente, série,
+    # turma); a etapa não é materializada, então a ordem da modalidade entra
+    # no lugar, com nulos primeiro.
+    qs = qs.order_by(
+        F("ordem").asc(nulls_first=True),
+        "componente_curricular_id",
+        "ano",
+        "turma",
+    )
+    return [
+        {
+            "componente_curricular_id": r["componente_curricular_id"],
+            "quantidade": r["quantidade"],
+            "ordem": r["ordem"] or 0,
+            "modalidade": r["modalidade"],
+            "ano": r["ano"],
+            "turma": r["turma"],
+        }
+        for r in qs.values(
+            "componente_curricular_id",
+            "quantidade",
+            "ordem",
+            "modalidade",
+            "ano",
+            "turma",
+        )
+    ]
+
+
+# Tipos de escola aceitos pela modalidade Educação Infantil no legado.
+_TIPOS_ESCOLA_INFANTIL = (2, 17, 28, 31)
+
+# Etapas agregadas por modalidade no read-model (código da modalidade SGP).
+_MODALIDADES_CONTRATO = {1, 3, 5, 6}
+
+
+def _pares_ue_turma_por_codigos(
+    codigos_turma: Sequence[int],
+) -> set[tuple[str, str]]:
+    """Resolve códigos de turma em pares (UE, nome da turma).
+
+    Args:
+        codigos_turma: Códigos EOL das turmas consultadas.
+
+    Returns:
+        Pares de código da UE e nome da turma correspondentes.
+    """
+    return {
+        (mt["codigo_ue_turma"], mt["nome_turma"])
+        for mt in MatriculaTurma.objects.filter(
+            codigo_turma__in=list(codigos_turma),
+            origem_atual=True,
+        ).values("codigo_ue_turma", "nome_turma")
+        if mt["codigo_ue_turma"] and mt["nome_turma"]
+    }
+
+
+def obter_quantidade_matriculados_contrato(
+    ano_letivo: int,
+    dre_codigo: str | None = None,
+    ue_codigo: str | None = None,
+    modalidade: Sequence[int] | None = None,
+    ano: Sequence[int] | None = None,
+    turma: Sequence[int] | None = None,
+) -> list[dict[str, Any]]:
+    """Lista a quantidade de matriculados no contrato do legado.
+
+    Agregado por DRE, UE, modalidade, série e turma, como no legado. A
+    modalidade infantil também restringe o tipo de escola.
+
+    Args:
+        ano_letivo: Ano letivo da consulta.
+        dre_codigo: Código da DRE usado como filtro opcional.
+        ue_codigo: Código da UE usado como filtro opcional.
+        modalidade: Códigos de modalidade SGP usados como filtro.
+        ano: Séries usadas como filtro; ``-99`` desativa o filtro.
+        turma: Códigos de turma usados como filtro opcional.
+
+    Returns:
+        Registros agregados no formato do contrato interno.
+    """
+    qs = MatriculaAnoLetivo.objects.filter(ano_letivo=ano_letivo)
+    if dre_codigo:
+        qs = qs.filter(codigo_dre=dre_codigo)
+    if ue_codigo:
+        qs = qs.filter(codigo_ue=ue_codigo)
+    if ano and -99 not in ano:
+        qs = qs.filter(ano__in=[str(a) for a in ano])
+    for codigo_modalidade in modalidade or []:
+        if codigo_modalidade not in _MODALIDADES_CONTRATO:
+            continue
+        qs = qs.filter(codigo_modalidade=codigo_modalidade)
+        if codigo_modalidade == 1:
+            qs = qs.filter(tipo_escola__in=_TIPOS_ESCOLA_INFANTIL)
+
+    pares_turma = _pares_ue_turma_por_codigos(turma) if turma else None
+
+    saida: list[dict[str, Any]] = []
+    for r in qs.values(
+        "quantidade",
+        "ordem",
+        "modalidade",
+        "ano",
+        "turma",
+        "codigo_dre",
+        "codigo_ue",
+    ):
+        if (
+            pares_turma is not None
+            and (r["codigo_ue"], r["turma"]) not in pares_turma
+        ):
+            continue
+        saida.append(
+            {
+                "quantidade": r["quantidade"],
+                "ordem": r["ordem"],
+                "modalidade": r["modalidade"],
+                "ano": r["ano"],
+                "turma": r["turma"],
+                "dre_codigo": r["codigo_dre"],
+                "ue_codigo": r["codigo_ue"],
+            }
         )
     return saida
 
@@ -3636,6 +3899,96 @@ def obter_dados_acompanhamento_escolar_json(
             for r in rows
         ]
     )
+
+
+def obter_dados_acompanhamento_escolar_contrato(
+    codigo_aluno: int | None = None,
+    codigo_dre: str | None = None,
+    codigo_ue: str | None = None,
+    cpf_responsavel: str | None = None,
+) -> list[dict[str, Any]]:
+    """Lista dados de acompanhamento escolar no contrato do legado.
+
+    Considera apenas responsável vigente com CPF e aluno sem sigilo, como o
+    legado, com filtros opcionais de aluno, DRE, UE e CPF do responsável.
+
+    Args:
+        codigo_aluno: Código EOL do aluno usado como filtro opcional.
+        codigo_dre: Código da DRE usado como filtro opcional.
+        codigo_ue: Código da UE usado como filtro opcional.
+        cpf_responsavel: CPF do responsável usado como filtro opcional.
+
+    Returns:
+        Registros de acompanhamento no formato do contrato interno.
+    """
+    qs = DadosAlunoAcompanhamentoEscolar.objects.filter(
+        cpf_responsavel__isnull=False,
+        data_fim_vinculo_responsavel__isnull=True,
+        tipo_sigilo__isnull=True,
+    )
+    if codigo_aluno:
+        qs = qs.filter(codigo_aluno=codigo_aluno)
+    if codigo_dre:
+        qs = qs.filter(codigo_dre=codigo_dre)
+    if codigo_ue:
+        qs = qs.filter(codigo_ue=codigo_ue)
+    if cpf_responsavel:
+        qs = qs.filter(cpf_responsavel=cpf_responsavel)
+
+    saida: list[dict[str, Any]] = []
+    for r in qs.values(
+        "codigo_aluno",
+        "nome_responsavel",
+        "cpf_responsavel",
+        "nome",
+        "nome_social",
+        "codigo_ue",
+        "codigo_dre",
+        "unidade_educacional",
+        "tipo_responsavel",
+        "codigo_tipo_escola",
+        "descricao_tipo_escola",
+        "sigla_dre",
+        "codigo_turma",
+        "turma",
+        "situacao_matricula",
+        "data_nascimento",
+        "data_situacao_matricula",
+        "data_situacao_matricula_data_hora",
+        "codigo_ciclo_ensino",
+        "codigo_etapa_ensino",
+        "serie_resumida",
+    ):
+        data_situacao = r["data_situacao_matricula_data_hora"]
+        if data_situacao is None and r["data_situacao_matricula"]:
+            data_situacao = datetime.combine(
+                r["data_situacao_matricula"], datetime.min.time()
+            )
+        saida.append(
+            {
+                "codigo_eol": r["codigo_aluno"],
+                "nome_responsavel": r["nome_responsavel"],
+                "cpf_responsavel": r["cpf_responsavel"],
+                "nome": r["nome"],
+                "nome_social": r["nome_social"],
+                "codigo_escola": r["codigo_ue"],
+                "codigo_dre": r["codigo_dre"],
+                "escola": r["unidade_educacional"],
+                "tipo_responsavel": r["tipo_responsavel"],
+                "codigo_tipo_escola": r["codigo_tipo_escola"],
+                "descricao_tipo_escola": r["descricao_tipo_escola"],
+                "sigla_dre": r["sigla_dre"],
+                "codigo_turma": r["codigo_turma"],
+                "turma": r["turma"],
+                "situacao_matricula": r["situacao_matricula"],
+                "data_nascimento": r["data_nascimento"],
+                "data_situacao_matricula": data_situacao,
+                "codigo_ciclo_ensino": r["codigo_ciclo_ensino"],
+                "codigo_etapa_ensino": r["codigo_etapa_ensino"],
+                "serie_resumida": r["serie_resumida"],
+            }
+        )
+    return saida
 
 
 _SQL_A19_RESPONSAVEIS = """

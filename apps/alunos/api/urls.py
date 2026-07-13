@@ -11,8 +11,10 @@ from apps.alunos.api.views import (
     AutocompleteAlunosAtivosView,
     AutocompleteAlunosUeView,
     BuscarAlunosDaUeView,
+    BuscaTurmasDoAlunoComHistoricoView,
     BuscaTurmasDoAlunoPorSituacaoMatriculaView,
     BuscaTurmasDoAlunoView,
+    DadosAcompanhamentoEscolarContratoView,
     DadosAcompanhamentoEscolarView,
     DadosResponsavelResumidoView,
     DadosResponsavelView,
@@ -24,6 +26,8 @@ from apps.alunos.api.views import (
     MatriculasAnosAnterioresView,
     NecessidadesEspeciaisAlunoView,
     QuantidadeAlunosPorTurmaEscolaView,
+    QuantidadeMatriculadosCCContratoView,
+    QuantidadeMatriculadosContratoView,
     QuantidadeMatriculadosPorAnoCCView,
     QuantidadeMatriculadosView,
     ResponsaveisDreUeTurmaView,
@@ -45,6 +49,14 @@ urlpatterns = [
         "tipo_turma/<str:tipo_turma>",
         BuscaTurmasDoAlunoPorSituacaoMatriculaView.as_view(),
         name="busca-turmas-do-aluno-por-situacao-matricula",
+    ),
+    path(
+        "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"
+        "historico/<str:historico>/"
+        "filtrar_situacao/<str:filtrar_situacao>/"
+        "tipo_turma/<str:tipo_turma>",
+        BuscaTurmasDoAlunoComHistoricoView.as_view(),
+        name="busca-turmas-do-aluno-com-historico",
     ),
     path(
         "ues/<str:codigo_ue>/anos_letivos/<str:ano_letivo>",
@@ -113,14 +125,29 @@ urlpatterns = [
         name="quantidade-matriculados-cc",
     ),
     path(
+        "ano-letivo/<str:ano_letivo>/matriculados/contrato",
+        QuantidadeMatriculadosCCContratoView.as_view(),
+        name="quantidade-matriculados-cc-contrato",
+    ),
+    path(
         "ano-letivo/<str:ano_letivo>/matriculados/quantidade",
         QuantidadeMatriculadosView.as_view(),
         name="quantidade-matriculados",
     ),
     path(
+        "ano-letivo/<str:ano_letivo>/matriculados/quantidade/contrato",
+        QuantidadeMatriculadosContratoView.as_view(),
+        name="quantidade-matriculados-contrato",
+    ),
+    path(
         "dados-acompanhamento-escolar",
         DadosAcompanhamentoEscolarView.as_view(),
         name="dados-acompanhamento-escolar",
+    ),
+    path(
+        "dados-acompanhamento-escolar/contrato",
+        DadosAcompanhamentoEscolarContratoView.as_view(),
+        name="dados-acompanhamento-escolar-contrato",
     ),
     path(
         "responsaveis",
