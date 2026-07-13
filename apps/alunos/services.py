@@ -1,7 +1,7 @@
 """Services do domínio Alunos."""
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any, cast
@@ -1347,6 +1347,36 @@ def _numero_chamada_autocomplete(numero_chamada: str | None) -> str:
     return numero_chamada or "0"
 
 
+def _iter_autocomplete_validos(
+    mts: Sequence[dict],
+    matriculas_idx: dict[int, dict],
+    codigo_turmas: Sequence[int] | None,
+    alunos_programa: set[int],
+) -> Iterator[tuple[dict, dict]]:
+    """Gera pares turma-matrícula aceitos pelos filtros do autocomplete.
+
+    Args:
+        mts: Vínculos de matrícula-turma da UE.
+        matriculas_idx: Matrículas indexadas por código.
+        codigo_turmas: Restringe pelas turmas informadas.
+        alunos_programa: Alunos com turma-programa nas turmas filtradas.
+
+    Yields:
+        Par ``(mt, matricula)`` que passou nos filtros de turma.
+    """
+    for mt in mts:
+        matricula = matriculas_idx.get(mt["codigo_matricula"])
+        if matricula is None:
+            continue
+        if _autocomplete_aceita_turma(
+            mt["codigo_turma"],
+            matricula["aluno_id"],
+            codigo_turmas,
+            alunos_programa,
+        ):
+            yield mt, matricula
+
+
 def buscar_alunos_autocomplete(
     codigo_ue: str,
     ano_letivo: int,
@@ -1397,15 +1427,9 @@ def buscar_alunos_autocomplete(
             nome_aluno,
             codigo_eol,
         )
-        for mt in mts:
-            matricula = matriculas_idx.get(mt["codigo_matricula"])
-            if matricula is None or not _autocomplete_aceita_turma(
-                mt["codigo_turma"],
-                matricula["aluno_id"],
-                codigo_turmas,
-                alunos_programa,
-            ):
-                continue
+        for mt, matricula in _iter_autocomplete_validos(
+            mts, matriculas_idx, codigo_turmas, alunos_programa
+        ):
             chave = (matricula["aluno_id"], mt["codigo_turma"])
             if chave in vistos:
                 continue

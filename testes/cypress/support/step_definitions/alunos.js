@@ -346,8 +346,8 @@ And("o retorno dos alunos por UE deve ser válido", () => {
       expect(response.body[0]).to.have.property("situacao_matricula");
       expect(response.body[0]).to.have.property("codigo_turma");
       expect(response.body[0]).to.have.property("numero_aluno_chamada");
-      expect(response.body[0]).to.have.property("documento_cpf");
-      expect(response.body[0]).to.have.property("codigo_escola");
+      expect(response.body[0]).to.have.property("tipo_turno");
+      expect(response.body[0]).to.have.property("desc_etapa_ensino");
     }
   });
 });
@@ -367,27 +367,26 @@ And("o retorno do autocomplete de alunos ativos deve ser válido", () => {
 And("o retorno da filiação do aluno deve ser válido", () => {
   cy.get("@response").then((response) => {
     if (response.status === 200) {
-      expect(response.body).to.have.property("codigo_aluno");
-      expect(response.body).to.have.property("nome_aluno");
-      expect(response.body).to.have.property("nome_mae");
-      expect(response.body).to.have.property("sexo");
-      expect(response.body).to.have.property("nome_social_aluno");
-      expect(response.body).to.have.property("data_nascimento");
-      expect(response.body).to.have.property("nacionalidade");
-      expect(response.body).to.have.property("raca_cor");
-      expect(response.body).to.have.property("nis");
-      expect(response.body).to.have.property("cpf");
-      expect(response.body).to.have.property("cns");
-      expect(response.body).to.have.property("endereco");
-      expect(response.body.endereco).to.have.property("id");
-      expect(response.body.endereco).to.have.property("bairro");
-      expect(response.body.endereco).to.have.property("cep");
-      expect(response.body.endereco).to.have.property("nome_municipio");
-      expect(response.body.endereco).to.have.property("logradouro");
-      expect(response.body.endereco).to.have.property("nro");
-      expect(response.body.endereco).to.have.property("complemento");
-      expect(response.body.endereco).to.have.property("sigla_uf");
-      expect(response.body.endereco).to.have.property("tipo_logradouro");
+      expect(response.body[0]).to.have.property("nome_responsavel");
+      expect(response.body[0]).to.have.property("cpf");
+      expect(response.body[0]).to.have.property("email");
+      expect(response.body[0]).to.have.property("ddd_celular");
+      expect(response.body[0]).to.have.property("numero_celular");
+      expect(response.body[0]).to.have.property("ddd_residencial");
+      expect(response.body[0]).to.have.property("numero_residencial");
+      expect(response.body[0]).to.have.property("ddd_comercial");
+      expect(response.body[0]).to.have.property("numero_comercial");
+      expect(response.body[0]).to.have.property("tipo_responsavel");
+      expect(response.body[0]).to.have.property("endereco");
+      expect(response.body[0].endereco).to.have.property("id");
+      expect(response.body[0].endereco).to.have.property("bairro");
+      expect(response.body[0].endereco).to.have.property("cep");
+      expect(response.body[0].endereco).to.have.property("nome_municipio");
+      expect(response.body[0].endereco).to.have.property("logradouro");
+      expect(response.body[0].endereco).to.have.property("nro");
+      expect(response.body[0].endereco).to.have.property("complemento");
+      expect(response.body[0].endereco).to.have.property("sigla_uf");
+      expect(response.body[0].endereco).to.have.property("tipo_logradouro");
     }
   });
 });

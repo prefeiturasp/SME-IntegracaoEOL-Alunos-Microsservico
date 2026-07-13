@@ -53,6 +53,7 @@ _TAG_ESCOLA = ["Escolas"]
 _CONTENT_TYPE_JSON = "application/json"
 
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
+CODIGO_ALUNO_OBRIGATORIO = "Código do aluno obrigatório."
 CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
     "Código da UE e ano letivo são obrigatórios."
 )
@@ -140,7 +141,7 @@ class BuscaTurmasDoAlunoView(APIView):
             return _erro_400(str(exc))
 
         if codigo <= 0:
-            return _erro_400("Código do aluno obrigatório.")
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
 
         dados = services.buscar_turmas_do_aluno(
             codigo_aluno=codigo,
@@ -203,7 +204,7 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             return _erro_400(str(exc))
 
         if codigo <= 0:
-            return _erro_400("Código do aluno obrigatório.")
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
 
         dados = services.buscar_turmas_do_aluno_por_situacao_matricula(
             codigo_aluno=codigo,
@@ -267,7 +268,7 @@ class BuscaTurmasDoAlunoComHistoricoView(APIView):
             return _erro_400(str(exc))
 
         if codigo <= 0:
-            return _erro_400("Código do aluno obrigatório.")
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
 
         dados = services.buscar_turmas_do_aluno_com_historico(
             codigo_aluno=codigo,
