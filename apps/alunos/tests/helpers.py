@@ -65,6 +65,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
+        origem_historica=not origem_atual,
     )
     m2 = Matricula.objects.create(
         codigo_matricula=998878,
@@ -75,6 +76,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         situacao_matricula="Ativo",
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
+        origem_historica=not origem_atual,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998877,
