@@ -1503,3 +1503,45 @@ class TurmasDoAlunoComFiltrosTestCase(TestCase):
         )
         resp = _autenticado().get(url + "?tipo_turma=talvez")
         self.assertEqual(resp.status_code, 400)
+
+
+class CodigosTurmasRegularesAlunoAPITestCase(TestCase):
+    """Valida o endpoint HTTP de códigos de turma do aluno no ano."""
+
+    def test_retorna_codigos_ordenados(self) -> None:
+        """Retorna 200 com os códigos de turma do aluno no ano letivo."""
+        seed_matriculas()
+        cliente = _autenticado()
+        url = reverse(
+            "codigos-turmas-regulares-aluno",
+            kwargs={"ano_letivo": "2026", "codigo_aluno": "1234567"},
+        )
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            resp = cliente.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [12345])
+
+    def test_codigo_invalido_retorna_400(self) -> None:
+        """Código não numérico gera 400."""
+        cliente = _autenticado()
+        url = reverse(
+            "codigos-turmas-regulares-aluno",
+            kwargs={"ano_letivo": "2026", "codigo_aluno": "abc"},
+        )
+        resp = cliente.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_aluno_sem_turmas_retorna_lista_vazia(self) -> None:
+        """Aluno sem vínculos válidos recebe 200 com lista vazia."""
+        seed_alunos()
+        cliente = _autenticado()
+        url = reverse(
+            "codigos-turmas-regulares-aluno",
+            kwargs={"ano_letivo": "2026", "codigo_aluno": "1234567"},
+        )
+        resp = cliente.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [])

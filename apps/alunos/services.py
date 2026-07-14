@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Count, F, Max, Min, Q
+from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 
 from apps.alunos.dtos import (
@@ -604,8 +604,7 @@ def _montar_turma_do_aluno_dto(
         codigo_escola=matricula["codigo_ue"],
         codigo_tipo_turma=matricula_turma.get("codigo_tipo_turma"),
         data_atualizacao_tabela=(
-            matricula_turma.get("data_atualizacao_tabela")
-            or data_situacao
+            matricula_turma.get("data_atualizacao_tabela") or data_situacao
         ),
     )
 
@@ -737,6 +736,155 @@ def buscar_turmas_do_aluno_por_situacao_matricula(
         filtrar_situacao=filtrar_situacao_matricula,
         tipo_turma=tipo_turma,
     )
+
+
+def _situacao_ativa_na_data(
+    codigo_situacao: int,
+    data_situacao: date | None,
+    limite: date,
+) -> bool:
+    """Aplica o filtro ativa/inativa vs. data de referência.
+
+    Uma situação "ativa" (em ``SITUACOES_MATRICULA_VALIDAS``) só vale se a
+    data da situação for anterior ou igual ao limite; uma situação
+    "inativa" (fora do conjunto) só vale se a data for posterior ao
+    limite — ou seja, o aluno ainda estava vinculado na data de referência.
+
+    Args:
+        codigo_situacao: Código da situação resolvida do vínculo.
+        data_situacao: Data da situação do aluno na turma.
+        limite: Data de referência (``dataReferencia`` ou hoje).
+
+    Returns:
+        ``True`` quando o vínculo deve ser considerado na data informada.
+    """
+    if data_situacao is None:
+        return False
+    ativa = codigo_situacao in SITUACOES_MATRICULA_VALIDAS
+    if ativa:
+        return data_situacao <= limite
+    return data_situacao > limite
+
+
+def _codigos_turmas_regulares_por_origem(
+    matriculas_idx: dict[int, dict[str, Any]],
+    ano_letivo: int,
+    historico: bool,
+    limite: date,
+) -> list[dict[str, Any]]:
+    """Resolve as turmas válidas do aluno para um ramo (corrente/histórico).
+
+    Agrupa por ``(codigo_matricula, codigo_turma)``, mantém a situação mais
+    recente, exclui Vínculo Indevido e aplica o filtro ativa/inativa vs.
+    data.
+
+    Args:
+        matriculas_idx: Matrículas do aluno indexadas por código, já
+            filtradas pelo ramo (``origem_atual``) e ano letivo.
+        ano_letivo: Ano letivo consultado (filtra a turma).
+        historico: Usa os vínculos históricos quando ``True``.
+        limite: Data de referência do filtro de situação.
+
+    Returns:
+        Linhas ``{codigo_matricula, codigo_turma, data_situacao}`` do ramo.
+    """
+    if not matriculas_idx:
+        return []
+
+    linhas: list[dict[str, Any]] = []
+    processadas: set[tuple[int, int]] = set()
+    for mt in (
+        MatriculaTurma.objects.filter(
+            codigo_matricula__in=list(matriculas_idx),
+            ano_letivo_turma=ano_letivo,
+            origem_atual=not historico,
+        ).values(
+            "codigo_matricula",
+            "codigo_turma",
+            "data_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+            "codigo_situacao_aluno",
+        )
+        .order_by(
+            "codigo_matricula",
+            "codigo_turma",
+            F("data_situacao_aluno").desc(nulls_last=True),
+            F("data_situacao_aluno_data_hora").desc(nulls_last=True),
+            "-sequencia",
+        )
+    ):
+        chave = (mt["codigo_matricula"], mt["codigo_turma"])
+        if chave in processadas:
+            continue
+        processadas.add(chave)
+        # Usa a situação do próprio vínculo turma, sem cair para a situação
+        # da matrícula — não usar _codigo_situacao_turma.
+        codigo_situacao = mt.get("codigo_situacao_aluno")
+        if codigo_situacao is None:
+            continue
+        if codigo_situacao == SituacaoMatricula.VINCULO_INDEVIDO:
+            continue
+        data_situacao = mt.get("data_situacao_aluno")
+        if not _situacao_ativa_na_data(codigo_situacao, data_situacao, limite):
+            continue
+        linhas.append(
+            {
+                "codigo_matricula": mt["codigo_matricula"],
+                "codigo_turma": mt["codigo_turma"],
+                "data_situacao": data_situacao,
+            }
+        )
+    return linhas
+
+
+def obter_codigos_turmas_regulares_aluno(
+    codigo_aluno: int,
+    ano_letivo: int,
+    data_referencia: date | None = None,
+) -> list[int]:
+    """Lista códigos de turma do aluno no ano letivo (recorte de matrícula).
+
+    Resolve a parte do domínio Alunos: apura a
+    última situação por matrícula+turma nos vínculos correntes e
+    históricos, exclui Vínculo Indevido, aplica o filtro ativa/inativa vs.
+    data de referência e ordena por data da situação (mais recente
+    primeiro). **Não** filtra por tipo de turma / UE / semestre — esse
+    recorte pertence ao domínio Pedagógico, e a interseção é feita no
+    gateway.
+
+    Args:
+        codigo_aluno: Código EOL do aluno.
+        ano_letivo: Ano letivo consultado.
+        data_referencia: Data de referência do filtro de situação; usa a
+            data de hoje quando ``None``.
+
+    Returns:
+        Códigos de turma, sem duplicidade, ordenados por data da situação
+        decrescente.
+    """
+    limite = data_referencia or timezone.now().date()
+    linhas: list[dict[str, Any]] = []
+    for historico in (False, True):
+        matriculas = _matriculas_do_aluno(codigo_aluno, ano_letivo, historico)
+        if not matriculas:
+            continue
+        matriculas_idx = {m["codigo_matricula"]: m for m in matriculas}
+        linhas.extend(
+            _codigos_turmas_regulares_por_origem(
+                matriculas_idx, ano_letivo, historico, limite
+            )
+        )
+
+    linhas.sort(key=lambda linha: linha["data_situacao"], reverse=True)
+    saida: list[int] = []
+    vistos: set[int] = set()
+    for linha in linhas:
+        codigo_turma = linha["codigo_turma"]
+        if codigo_turma in vistos:
+            continue
+        vistos.add(codigo_turma)
+        saida.append(codigo_turma)
+    return saida
 
 
 def buscar_turmas_do_aluno_com_historico(
@@ -929,9 +1077,7 @@ def buscar_alunos_da_ue(
     if not matriculas_turma:
         return []
 
-    matriculas_idx = _matriculas_idx_da_ue(
-        matriculas_turma, codigo_eol_filtro
-    )
+    matriculas_idx = _matriculas_idx_da_ue(matriculas_turma, codigo_eol_filtro)
     if not matriculas_idx:
         return []
     codigos_alunos = {m["aluno_id"] for m in matriculas_idx.values()}
@@ -1903,29 +2049,6 @@ def obter_alunos_ativos_por_turma(
     return _consultar_alunos_ativos_turma(codigo_turma=codigo_turma)
 
 
-def _data_matricula_por_matricula(
-    codigos_matricula: Sequence[int],
-) -> dict[int, datetime | None]:
-    """Indexa a menor data de situação na turma por matrícula.
-
-    Args:
-        codigos_matricula: Códigos de matrícula consultados.
-
-    Returns:
-        Menor ``data_situacao_aluno_data_hora`` por ``codigo_matricula``.
-    """
-    if not codigos_matricula:
-        return {}
-    return {
-        m["codigo_matricula"]: m["menor_data"]
-        for m in MatriculaTurma.objects.filter(
-            codigo_matricula__in=codigos_matricula
-        )
-        .values("codigo_matricula")
-        .annotate(menor_data=Min("data_situacao_aluno_data_hora"))
-    }
-
-
 def _responsaveis_por_aluno(
     codigos_alunos: Sequence[int],
 ) -> dict[int, dict[str, Any]]:
@@ -1994,7 +2117,6 @@ def _montar_aluno_matricula_turma(
     row: dict[str, Any],
     alunos_idx: dict[int, dict[str, Any]],
     responsaveis_idx: dict[int, dict[str, Any]],
-    data_matricula_idx: dict[int, datetime | None],
 ) -> AlunoAtivoDataAulaDTO:
     """Monta os dados do aluno a partir do registro deduplicado."""
     aluno = alunos_idx.get(row["aluno_id"], {})
@@ -2019,7 +2141,7 @@ def _montar_aluno_matricula_turma(
         codigo_turma=row["codigo_turma"],
         codigo_escola=row["codigo_ue"],
         ano_letivo=row["ano_letivo"],
-        data_matricula=data_matricula_idx.get(row["codigo_matricula"]),
+        data_matricula=row.get("data_situacao_matricula_data_hora"),
         nome_responsavel=resp.get("nome"),
         tipo_responsavel=resp.get("tipo_responsavel"),
         celular_responsavel=celular,
@@ -2147,9 +2269,6 @@ def obter_alunos_turma(
     codigos_alunos = [r["aluno_id"] for r in finais]
     alunos_idx = _alunos_indexados(codigos_alunos)
     responsaveis_idx = _responsaveis_por_aluno(codigos_alunos)
-    data_matricula_idx = _data_matricula_por_matricula(
-        [r["codigo_matricula"] for r in finais]
-    )
     if data_matricula is not None:
         finais.sort(
             key=lambda r: alunos_idx.get(r["aluno_id"], {}).get("nome", "")
@@ -2162,9 +2281,7 @@ def obter_alunos_turma(
             )
         )
     return [
-        _montar_aluno_matricula_turma(
-            r, alunos_idx, responsaveis_idx, data_matricula_idx
-        )
+        _montar_aluno_matricula_turma(r, alunos_idx, responsaveis_idx)
         for r in finais
     ]
 

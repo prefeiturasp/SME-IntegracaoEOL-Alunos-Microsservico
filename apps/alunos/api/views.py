@@ -220,6 +220,69 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
         return Response(TurmaDoAlunoSerializer(dados, many=True).data)
 
 
+class CodigosTurmasRegularesAlunoView(APIView):
+    """Lista códigos de turma do aluno no ano (recorte de matrícula)."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Códigos de turma do aluno no ano letivo",
+        parameters=[
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_referencia",
+                str,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ],
+        responses={200: {"type": "array", "items": {"type": "integer"}}},
+    )
+    def get(
+        self,
+        request: Request,
+        ano_letivo: str,
+        codigo_aluno: str,
+    ) -> Response:
+        """Retorna os códigos de turma do aluno no ano letivo.
+
+        Resolve a última situação por matrícula+turma, exclui Vínculo
+        Indevido e aplica o filtro ativa/inativa vs. data de referência.
+        O recorte por tipo de turma/UE/semestre é do domínio Pedagógico;
+        a interseção é feita no gateway.
+
+        Args:
+            request: Requisição com o filtro opcional ``data_referencia``.
+            ano_letivo: Ano letivo consultado.
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Códigos de turma ordenados por data da situação decrescente,
+            ou lista vazia quando não há vínculos válidos.
+        """
+        try:
+            ano = to_int(ano_letivo, "ano_letivo")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            data_referencia = None
+            data_bruta = request.query_params.get("data_referencia")
+            if data_bruta:
+                data_referencia = to_datetime(
+                    data_bruta, "data_referencia"
+                ).date()
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        if ano <= 0 or codigo <= 0:
+            return _erro_400("Ano letivo e código do aluno são obrigatórios.")
+
+        codigos = services.obter_codigos_turmas_regulares_aluno(
+            codigo_aluno=codigo,
+            ano_letivo=ano,
+            data_referencia=data_referencia,
+        )
+        return Response(codigos)
+
+
 class BuscaTurmasDoAlunoComHistoricoView(APIView):
     """Lista as turmas do aluno com origem histórica explícita."""
 
