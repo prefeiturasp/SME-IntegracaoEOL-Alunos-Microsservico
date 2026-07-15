@@ -57,6 +57,9 @@ from apps.alunos.queries import (
 from apps.core.utils import fim_do_dia, numero_chamada_int
 
 SITUACOES_MATRICULA_TURMA_ATIVAS = (1, 6, 10, 13)
+
+# Default de DateTime não mapeado no DTO C# do legado (0001-01-01T00:00:00).
+_DATA_DEFAULT_LEGADO = datetime(1, 1, 1)
 _DATA_PADRAO_LEGADO = "0001-01-01T00:00:00"
 _CODIGOS_RACA = {
     "BRANCA": 1,
@@ -182,7 +185,11 @@ def _turmas_mais_recentes_por_matricula(
     codigos_matricula: Sequence[int],
     historico: bool = False,
 ) -> dict[int, list[dict[str, Any]]]:
-    """Agrupa o estado mais recente de cada turma por matrícula.
+    """Agrupa os vínculos de turma por matrícula.
+
+    No ramo corrente mantém apenas o estado mais recente de cada turma;
+    no histórico devolve todos os vínculos (a jornada completa), como a
+    consulta histórica do legado.
 
     Args:
         codigos_matricula: Códigos de matrícula consultados.
@@ -190,7 +197,7 @@ def _turmas_mais_recentes_por_matricula(
             apenas os vínculos correntes.
 
     Returns:
-        Turmas mais recentes, agrupadas por código de matrícula.
+        Vínculos de turma agrupados por código de matrícula.
     """
     if not codigos_matricula:
         return {}
@@ -220,10 +227,11 @@ def _turmas_mais_recentes_por_matricula(
             "-sequencia",
         )
     ):
-        chave_turma = (mt["codigo_matricula"], mt["codigo_turma"])
-        if chave_turma in turmas_processadas:
-            continue
-        turmas_processadas.add(chave_turma)
+        if not historico:
+            chave_turma = (mt["codigo_matricula"], mt["codigo_turma"])
+            if chave_turma in turmas_processadas:
+                continue
+            turmas_processadas.add(chave_turma)
         saida.setdefault(mt["codigo_matricula"], []).append(mt)
     return saida
 
@@ -478,10 +486,14 @@ def _qs_matriculas(
 ) -> Any:
     """Monta queryset base de matrículas do aluno.
 
+    No ramo histórico o filtro usa ``origem_historica`` (presença na view
+    histórica do EOL), pois uma matrícula pode existir nas duas fontes e
+    ``origem_atual`` guarda apenas a origem vencedora.
+
     Args:
         codigo_aluno: Código EOL do aluno.
         ano_letivo: Ano letivo filtrado, ou ``None`` para todos.
-        historico: Indica se deve manter anos anteriores.
+        historico: Indica se a consulta é do ramo histórico.
 
     Returns:
         QuerySet de matrículas com os filtros aplicados.
@@ -490,7 +502,7 @@ def _qs_matriculas(
     if ano_letivo is not None:
         qs = qs.filter(ano_letivo=ano_letivo)
     if historico:
-        qs = qs.filter(origem_atual=False)
+        qs = qs.filter(origem_historica=True)
     else:
         qs = qs.filter(origem_atual=True)
         if ano_letivo is None:
@@ -515,6 +527,7 @@ def _matriculas_do_aluno(
             "situacao_matricula",
             "data_situacao_matricula",
             "data_situacao_matricula_data_hora",
+            "data_situacao_matricula_historica",
         )
         .order_by("-ano_letivo", "codigo_situacao_matricula")
     )
@@ -572,8 +585,14 @@ def _montar_turma_do_aluno_dto(
     aluno: dict[str, Any],
     responsavel: dict[str, Any],
     codigo_situacao: int,
+    historico: bool = False,
 ) -> TurmaDoAlunoDTO:
-    """Monta dados de turma do aluno."""
+    """Monta dados de turma do aluno.
+
+    No ramo histórico replica os campos que a consulta histórica do legado
+    não projeta: CPF nulo, ``dataAtualizacaoTabela`` no default do C#
+    (0001-01-01) e a data de matrícula vinda da fonte histórica.
+    """
     data_situacao = (
         matricula_turma.get("data_situacao_aluno_data_hora")
         or matricula_turma.get("data_situacao_aluno")
@@ -589,10 +608,18 @@ def _montar_turma_do_aluno_dto(
         situacao_matricula=SituacaoMatricula.get_descricao(codigo_situacao),
         data_situacao=data_situacao,
         data_nascimento=aluno.get("data_nascimento"),
-        documento_cpf=aluno.get("cpf"),
+        documento_cpf=None if historico else aluno.get("cpf"),
         data_matricula=(
-            matricula.get("data_situacao_matricula_data_hora")
-            or matricula["data_situacao_matricula"]
+            (
+                matricula.get("data_situacao_matricula_historica")
+                or matricula.get("data_situacao_matricula_data_hora")
+                or matricula["data_situacao_matricula"]
+            )
+            if historico
+            else (
+                matricula.get("data_situacao_matricula_data_hora")
+                or matricula["data_situacao_matricula"]
+            )
         ),
         numero_aluno_chamada=matricula_turma.get("numero_chamada"),
         codigo_turma=matricula_turma.get("codigo_turma") or 0,
@@ -604,7 +631,12 @@ def _montar_turma_do_aluno_dto(
         codigo_escola=matricula["codigo_ue"],
         codigo_tipo_turma=matricula_turma.get("codigo_tipo_turma"),
         data_atualizacao_tabela=(
-            matricula_turma.get("data_atualizacao_tabela") or data_situacao
+            _DATA_DEFAULT_LEGADO
+            if historico
+            else (
+                matricula_turma.get("data_atualizacao_tabela")
+                or data_situacao
+            )
         ),
     )
 
@@ -616,6 +648,7 @@ def _montar_turmas_do_aluno_dtos(
     responsaveis: list[dict[str, Any]],
     filtrar_situacao: bool,
     tipo_turma: bool,
+    historico: bool = False,
 ) -> list[TurmaDoAlunoDTO]:
     """Monta as turmas do aluno conforme os filtros informados."""
     saida: list[TurmaDoAlunoDTO] = []
@@ -640,6 +673,7 @@ def _montar_turmas_do_aluno_dtos(
                         aluno,
                         responsavel,
                         codigo_situacao,
+                        historico,
                     )
                 )
     return saida
@@ -683,6 +717,7 @@ def _consultar_turmas_do_aluno(
         responsaveis,
         filtrar_situacao,
         tipo_turma,
+        historico,
     )
 
 

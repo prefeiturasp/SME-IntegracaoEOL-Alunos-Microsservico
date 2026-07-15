@@ -1599,6 +1599,7 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
             situacao_matricula="Ativo",
             data_situacao_matricula=date(2026, 2, 1),
             origem_atual=origem_atual,
+            origem_historica=not origem_atual,
         )
 
     def _vinculo(
