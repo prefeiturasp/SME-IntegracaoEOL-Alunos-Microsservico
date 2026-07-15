@@ -941,7 +941,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             joao.data_situacao, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
         )
         self.assertEqual(
-            joao.data_matricula, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
+            joao.data_matricula, datetime(2026, 2, 1, 8, 30, tzinfo=UTC)
         )
         self.assertEqual(joao.nome_responsavel, "Responsavel Data Aula")
         self.assertEqual(joao.tipo_responsavel, 1)
@@ -987,8 +987,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao.nome_responsavel, "Responsavel Data Aula")
         self.assertEqual(joao.celular_responsavel, "11988887777")
 
-    def test_data_matricula_min_inclui_alocacoes_filtradas(self) -> None:
-        """Verifica data_matricula como min, mesmo de alocação filtrada."""
+    def test_data_matricula_vem_da_matricula_e_ignora_alocacoes(self) -> None:
+        """Verifica data_matricula da matrícula, não da alocação de turma."""
         codigo_turma = seed_turma_data_aula()
         MatriculaTurma.objects.create(
             codigo_matricula=700001,
@@ -1011,7 +1011,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         joao = {d.codigo_aluno: d for d in dados}[1234567]
         self.assertEqual(
             joao.data_matricula,
-            datetime(2024, 11, 1, 13, 34, 37, tzinfo=UTC),
+            datetime(2026, 2, 1, 8, 30, tzinfo=UTC),
         )
 
     def test_filtra_data_situacao_posterior_a_data_aula(self) -> None:
@@ -1148,8 +1148,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao.codigo_situacao_matricula, 14)
         self.assertEqual(joao.situacao_matricula, "Remanejado Saída")
 
-    def test_data_matricula_usa_menor_alocacao_da_matricula(self) -> None:
-        """Verifica data_matricula como menor alocação da matrícula."""
+    def test_data_matricula_independe_da_alocacao_vencedora(self) -> None:
+        """Verifica data_matricula fixa da matrícula, mesmo com dedup."""
         codigo_turma = seed_turma_data_aula()
         MatriculaTurma.objects.create(
             codigo_matricula=700001,
@@ -1176,7 +1176,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             joao.data_situacao, datetime(2026, 4, 20, 9, 0, tzinfo=UTC)
         )
         self.assertEqual(
-            joao.data_matricula, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
+            joao.data_matricula, datetime(2026, 2, 1, 8, 30, tzinfo=UTC)
         )
 
     def test_dedup_desempata_por_data_situacao(self) -> None:
@@ -1447,7 +1447,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     def test_sem_n_mais_um(self) -> None:
         """Verifica que a consulta usa um número fixo de queries."""
         codigo_turma = seed_turma_data_aula()
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(4):
             services.obter_alunos_turma(
                 codigo_turma=codigo_turma,
                 data_aula=datetime(2026, 6, 1, tzinfo=UTC),
@@ -1579,3 +1579,193 @@ class AcompanhamentoEscolarFiltroTurmaTestCase(TestCase):
             turma_codigo="12345"
         )
         self.assertEqual(len(dados), 1)
+
+
+class CodigosTurmasRegularesAlunoTestCase(TestCase):
+    """Valida obter_codigos_turmas_regulares_aluno (endpoints 3/4)."""
+
+    def _matricula(
+        self,
+        codigo_matricula: int,
+        situacao: int = 1,
+        origem_atual: bool = True,
+    ) -> None:
+        Matricula.objects.create(
+            codigo_matricula=codigo_matricula,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=situacao,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=origem_atual,
+            origem_historica=not origem_atual,
+        )
+
+    def _vinculo(
+        self,
+        codigo_matricula: int,
+        codigo_turma: int,
+        situacao: int,
+        data: date,
+        sequencia: int = 1,
+        origem_atual: bool = True,
+        ano_letivo_turma: int = 2026,
+    ) -> None:
+        MatriculaTurma.objects.create(
+            codigo_matricula=codigo_matricula,
+            codigo_turma=codigo_turma,
+            data_situacao_aluno=data,
+            data_situacao_aluno_data_hora=datetime(
+                data.year, data.month, data.day, 12, 0, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=situacao,
+            codigo_tipo_turma=1,
+            sequencia=sequencia,
+            origem_atual=origem_atual,
+            ano_letivo_turma=ano_letivo_turma,
+        )
+
+    def _obter(self, **kwargs):  # type: ignore[no-untyped-def]
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            return services.obter_codigos_turmas_regulares_aluno(
+                codigo_aluno=1234567, ano_letivo=2026, **kwargs
+            )
+
+    def test_retorna_turmas_ativas_ordenadas_por_data_desc(self) -> None:
+        """Turmas ativas saem ordenadas por data da situação decrescente."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 1, date(2026, 2, 1))
+        self._vinculo(998877, 23456, 1, date(2026, 3, 10))
+        self.assertEqual(self._obter(), [23456, 12345])
+
+    def test_exclui_vinculo_indevido(self) -> None:
+        """Vínculo indevido é excluído mesmo passando no filtro de data."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 1, date(2026, 2, 1))
+        self._vinculo(998877, 99999, 4, date(2026, 12, 1))
+        self.assertEqual(self._obter(), [12345])
+
+    def test_mantem_turma_com_vinculo_indevido_historico_cross_origem(
+        self,
+    ) -> None:
+        """Mantém turma com vínculo ativo corrente + VI histórico.
+
+        Caso real do aluno 69277 vs. legado de PRODUÇÃO: a mesma
+        matrícula+turma tem um vínculo ativo corrente (situação 1) e um
+        Vínculo Indevido histórico (situação 4) na mesma DATA, porém em
+        HORA diferente. O legado compara ``dt_situacao_aluno`` (data+hora),
+        não casa o VI e mantém a turma — o transition deve fazer o mesmo,
+        sem excluir por Vínculo Indevido do ramo oposto.
+        """
+        seed_alunos()
+        self._matricula(998877, origem_atual=True)
+        self._vinculo(998877, 12345, 1, date(2026, 4, 27), origem_atual=True)
+        self._vinculo(
+            998877,
+            12345,
+            4,
+            date(2026, 4, 27),
+            sequencia=2,
+            origem_atual=False,
+        )
+        self._vinculo(998877, 23456, 1, date(2026, 3, 10))
+        self.assertEqual(self._obter(), [12345, 23456])
+
+    def test_inativa_incluida_quando_saiu_apos_data_referencia(self) -> None:
+        """Situação inativa após a data de referência é considerada."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 2, date(2026, 8, 1))
+        self.assertEqual(self._obter(), [12345])
+
+    def test_inativa_excluida_quando_saiu_antes_da_data(self) -> None:
+        """Situação inativa anterior à data de referência é descartada."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 2, date(2026, 3, 1))
+        self.assertEqual(self._obter(), [])
+
+    def test_deduplica_turma_entre_matriculas(self) -> None:
+        """Mesma turma em matrículas distintas aparece uma única vez."""
+        seed_alunos()
+        self._matricula(998877)
+        self._matricula(998878)
+        self._vinculo(998877, 12345, 1, date(2026, 2, 1))
+        self._vinculo(998878, 12345, 1, date(2026, 4, 1))
+        self.assertEqual(self._obter(), [12345])
+
+    def test_considera_ramo_historico(self) -> None:
+        """Vínculos históricos (origem_atual=False) também são resolvidos."""
+        seed_alunos()
+        self._matricula(998877, origem_atual=False)
+        self._vinculo(998877, 12345, 1, date(2026, 2, 1), origem_atual=False)
+        self.assertEqual(self._obter(), [12345])
+
+    def test_ignora_turma_de_outro_ano_letivo(self) -> None:
+        """Turma de ano letivo diferente não entra no resultado."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(
+            998877, 12345, 1, date(2026, 2, 1), ano_letivo_turma=2025
+        )
+        self.assertEqual(self._obter(), [])
+
+    def test_data_referencia_customizada(self) -> None:
+        """A data de referência informada altera o filtro ativa/inativa."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 2, date(2026, 5, 1))
+        self.assertEqual(
+            self._obter(data_referencia=date(2026, 4, 1)), [12345]
+        )
+        self.assertEqual(self._obter(data_referencia=date(2026, 6, 1)), [])
+
+    def test_resolve_ultima_situacao_pela_data_com_data_hora_nula(
+        self,
+    ) -> None:
+        """A última situação é a de maior data, mesmo com data_hora nula.
+
+        Regressão: a linha mais recente por data (transferência) tem
+        data_hora nula e a linha antiga (ativa) tem data_hora preenchida.
+        A resolução deve eleger a transferência (inativa, no passado) e
+        excluir a turma — antes, a ordenação por data_hora elegia a linha
+        antiga ativa e incluía a turma indevidamente.
+        """
+        seed_alunos()
+        self._matricula(998877)
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=5555,
+            data_situacao_aluno=date(2026, 5, 1),
+            data_situacao_aluno_data_hora=None,
+            codigo_situacao_aluno=3,
+            codigo_tipo_turma=1,
+            sequencia=2,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=5555,
+            data_situacao_aluno=date(2026, 2, 1),
+            data_situacao_aluno_data_hora=datetime(
+                2026, 2, 1, 10, 0, tzinfo=UTC
+            ),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+        self.assertEqual(self._obter(), [])
+
+    def test_aluno_sem_matriculas_retorna_vazio(self) -> None:
+        """Aluno sem matrículas recebe lista vazia."""
+        seed_alunos()
+        self.assertEqual(self._obter(), [])
