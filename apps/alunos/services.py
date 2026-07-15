@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Count, F, Max, Q
+from django.db.models import Count, F, Max, Min, Q
 from django.utils import timezone
 
 from apps.alunos.dtos import (
@@ -865,10 +865,27 @@ def obter_codigos_turmas_regulares_aluno(
     limite = data_referencia or timezone.now().date()
     linhas: list[dict[str, Any]] = []
     for historico in (False, True):
-        matriculas = _matriculas_do_aluno(codigo_aluno, ano_letivo, historico)
-        if not matriculas:
+        if historico:
+            # Vínculos históricos só contam para matrículas presentes na
+            # fonte histórica — inclusive as que também existem na fonte
+            # atual e, por isso, têm origem_atual=True.
+            matriculas_idx: dict[int, dict[str, Any]] = {
+                codigo: {"codigo_matricula": codigo}
+                for codigo in Matricula.objects.filter(
+                    aluno_id=codigo_aluno,
+                    ano_letivo=ano_letivo,
+                    presente_historico=True,
+                ).values_list("codigo_matricula", flat=True)
+            }
+        else:
+            matriculas_idx = {
+                m["codigo_matricula"]: m
+                for m in _matriculas_do_aluno(
+                    codigo_aluno, ano_letivo, historico
+                )
+            }
+        if not matriculas_idx:
             continue
-        matriculas_idx = {m["codigo_matricula"]: m for m in matriculas}
         linhas.extend(
             _codigos_turmas_regulares_por_origem(
                 matriculas_idx, ano_letivo, historico, limite
@@ -2113,10 +2130,38 @@ def _dedup_alunos_ativos_turma(
     return list(por_aluno.values())
 
 
+def _primeira_alocacao_por_matricula(
+    codigos_matricula: list[int],
+) -> dict[int, datetime | None]:
+    """Data da primeira alocação de cada matrícula em turma.
+
+    A matrícula pode ter passado por várias turmas (ou por várias situações
+    na mesma turma); a data de matrícula do aluno é a da alocação mais
+    antiga, incluindo as que já não são a vigente.
+
+    Args:
+        codigos_matricula: Códigos de matrícula a consultar.
+
+    Returns:
+        Código da matrícula -> data da alocação mais antiga.
+    """
+    if not codigos_matricula:
+        return {}
+    return {
+        linha["codigo_matricula"]: linha["primeira"]
+        for linha in MatriculaTurma.objects.filter(
+            codigo_matricula__in=codigos_matricula,
+        )
+        .values("codigo_matricula")
+        .annotate(primeira=Min("data_situacao_aluno_data_hora"))
+    }
+
+
 def _montar_aluno_matricula_turma(
     row: dict[str, Any],
     alunos_idx: dict[int, dict[str, Any]],
     responsaveis_idx: dict[int, dict[str, Any]],
+    primeiras_alocacoes: dict[int, datetime | None],
 ) -> AlunoAtivoDataAulaDTO:
     """Monta os dados do aluno a partir do registro deduplicado."""
     aluno = alunos_idx.get(row["aluno_id"], {})
@@ -2141,7 +2186,7 @@ def _montar_aluno_matricula_turma(
         codigo_turma=row["codigo_turma"],
         codigo_escola=row["codigo_ue"],
         ano_letivo=row["ano_letivo"],
-        data_matricula=row.get("data_situacao_matricula_data_hora"),
+        data_matricula=primeiras_alocacoes.get(row["codigo_matricula"]),
         nome_responsavel=resp.get("nome"),
         tipo_responsavel=resp.get("tipo_responsavel"),
         celular_responsavel=celular,
@@ -2269,6 +2314,9 @@ def obter_alunos_turma(
     codigos_alunos = [r["aluno_id"] for r in finais]
     alunos_idx = _alunos_indexados(codigos_alunos)
     responsaveis_idx = _responsaveis_por_aluno(codigos_alunos)
+    primeiras_alocacoes = _primeira_alocacao_por_matricula(
+        [r["codigo_matricula"] for r in finais]
+    )
     if data_matricula is not None:
         finais.sort(
             key=lambda r: alunos_idx.get(r["aluno_id"], {}).get("nome", "")
@@ -2281,7 +2329,9 @@ def obter_alunos_turma(
             )
         )
     return [
-        _montar_aluno_matricula_turma(r, alunos_idx, responsaveis_idx)
+        _montar_aluno_matricula_turma(
+            r, alunos_idx, responsaveis_idx, primeiras_alocacoes
+        )
         for r in finais
     ]
 

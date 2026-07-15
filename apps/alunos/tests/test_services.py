@@ -941,7 +941,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             joao.data_situacao, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
         )
         self.assertEqual(
-            joao.data_matricula, datetime(2026, 2, 1, 8, 30, tzinfo=UTC)
+            joao.data_matricula, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
         )
         self.assertEqual(joao.nome_responsavel, "Responsavel Data Aula")
         self.assertEqual(joao.tipo_responsavel, 1)
@@ -987,8 +987,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao.nome_responsavel, "Responsavel Data Aula")
         self.assertEqual(joao.celular_responsavel, "11988887777")
 
-    def test_data_matricula_vem_da_matricula_e_ignora_alocacoes(self) -> None:
-        """Verifica data_matricula da matrícula, não da alocação de turma."""
+    def test_data_matricula_e_a_da_alocacao_mais_antiga(self) -> None:
+        """Verifica data_matricula vinda da alocação mais antiga da matrícula."""
         codigo_turma = seed_turma_data_aula()
         MatriculaTurma.objects.create(
             codigo_matricula=700001,
@@ -1011,7 +1011,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         joao = {d.codigo_aluno: d for d in dados}[1234567]
         self.assertEqual(
             joao.data_matricula,
-            datetime(2026, 2, 1, 8, 30, tzinfo=UTC),
+            datetime(2024, 11, 1, 13, 34, 37, tzinfo=UTC),
         )
 
     def test_filtra_data_situacao_posterior_a_data_aula(self) -> None:
@@ -1175,8 +1175,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(
             joao.data_situacao, datetime(2026, 4, 20, 9, 0, tzinfo=UTC)
         )
+        # A alocação vencedora é a de 20/04; a data de matrícula continua
+        # sendo a da alocação mais antiga.
         self.assertEqual(
-            joao.data_matricula, datetime(2026, 2, 1, 8, 30, tzinfo=UTC)
+            joao.data_matricula, datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
         )
 
     def test_dedup_desempata_por_data_situacao(self) -> None:
@@ -1447,7 +1449,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     def test_sem_n_mais_um(self) -> None:
         """Verifica que a consulta usa um número fixo de queries."""
         codigo_turma = seed_turma_data_aula()
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):
             services.obter_alunos_turma(
                 codigo_turma=codigo_turma,
                 data_aula=datetime(2026, 6, 1, tzinfo=UTC),
@@ -1589,7 +1591,12 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
         codigo_matricula: int,
         situacao: int = 1,
         origem_atual: bool = True,
+        presente_historico: bool | None = None,
     ) -> None:
+        # Matrícula vinda só da fonte histórica sempre está presente nela;
+        # a flag explícita cobre o caso de matrícula nas duas fontes.
+        if presente_historico is None:
+            presente_historico = not origem_atual
         Matricula.objects.create(
             codigo_matricula=codigo_matricula,
             aluno_id=1234567,
@@ -1599,6 +1606,7 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
             situacao_matricula="Ativo",
             data_situacao_matricula=date(2026, 2, 1),
             origem_atual=origem_atual,
+            presente_historico=presente_historico,
         )
 
     def _vinculo(
@@ -1705,6 +1713,45 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
         self._matricula(998877, origem_atual=False)
         self._vinculo(998877, 12345, 1, date(2026, 2, 1), origem_atual=False)
         self.assertEqual(self._obter(), [12345])
+
+    def test_matricula_nas_duas_fontes_considera_vinculo_historico(
+        self,
+    ) -> None:
+        """Matrícula das duas fontes resolve o vínculo histórico ativo.
+
+        A matrícula materializada como corrente (origem_atual=True) mas
+        também presente na fonte histórica deve ter o vínculo histórico
+        ativo considerado, mesmo com o vínculo corrente inativo.
+        """
+        seed_alunos()
+        self._matricula(998877, presente_historico=True)
+        self._vinculo(998877, 12345, 3, date(2026, 2, 27))
+        self._vinculo(
+            998877,
+            12345,
+            1,
+            date(2025, 12, 15),
+            sequencia=2,
+            origem_atual=False,
+        )
+        self.assertEqual(self._obter(), [12345])
+
+    def test_matricula_fora_da_fonte_historica_ignora_vinculo_historico(
+        self,
+    ) -> None:
+        """Sem presença na fonte histórica, o vínculo histórico não conta."""
+        seed_alunos()
+        self._matricula(998877)
+        self._vinculo(998877, 12345, 14, date(2026, 2, 9))
+        self._vinculo(
+            998877,
+            12345,
+            1,
+            date(2025, 12, 15),
+            sequencia=2,
+            origem_atual=False,
+        )
+        self.assertEqual(self._obter(), [])
 
     def test_ignora_turma_de_outro_ano_letivo(self) -> None:
         """Turma de ano letivo diferente não entra no resultado."""
