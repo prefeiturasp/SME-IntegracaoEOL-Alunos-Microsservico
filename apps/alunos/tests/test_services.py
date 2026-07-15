@@ -1591,12 +1591,12 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
         codigo_matricula: int,
         situacao: int = 1,
         origem_atual: bool = True,
-        presente_historico: bool | None = None,
+        origem_historica: bool | None = None,
     ) -> None:
         # Matrícula vinda só da fonte histórica sempre está presente nela;
         # a flag explícita cobre o caso de matrícula nas duas fontes.
-        if presente_historico is None:
-            presente_historico = not origem_atual
+        if origem_historica is None:
+            origem_historica = not origem_atual
         Matricula.objects.create(
             codigo_matricula=codigo_matricula,
             aluno_id=1234567,
@@ -1606,7 +1606,7 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
             situacao_matricula="Ativo",
             data_situacao_matricula=date(2026, 2, 1),
             origem_atual=origem_atual,
-            presente_historico=presente_historico,
+            origem_historica=origem_historica,
         )
 
     def _vinculo(
@@ -1724,7 +1724,7 @@ class CodigosTurmasRegularesAlunoTestCase(TestCase):
         ativo considerado, mesmo com o vínculo corrente inativo.
         """
         seed_alunos()
-        self._matricula(998877, presente_historico=True)
+        self._matricula(998877, origem_historica=True)
         self._vinculo(998877, 12345, 3, date(2026, 2, 27))
         self._vinculo(
             998877,

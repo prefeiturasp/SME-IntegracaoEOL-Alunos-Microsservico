@@ -874,7 +874,7 @@ def obter_codigos_turmas_regulares_aluno(
                 for codigo in Matricula.objects.filter(
                     aluno_id=codigo_aluno,
                     ano_letivo=ano_letivo,
-                    presente_historico=True,
+                    origem_historica=True,
                 ).values_list("codigo_matricula", flat=True)
             }
         else:
