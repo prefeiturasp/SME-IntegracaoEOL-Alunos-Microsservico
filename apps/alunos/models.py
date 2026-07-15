@@ -162,6 +162,10 @@ class Matricula(models.Model):
     situacao_matricula = models.CharField(max_length=100)
     origem_atual = models.BooleanField(default=True)
     origem_historica = models.BooleanField(default=False)
+    data_situacao_matricula_historica = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         app_label = "alunos"
