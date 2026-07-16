@@ -19,6 +19,7 @@ from apps.alunos.api.serializers import (
     AtualizarResponsavelBuscaAtivaRequestSerializer,
     CadastrarResponsavelRequestSerializer,
     ConsolidacaoMatriculaSerializer,
+    DadosAcompanhamentoEscolarContratoSerializer,
     DadosAcompanhamentoEscolarSerializer,
     DadosResponsavelFiliacaoSerializer,
     DadosResponsavelResumidoSerializer,
@@ -27,7 +28,9 @@ from apps.alunos.api.serializers import (
     InformacoesAlunoTurmaSerializer,
     MatriculaEscolaAlunoSerializer,
     NecessidadeEspecialSerializer,
+    QuantidadeMatriculadosCCContratoSerializer,
     QuantidadeMatriculadosCCSerializer,
+    QuantidadeMatriculadosContratoSerializer,
     QuantidadeMatriculadosSerializer,
     ResponsavelTurmaSerializer,
     TotalAlunosAtivosPeriodoSerializer,
@@ -50,6 +53,7 @@ _TAG_ESCOLA = ["Escolas"]
 _CONTENT_TYPE_JSON = "application/json"
 
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
+CODIGO_ALUNO_OBRIGATORIO = "Código do aluno obrigatório."
 CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
     "Código da UE e ano letivo são obrigatórios."
 )
@@ -67,11 +71,33 @@ ERRO_LEGADO_SEM_MODALIDADES = (
 ERRO_LEGADO_SEM_RESULTADO = (
     "Houve um comportamento inesperado do sistema. Por favor, contate a SME."
 )
+ERRO_LEGADO_ACOMPANHAMENTO_SEM_FILTRO = (
+    "Nenhum filtro foi especificado para busca de dados dos alunos "
+    "para acompanhamento do estudante"
+)
+ERRO_LEGADO_ANO_LETIVO_OBRIGATORIO = "Ano Letivo deve ser informado"
+ERRO_LEGADO_CODIGOS_ALUNOS = "Os códigos dos Alunos são obrigatórios."
+ERRO_LEGADO_COMPONENTES_CURRICULARES = (
+    "Os códigos dos componentes curriculares são obrigatórios."
+)
 
 
 def _erro_legado(mensagem: str) -> Response:
     """Replica a resposta de erro do legado com a mensagem informada."""
     return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Código de status usado pelo legado nos erros de negócio.
+_STATUS_NEGOCIO_LEGADO = 601
+
+
+def _erro_negocio_legado(mensagem: str) -> Response:
+    """Replica o erro de negócio do legado (status 601, corpo string)."""
+    resposta = Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
+    # O construtor do Django limita o status a 100-599; o legado usa 601,
+    # então o código é atribuído após a construção.
+    resposta.status_code = _STATUS_NEGOCIO_LEGADO
+    return resposta
 
 
 class BuscaTurmasDoAlunoView(APIView):
@@ -115,7 +141,7 @@ class BuscaTurmasDoAlunoView(APIView):
             return _erro_400(str(exc))
 
         if codigo <= 0:
-            return _erro_400("Código do aluno obrigatório.")
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
 
         dados = services.buscar_turmas_do_aluno(
             codigo_aluno=codigo,
@@ -178,12 +204,140 @@ class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
             return _erro_400(str(exc))
 
         if codigo <= 0:
-            return _erro_400("Código do aluno obrigatório.")
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
 
         dados = services.buscar_turmas_do_aluno_por_situacao_matricula(
             codigo_aluno=codigo,
             ano_letivo=ano,
             filtrar_situacao_matricula=filtra,
+            tipo_turma=tipo,
+        )
+        if not dados:
+            return Response(
+                {"detail": ALUNO_SEM_TURMA},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(TurmaDoAlunoSerializer(dados, many=True).data)
+
+
+class CodigosTurmasRegularesAlunoView(APIView):
+    """Lista códigos de turma do aluno no ano (recorte de matrícula)."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Códigos de turma do aluno no ano letivo",
+        parameters=[
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_referencia",
+                str,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ],
+        responses={200: {"type": "array", "items": {"type": "integer"}}},
+    )
+    def get(
+        self,
+        request: Request,
+        ano_letivo: str,
+        codigo_aluno: str,
+    ) -> Response:
+        """Retorna os códigos de turma do aluno no ano letivo.
+
+        Resolve a última situação por matrícula+turma, exclui Vínculo
+        Indevido e aplica o filtro ativa/inativa vs. data de referência.
+        O recorte por tipo de turma/UE/semestre é do domínio Pedagógico;
+        a interseção é feita no gateway.
+
+        Args:
+            request: Requisição com o filtro opcional ``data_referencia``.
+            ano_letivo: Ano letivo consultado.
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Códigos de turma ordenados por data da situação decrescente,
+            ou lista vazia quando não há vínculos válidos.
+        """
+        try:
+            ano = to_int(ano_letivo, "ano_letivo")
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            data_referencia = None
+            data_bruta = request.query_params.get("data_referencia")
+            if data_bruta:
+                data_referencia = to_datetime(
+                    data_bruta, "data_referencia"
+                ).date()
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        if ano <= 0 or codigo <= 0:
+            return _erro_400("Ano letivo e código do aluno são obrigatórios.")
+
+        codigos = services.obter_codigos_turmas_regulares_aluno(
+            codigo_aluno=codigo,
+            ano_letivo=ano,
+            data_referencia=data_referencia,
+        )
+        return Response(codigos)
+
+
+class BuscaTurmasDoAlunoComHistoricoView(APIView):
+    """Lista as turmas do aluno com origem histórica explícita."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Turmas do aluno por histórico, situação e tipo",
+        parameters=[
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter("historico", bool, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "filtrar_situacao", bool, OpenApiParameter.PATH
+            ),
+            OpenApiParameter("tipo_turma", bool, OpenApiParameter.PATH),
+        ],
+        responses={200: TurmaDoAlunoSerializer(many=True)},
+    )
+    def get(
+        self,
+        request: Request,
+        codigo_aluno: str,
+        ano_letivo: str,
+        historico: str,
+        filtrar_situacao: str,
+        tipo_turma: str,
+    ) -> Response:
+        """Retorna as turmas do aluno conforme origem e filtros.
+
+        Args:
+            codigo_aluno: Código EOL do aluno.
+            ano_letivo: Ano letivo consultado.
+            historico: Consulta os vínculos históricos quando verdadeiro.
+            filtrar_situacao: Restringe às situações de matrícula válidas.
+            tipo_turma: Exclui turmas do tipo programa quando verdadeiro.
+
+        Returns:
+            Turmas do aluno, ou ausência de conteúdo quando não há turmas.
+        """
+        try:
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            ano = to_int(ano_letivo, "ano_letivo")
+            eh_historico = to_bool(historico, "historico")
+            filtra = to_bool(filtrar_situacao, "filtrar_situacao")
+            tipo = to_bool(tipo_turma, "tipo_turma")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        if codigo <= 0:
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
+
+        dados = services.buscar_turmas_do_aluno_com_historico(
+            codigo_aluno=codigo,
+            ano_letivo=ano,
+            historico=eh_historico,
+            filtrar_situacao=filtra,
             tipo_turma=tipo,
         )
         if not dados:
@@ -693,6 +847,8 @@ class AlunosPorCodigosEAnoView(APIView):
             codigos = query_int_list(request, "codigos_aluno")
         except ValueError as exc:
             return _erro_400(str(exc))
+        if not codigos:
+            return _erro_negocio_legado(ERRO_LEGADO_CODIGOS_ALUNOS)
 
         dados = services.obter_alunos_por_codigos_e_ano(
             codigos_aluno=codigos, ano_letivo=ano
@@ -949,6 +1105,167 @@ class DadosAcompanhamentoEscolarView(APIView):
             cpf_responsavel=cpf_responsavel,
         )
         return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
+
+
+class QuantidadeMatriculadosCCContratoView(APIView):
+    """Lista matriculados por componente curricular (contrato legado)."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Matriculados por componente curricular (contrato legado)",
+        parameters=[
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "componentes_curriculares",
+                int,
+                OpenApiParameter.QUERY,
+                many=True,
+                required=True,
+            ),
+            OpenApiParameter("dre_id", str, OpenApiParameter.QUERY),
+            OpenApiParameter("ue_id", str, OpenApiParameter.QUERY),
+        ],
+        responses={
+            200: QuantidadeMatriculadosCCContratoSerializer(many=True)
+        },
+    )
+    def get(self, request: Request, ano_letivo: str) -> Response:
+        """Lista matriculados por componente conforme filtros do legado.
+
+        Args:
+            request: Requisição com componentes curriculares, DRE e UE.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Quantidades agregadas no contrato do legado.
+        """
+        try:
+            ano_int = to_int(ano_letivo, "ano_letivo")
+            componentes = query_int_list(
+                request, "componentes_curriculares"
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+        if not componentes:
+            return _erro_negocio_legado(ERRO_LEGADO_COMPONENTES_CURRICULARES)
+
+        dados = services.obter_quantidade_matriculados_cc_contrato(
+            ano_letivo=ano_int,
+            componentes_curriculares=componentes,
+            dre_id=request.query_params.get("dre_id"),
+            ue_id=request.query_params.get("ue_id"),
+        )
+        return Response(
+            QuantidadeMatriculadosCCContratoSerializer(dados, many=True).data
+        )
+
+
+class QuantidadeMatriculadosContratoView(APIView):
+    """Lista a quantidade de matriculados no contrato do legado."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Quantidade de matriculados (contrato legado)",
+        parameters=[
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter("dre_codigo", str, OpenApiParameter.QUERY),
+            OpenApiParameter("ue_codigo", str, OpenApiParameter.QUERY),
+            OpenApiParameter(
+                "modalidade", int, OpenApiParameter.QUERY, many=True
+            ),
+            OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
+            OpenApiParameter("turma", int, OpenApiParameter.QUERY, many=True),
+        ],
+        responses={
+            200: QuantidadeMatriculadosContratoSerializer(many=True)
+        },
+    )
+    def get(self, request: Request, ano_letivo: str) -> Response:
+        """Lista quantidades de matriculados conforme filtros do legado.
+
+        Args:
+            request: Requisição com os filtros de DRE, UE, modalidade, ano
+                e turma.
+            ano_letivo: Ano letivo consultado.
+
+        Returns:
+            Quantidades agregadas no contrato do legado.
+        """
+        try:
+            ano_int = to_int(ano_letivo, "ano_letivo")
+            modalidades = query_int_list(request, "modalidade")
+            anos = query_int_list(request, "ano")
+            turmas = query_int_list(request, "turma")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+        if ano_int == 0:
+            return _erro_negocio_legado(ERRO_LEGADO_ANO_LETIVO_OBRIGATORIO)
+
+        dados = services.obter_quantidade_matriculados_contrato(
+            ano_letivo=ano_int,
+            dre_codigo=request.query_params.get("dre_codigo"),
+            ue_codigo=request.query_params.get("ue_codigo"),
+            modalidade=modalidades,
+            ano=anos,
+            turma=turmas,
+        )
+        return Response(
+            QuantidadeMatriculadosContratoSerializer(dados, many=True).data
+        )
+
+
+class DadosAcompanhamentoEscolarContratoView(APIView):
+    """Lista dados de acompanhamento escolar no contrato do legado."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Acompanhamento escolar (contrato legado)",
+        parameters=[
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.QUERY),
+            OpenApiParameter("codigo_dre", str, OpenApiParameter.QUERY),
+            OpenApiParameter("codigo_ue", str, OpenApiParameter.QUERY),
+            OpenApiParameter("cpf_responsavel", str, OpenApiParameter.QUERY),
+        ],
+        responses={
+            200: DadosAcompanhamentoEscolarContratoSerializer(many=True)
+        },
+    )
+    def get(self, request: Request) -> Response:
+        """Lista os dados de acompanhamento conforme os filtros do legado.
+
+        Args:
+            request: Requisição com os filtros de aluno, DRE, UE e
+                responsável.
+
+        Returns:
+            Dados de acompanhamento escolar no contrato do legado.
+        """
+        codigo_aluno_raw = request.query_params.get("codigo_aluno")
+        codigo_dre = request.query_params.get("codigo_dre")
+        codigo_ue = request.query_params.get("codigo_ue")
+        cpf_responsavel = request.query_params.get("cpf_responsavel")
+        if not any((codigo_aluno_raw, codigo_dre, codigo_ue, cpf_responsavel)):
+            return _erro_negocio_legado(ERRO_LEGADO_ACOMPANHAMENTO_SEM_FILTRO)
+        try:
+            codigo_aluno = (
+                to_int(codigo_aluno_raw, "codigo_aluno")
+                if codigo_aluno_raw
+                else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_dados_acompanhamento_escolar_contrato(
+            codigo_aluno=codigo_aluno,
+            codigo_dre=codigo_dre,
+            codigo_ue=codigo_ue,
+            cpf_responsavel=cpf_responsavel,
+        )
+        return Response(
+            DadosAcompanhamentoEscolarContratoSerializer(
+                dados, many=True
+            ).data
+        )
 
 
 class ResponsaveisDreUeTurmaView(APIView):

@@ -203,6 +203,54 @@ class DadosAcompanhamentoEscolarSerializer(serializers.Serializer):
     ano_letivo = serializers.IntegerField()
 
 
+class QuantidadeMatriculadosCCContratoSerializer(serializers.Serializer):
+    """Serializa matriculados por componente no contrato do legado."""
+
+    componente_curricular_id = serializers.IntegerField()
+    quantidade = serializers.IntegerField()
+    ordem = serializers.IntegerField()
+    modalidade = serializers.CharField(allow_null=True)
+    ano = serializers.CharField(allow_null=True)
+    turma = serializers.CharField(allow_null=True)
+
+
+class QuantidadeMatriculadosContratoSerializer(serializers.Serializer):
+    """Serializa a quantidade de matriculados no contrato do legado."""
+
+    quantidade = serializers.IntegerField()
+    ordem = serializers.IntegerField(allow_null=True)
+    modalidade = serializers.CharField(allow_null=True)
+    ano = serializers.CharField(allow_null=True)
+    turma = serializers.CharField(allow_null=True)
+    dre_codigo = serializers.CharField(allow_null=True)
+    ue_codigo = serializers.CharField(allow_null=True)
+
+
+class DadosAcompanhamentoEscolarContratoSerializer(serializers.Serializer):
+    """Serializa dados de acompanhamento escolar no contrato do legado."""
+
+    codigo_eol = serializers.IntegerField()
+    nome_responsavel = serializers.CharField(allow_null=True)
+    cpf_responsavel = serializers.CharField(allow_null=True)
+    nome = serializers.CharField()
+    nome_social = serializers.CharField(allow_null=True)
+    codigo_escola = serializers.CharField()
+    codigo_dre = serializers.CharField(allow_null=True)
+    escola = serializers.CharField(allow_null=True)
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    codigo_tipo_escola = serializers.IntegerField(allow_null=True)
+    descricao_tipo_escola = serializers.CharField(allow_null=True)
+    sigla_dre = serializers.CharField(allow_null=True)
+    codigo_turma = serializers.IntegerField()
+    turma = serializers.CharField(allow_null=True)
+    situacao_matricula = serializers.CharField(allow_null=True)
+    data_nascimento = serializers.DateField(allow_null=True)
+    data_situacao_matricula = serializers.DateTimeField(allow_null=True)
+    codigo_ciclo_ensino = serializers.IntegerField(allow_null=True)
+    codigo_etapa_ensino = serializers.IntegerField(allow_null=True)
+    serie_resumida = serializers.CharField(allow_null=True)
+
+
 class ResponsavelTurmaSerializer(serializers.Serializer):
     """Serializa dados do responsável por turma."""
 
