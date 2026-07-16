@@ -84,26 +84,28 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
 
 SQL_A19_RESPONSAVEIS = """
 SELECT json_agg(row_to_json(t))::text AS j FROM (
-    SELECT
-        m.codigo_ue AS "codigo_ue",
-        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
-        r.cpf AS "cpf_responsavel",
-        m.codigo_aluno AS "codigo_aluno"
-    FROM matricula m
-    JOIN responsavel_aluno r
-        ON r.codigo_aluno = m.codigo_aluno
-       AND r.data_fim_vinculo IS NULL
-       AND r.cpf IS NOT NULL
-       AND r.cpf <> ''
-    LEFT JOIN LATERAL (
-        SELECT codigo_turma
-        FROM matricula_turma
-        WHERE codigo_matricula = m.codigo_matricula
-        LIMIT 1
-    ) mt ON TRUE
-    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
-      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
-      AND (%(ano_letivo)s::int IS NULL
-           OR m.ano_letivo = %(ano_letivo)s::int)
+    SELECT DISTINCT
+        r.codigo_dre AS "codigo_dre",
+        r.dre AS "dre",
+        r.codigo_ue AS "codigo_ue",
+        r.ue AS "ue",
+        r.codigo_turma AS "codigo_turma",
+        r.turma AS "turma",
+        r.cpf_responsavel AS "cpf_responsavel",
+        r.codigo_aluno AS "codigo_aluno",
+        r.codigo_tipo_escola AS "codigo_tipo_escola",
+        r.codigo_etapa_ensino AS "codigo_etapa_ensino",
+        r.codigo_ciclo_ensino AS "codigo_ciclo_ensino",
+        r.serie_resumida AS "serie_resumida",
+        r.codigo_modalidade_turma AS "codigo_modalidade_turma",
+        FALSE AS "tem_app_instalado"
+    FROM responsavel_aluno_turma r
+    WHERE r.ano_letivo = %(ano_letivo)s::int
+      AND (%(codigo_dre)s::text IS NULL
+           OR r.codigo_dre = %(codigo_dre)s)
+      AND (%(codigo_ue)s::text IS NULL
+           OR r.codigo_ue = %(codigo_ue)s)
+    ORDER BY r.codigo_dre, r.codigo_ue, r.codigo_turma,
+             r.codigo_aluno, r.cpf_responsavel
 ) t
 """

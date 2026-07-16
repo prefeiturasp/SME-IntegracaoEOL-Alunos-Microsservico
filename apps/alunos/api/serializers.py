@@ -254,10 +254,20 @@ class DadosAcompanhamentoEscolarContratoSerializer(serializers.Serializer):
 class ResponsavelTurmaSerializer(serializers.Serializer):
     """Serializa dados do responsável por turma."""
 
+    codigo_dre = serializers.CharField()
+    dre = serializers.CharField(allow_null=True)
     codigo_ue = serializers.CharField()
+    ue = serializers.CharField(allow_null=True)
     codigo_turma = serializers.IntegerField()
-    cpf_responsavel = serializers.CharField()
+    turma = serializers.CharField(allow_null=True)
+    cpf_responsavel = serializers.IntegerField()
     codigo_aluno = serializers.IntegerField()
+    codigo_tipo_escola = serializers.IntegerField()
+    codigo_etapa_ensino = serializers.IntegerField()
+    codigo_ciclo_ensino = serializers.IntegerField()
+    serie_resumida = serializers.CharField(allow_null=True)
+    codigo_modalidade_turma = serializers.IntegerField()
+    tem_app_instalado = serializers.BooleanField()
 
 
 class DadosResponsavelSerializer(serializers.Serializer):
