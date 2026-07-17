@@ -41,11 +41,13 @@ from apps.alunos.models import (
     Aluno,
     DadosAlunoAcompanhamentoEscolar,
     Matricula,
+    MatriculaAnoAnterior,
     MatriculaAnoLetivo,
     MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
     NecessidadeEspecialAluno,
     ResponsavelAluno,
+    ResponsavelAlunoTurma,
     TipoNecessidadeEspecial,
 )
 from apps.alunos.queries import (
@@ -3003,62 +3005,46 @@ def obter_dados_acompanhamento_escolar(
 def obter_responsaveis_dre_ue_turma(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
-    codigo_dre: str | None = None,  # NOSONAR
+    codigo_dre: str | None = None,
 ) -> list[ResponsavelTurmaDTO]:
     """Lista responsáveis vigentes agrupados por UE e turma.
 
     Args:
         codigo_ue: Código EOL da UE usado como filtro opcional.
         ano_letivo: Ano letivo usado como filtro opcional.
-        codigo_dre: Mantido por compatibilidade; sem efeito atual.
+        codigo_dre: Código EOL da DRE usado como filtro opcional.
 
     Returns:
         Responsáveis vigentes por UE, turma e aluno.
     """
-    matriculas_qs = Matricula.objects.filter(
-        codigo_situacao_matricula__in=SITUACOES_MATRICULA_ATIVAS
+    ano = (
+        ano_letivo
+        if ano_letivo and ano_letivo > 0
+        else timezone.localdate().year
     )
+    responsaveis_qs = ResponsavelAlunoTurma.objects.filter(ano_letivo=ano)
+    if codigo_dre:
+        responsaveis_qs = responsaveis_qs.filter(codigo_dre=codigo_dre)
     if codigo_ue:
-        matriculas_qs = matriculas_qs.filter(codigo_ue=codigo_ue)
-    if ano_letivo:
-        matriculas_qs = matriculas_qs.filter(ano_letivo=ano_letivo)
+        responsaveis_qs = responsaveis_qs.filter(codigo_ue=codigo_ue)
 
-    matriculas = list(
-        matriculas_qs.values("codigo_matricula", "aluno_id", "codigo_ue")
+    campos = (
+        "codigo_dre",
+        "dre",
+        "codigo_ue",
+        "ue",
+        "codigo_turma",
+        "turma",
+        "cpf_responsavel",
+        "codigo_aluno",
+        "codigo_tipo_escola",
+        "codigo_etapa_ensino",
+        "codigo_ciclo_ensino",
+        "serie_resumida",
+        "codigo_modalidade_turma",
     )
-    if not matriculas:
-        return []
-
-    mts = _matricula_turma_por_matricula(
-        [m["codigo_matricula"] for m in matriculas]
-    )
-    codigos_alunos = [m["aluno_id"] for m in matriculas]
-    responsaveis_por_aluno: dict[int, list[dict[str, Any]]] = {}
-    for r in ResponsavelAluno.objects.filter(
-        aluno_id__in=codigos_alunos,
-        data_fim_vinculo__isnull=True,
-    ).values("aluno_id", "cpf"):
-        responsaveis_por_aluno.setdefault(r["aluno_id"], []).append(r)
-
-    saida: list[ResponsavelTurmaDTO] = []
-    for m in matriculas:
-        responsaveis = responsaveis_por_aluno.get(m["aluno_id"], [])
-        if not responsaveis:
-            continue
-        mt = mts.get(m["codigo_matricula"], {})
-        for r in responsaveis:
-            cpf = r.get("cpf")
-            if not cpf:
-                continue
-            saida.append(
-                ResponsavelTurmaDTO(
-                    codigo_ue=m["codigo_ue"],
-                    codigo_turma=mt.get("codigo_turma") or 0,
-                    cpf_responsavel=cpf,
-                    codigo_aluno=m["aluno_id"],
-                )
-            )
-    return saida
+    rows = responsaveis_qs.values(*campos).distinct().order_by(*campos)
+    return [ResponsavelTurmaDTO(**row) for row in rows]
 
 
 def obter_dados_responsavel(
@@ -3444,7 +3430,21 @@ def obter_matriculas_anos_anteriores(
     Returns:
         Consolidação de matrículas por turma.
     """
-    return _consolidacao_por_turma(ano_letivo=ano_letivo, ue_codigo=ue_codigo)
+    rows = (
+        MatriculaAnoAnterior.objects.filter(
+            ano_letivo=ano_letivo,
+            codigo_ue=ue_codigo,
+        )
+        .values("codigo_turma", "quantidade")
+        .order_by("codigo_turma")
+    )
+    return [
+        ConsolidacaoMatriculaDTO(
+            turma_codigo=str(row["codigo_turma"]),
+            quantidade=row["quantidade"],
+        )
+        for row in rows
+    ]
 
 
 def obter_quantidade_alunos_por_turma_da_escola(
@@ -3858,25 +3858,30 @@ def obter_dados_acompanhamento_escolar_contrato(
 def obter_responsaveis_dre_ue_turma_json(
     codigo_ue: str | None = None,
     ano_letivo: int | None = None,
-    codigo_dre: str | None = None,  # NOSONAR
+    codigo_dre: str | None = None,
 ) -> bytes:
     """Lista responsáveis vigentes agrupados por UE e turma em JSON.
 
     Args:
         codigo_ue: Código EOL da UE usado como filtro opcional.
         ano_letivo: Ano letivo usado como filtro opcional.
-        codigo_dre: Mantido por compatibilidade; sem efeito atual.
+        codigo_dre: Código EOL da DRE usado como filtro opcional.
 
     Returns:
         Payload JSON serializado em bytes.
     """
+    ano = (
+        ano_letivo
+        if ano_letivo and ano_letivo > 0
+        else timezone.localdate().year
+    )
     if connection.vendor == "postgresql":
         return _exec_json_agg(
             SQL_A19_RESPONSAVEIS,
             {
-                "situacoes": list(SITUACOES_MATRICULA_ATIVAS),
+                "codigo_dre": codigo_dre or None,
                 "codigo_ue": codigo_ue or None,
-                "ano_letivo": ano_letivo,
+                "ano_letivo": ano,
             },
         )
     rows = obter_responsaveis_dre_ue_turma(
@@ -3887,10 +3892,20 @@ def obter_responsaveis_dre_ue_turma_json(
     return _dump_json_camel(
         [
             {
+                "codigo_dre": r.codigo_dre,
+                "dre": r.dre,
                 "codigo_ue": r.codigo_ue,
+                "ue": r.ue,
                 "codigo_turma": r.codigo_turma,
+                "turma": r.turma,
                 "cpf_responsavel": r.cpf_responsavel,
                 "codigo_aluno": r.codigo_aluno,
+                "codigo_tipo_escola": r.codigo_tipo_escola,
+                "codigo_etapa_ensino": r.codigo_etapa_ensino,
+                "codigo_ciclo_ensino": r.codigo_ciclo_ensino,
+                "serie_resumida": r.serie_resumida,
+                "codigo_modalidade_turma": r.codigo_modalidade_turma,
+                "tem_app_instalado": r.tem_app_instalado,
             }
             for r in rows
         ]

@@ -330,3 +330,45 @@ class MatriculaComponenteCurricularAnoLetivo(models.Model):
             f"{self.codigo_ue} - CC {self.componente_curricular_id} "
             f"({self.ano_letivo})"
         )
+
+
+class ResponsavelAlunoTurma(models.Model):
+    """Responsáveis aptos ao acompanhamento escolar por turma."""
+
+    id = models.BigAutoField(primary_key=True)
+    codigo_responsavel = models.BigIntegerField()
+    codigo_matricula = models.BigIntegerField()
+    ano_letivo = models.SmallIntegerField()
+    codigo_dre = models.CharField(max_length=20)
+    dre = models.CharField(max_length=300, null=True, blank=True)
+    codigo_ue = models.CharField(max_length=20)
+    ue = models.CharField(max_length=300, null=True, blank=True)
+    codigo_turma = models.BigIntegerField()
+    turma = models.CharField(max_length=100, null=True, blank=True)
+    cpf_responsavel = models.BigIntegerField()
+    codigo_aluno = models.BigIntegerField()
+    codigo_tipo_escola = models.SmallIntegerField()
+    codigo_etapa_ensino = models.SmallIntegerField()
+    codigo_ciclo_ensino = models.SmallIntegerField()
+    serie_resumida = models.CharField(max_length=20, null=True, blank=True)
+    codigo_modalidade_turma = models.SmallIntegerField()
+
+    class Meta:
+        app_label = "alunos"
+        db_table = "responsavel_aluno_turma"
+        managed = False
+
+
+class MatriculaAnoAnterior(models.Model):
+    """Contagem histórica de matrículas por turma e ano letivo."""
+
+    id = models.BigAutoField(primary_key=True)
+    ano_letivo = models.SmallIntegerField()
+    codigo_ue = models.CharField(max_length=20)
+    codigo_turma = models.BigIntegerField()
+    quantidade = models.IntegerField()
+
+    class Meta:
+        app_label = "alunos"
+        db_table = "matricula_ano_anterior"
+        managed = False

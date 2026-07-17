@@ -21,6 +21,7 @@ from apps.alunos.models import (
 from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
+    seed_matriculas_ano_anterior,
     seed_necessidades,
     seed_responsaveis,
     seed_turma_data_aula,
@@ -478,14 +479,14 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
 
-    def test_a19_so_codigo_dre_retorna_vazio(self) -> None:
-        """Verifica que apenas codigo_dre, sem outros filtros, devolve []."""
+    def test_a19_so_codigo_dre_filtra_responsaveis(self) -> None:
+        """Verifica a consulta apenas com o filtro de DRE."""
         seed_matriculas()
         seed_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigo_dre=108")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(len(resp.json()), 1)
 
     def test_a20_dados_completos(self) -> None:
         """Verifica o retorno completo do responsável pelo CPF."""
@@ -624,12 +625,14 @@ class MatriculasApiTestCase(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_m02(self) -> None:
-        """Verifica que ano sem matrículas devolve lista vazia."""
-        seed_matriculas()
+        """Verifica a consolidação histórica no contrato publicado."""
+        seed_matriculas_ano_anterior()
         url = reverse("matriculas-anos-anteriores")
         resp = _autenticado().get(url + "?ano_letivo=2025&ue_codigo=100001")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(
+            resp.json(), [{"turma_codigo": "54321", "quantidade": 27}]
+        )
 
     def test_m03_out_of_scope(self) -> None:
         """Verifica que o endpoint M03 fora de escopo devolve []."""

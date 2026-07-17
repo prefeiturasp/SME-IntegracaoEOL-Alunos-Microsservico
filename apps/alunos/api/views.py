@@ -1302,9 +1302,6 @@ class ResponsaveisDreUeTurmaView(APIView):
 
         codigo_ue = request.query_params.get("codigo_ue")
 
-        if codigo_dre and not codigo_ue and ano is None:
-            return HttpResponse(b"[]", content_type=_CONTENT_TYPE_JSON)
-
         payload = services.obter_responsaveis_dre_ue_turma_json(
             codigo_dre=codigo_dre,
             codigo_ue=codigo_ue,

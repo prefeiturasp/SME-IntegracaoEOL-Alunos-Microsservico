@@ -204,10 +204,20 @@ class DadosAcompanhamentoEscolarDTO:
 class ResponsavelTurmaDTO:
     """Dados do responsável agrupado por turma."""
 
+    codigo_dre: str
+    dre: str | None
     codigo_ue: str
+    ue: str | None
     codigo_turma: int
-    cpf_responsavel: str
+    turma: str | None
+    cpf_responsavel: int
     codigo_aluno: int
+    codigo_tipo_escola: int
+    codigo_etapa_ensino: int
+    codigo_ciclo_ensino: int
+    serie_resumida: str | None
+    codigo_modalidade_turma: int
+    tem_app_instalado: bool = False
 
 
 @dataclass(frozen=True)

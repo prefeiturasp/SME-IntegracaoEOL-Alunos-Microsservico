@@ -13,6 +13,7 @@ from apps.alunos.tests.helpers import (
     DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
     seed_alunos,
     seed_matriculas,
+    seed_matriculas_ano_anterior,
     seed_necessidades,
     seed_responsaveis,
     seed_turma_data_aula,
@@ -599,6 +600,8 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         )
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0].codigo_aluno, 1234567)
+        self.assertEqual(dados[0].cpf_responsavel, 12345678901)
+        self.assertFalse(dados[0].tem_app_instalado)
 
     def test_a20_dados_completos(self) -> None:
         """Verifica o retorno completo dos dados do responsável."""
@@ -749,12 +752,14 @@ class M01M02E05ConsolidacaoTestCase(TestCase):
         self.assertEqual(len(dados), 2)
 
     def test_m02_anos_anteriores(self) -> None:
-        """Verifica a consolidação de anos sem matrículas."""
-        seed_matriculas()
+        """Verifica a leitura da consolidação histórica materializada."""
+        seed_matriculas_ano_anterior()
         dados = services.obter_matriculas_anos_anteriores(
             ano_letivo=2025, ue_codigo="100001"
         )
-        self.assertEqual(dados, [])
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0].turma_codigo, "54321")
+        self.assertEqual(dados[0].quantidade, 27)
 
     def test_e05(self) -> None:
         """Verifica a consolidação por turma da escola informada."""
