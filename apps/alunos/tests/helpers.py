@@ -9,9 +9,11 @@ from apps.alunos.models import (
     Aluno,
     DadosAlunoAcompanhamentoEscolar,
     Matricula,
+    MatriculaAnoAnterior,
     MatriculaTurma,
     NecessidadeEspecialAluno,
     ResponsavelAluno,
+    ResponsavelAlunoTurma,
     TipoNecessidadeEspecial,
 )
 
@@ -145,6 +147,24 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
 
 def seed_responsaveis() -> ResponsavelAluno:
     """Cria um responsável vinculado ao aluno 1234567 para os testes."""
+    ResponsavelAlunoTurma.objects.create(
+        codigo_responsavel=5501,
+        codigo_matricula=998877,
+        ano_letivo=2026,
+        codigo_dre="108",
+        dre="DRE TESTE",
+        codigo_ue="100001",
+        ue="UE TESTE",
+        codigo_turma=12345,
+        turma="5A",
+        cpf_responsavel=12345678901,
+        codigo_aluno=1234567,
+        codigo_tipo_escola=1,
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        serie_resumida="5",
+        codigo_modalidade_turma=5,
+    )
     return cast(
         ResponsavelAluno,
         ResponsavelAluno.objects.create(
@@ -173,6 +193,19 @@ def seed_responsaveis() -> ResponsavelAluno:
             sigla_uf="SP",
             tipo_logradouro="Rua",
             data_atualizacao_tabela=date(2026, 1, 10),
+        ),
+    )
+
+
+def seed_matriculas_ano_anterior() -> MatriculaAnoAnterior:
+    """Cria uma consolidação histórica de matrícula para os testes."""
+    return cast(
+        MatriculaAnoAnterior,
+        MatriculaAnoAnterior.objects.create(
+            ano_letivo=2025,
+            codigo_ue="100001",
+            codigo_turma=54321,
+            quantidade=27,
         ),
     )
 
