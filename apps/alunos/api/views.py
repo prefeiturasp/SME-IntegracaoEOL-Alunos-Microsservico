@@ -293,9 +293,7 @@ class BuscaTurmasDoAlunoComHistoricoView(APIView):
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
             OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
             OpenApiParameter("historico", bool, OpenApiParameter.PATH),
-            OpenApiParameter(
-                "filtrar_situacao", bool, OpenApiParameter.PATH
-            ),
+            OpenApiParameter("filtrar_situacao", bool, OpenApiParameter.PATH),
             OpenApiParameter("tipo_turma", bool, OpenApiParameter.PATH),
         ],
         responses={200: TurmaDoAlunoSerializer(many=True)},
@@ -588,7 +586,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             modalidades=modalidades,
         )
         # Replica o erro do legado quando não há resultado.
-        if dados.quantidade == 0:
+        if dados["quantidade"] == 0:
             return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
 
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
@@ -1125,9 +1123,7 @@ class QuantidadeMatriculadosCCContratoView(APIView):
             OpenApiParameter("dre_id", str, OpenApiParameter.QUERY),
             OpenApiParameter("ue_id", str, OpenApiParameter.QUERY),
         ],
-        responses={
-            200: QuantidadeMatriculadosCCContratoSerializer(many=True)
-        },
+        responses={200: QuantidadeMatriculadosCCContratoSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
         """Lista matriculados por componente conforme filtros do legado.
@@ -1141,9 +1137,7 @@ class QuantidadeMatriculadosCCContratoView(APIView):
         """
         try:
             ano_int = to_int(ano_letivo, "ano_letivo")
-            componentes = query_int_list(
-                request, "componentes_curriculares"
-            )
+            componentes = query_int_list(request, "componentes_curriculares")
         except ValueError as exc:
             return _erro_400(str(exc))
         if not componentes:
@@ -1176,9 +1170,7 @@ class QuantidadeMatriculadosContratoView(APIView):
             OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
             OpenApiParameter("turma", int, OpenApiParameter.QUERY, many=True),
         ],
-        responses={
-            200: QuantidadeMatriculadosContratoSerializer(many=True)
-        },
+        responses={200: QuantidadeMatriculadosContratoSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
         """Lista quantidades de matriculados conforme filtros do legado.
@@ -1262,9 +1254,7 @@ class DadosAcompanhamentoEscolarContratoView(APIView):
             cpf_responsavel=cpf_responsavel,
         )
         return Response(
-            DadosAcompanhamentoEscolarContratoSerializer(
-                dados, many=True
-            ).data
+            DadosAcompanhamentoEscolarContratoSerializer(dados, many=True).data
         )
 
 
