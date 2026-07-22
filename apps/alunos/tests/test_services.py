@@ -34,15 +34,15 @@ class TurmasDoAlunoTestCase(TestCase):
             dados = services.buscar_turmas_do_aluno(codigo_aluno=1234567)
         self.assertEqual(len(dados), 1)
         d = dados[0]
-        self.assertEqual(d["codigo_aluno"], 1234567)
-        self.assertEqual(d["codigo_turma"], 12345)
-        self.assertEqual(d["codigo_situacao_matricula"], 1)
-        self.assertEqual(d["nome_aluno"], "JOAO DA SILVA")
-        self.assertEqual(d["numero_aluno_chamada"], "12")
+        self.assertEqual(d["matricula"]["aluno_id"], 1234567)
+        self.assertEqual(d["matricula_turma"]["codigo_turma"], 12345)
+        self.assertEqual(d["codigo_situacao"], 1)
+        self.assertEqual(d["aluno"]["nome"], "JOAO DA SILVA")
+        self.assertEqual(d["matricula_turma"]["numero_chamada"], "12")
         # DataAtualizacaoContato espelha o legado: vem do responsável
         # (data_atualizacao_tabela), não do aluno.
         self.assertEqual(
-            d["data_atualizacao_contato"],
+            d["responsavel"]["data_atualizacao_tabela"],
             datetime(2026, 1, 10, 3, 0, tzinfo=UTC),
         )
 
@@ -155,9 +155,12 @@ class TurmasDoAlunoTestCase(TestCase):
                 tipo_turma=True,
             )
 
-        self.assertEqual([d["codigo_turma"] for d in dados], [12345, 23456])
         self.assertEqual(
-            [d["codigo_situacao_matricula"] for d in dados], [1, 1]
+            [d["matricula_turma"]["codigo_turma"] for d in dados],
+            [12345, 23456],
+        )
+        self.assertEqual(
+            [d["codigo_situacao"] for d in dados], [1, 1]
         )
 
 
@@ -173,7 +176,7 @@ class A04AlunosDaUeTestCase(TestCase):
             codigo_eol="234",
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 1234567)
+        self.assertEqual(dados[0]["matricula"]["aluno_id"], 1234567)
 
     def test_filtra_por_nome(self) -> None:
         """Verifica filtro por substring do nome."""
@@ -183,7 +186,7 @@ class A04AlunosDaUeTestCase(TestCase):
             ano_letivo=2026,
             nome_aluno="JOAO",
         )
-        self.assertTrue(all("JOAO" in d["nome_aluno"] for d in dados))
+        self.assertTrue(all("JOAO" in d["aluno"]["nome"] for d in dados))
 
     def test_retorna_campos_do_contrato_da_listagem(self) -> None:
         """Verifica os campos complementares da listagem da UE."""
@@ -197,23 +200,17 @@ class A04AlunosDaUeTestCase(TestCase):
 
         self.assertEqual(len(dados), 1)
         aluno = dados[0]
-        self.assertEqual(aluno["tipo_turno"], 2)
-        self.assertEqual(aluno["turma_nome"], "5A")
-        self.assertEqual(aluno["etapa_ensino"], 5)
-        self.assertEqual(aluno["ciclo_ensino"], 2)
-        self.assertEqual(aluno["desc_etapa_ensino"], "Ensino Fundamental")
-        self.assertEqual(aluno["desc_ciclo_ensino"], "Ciclo Interdisciplinar")
-        self.assertEqual(aluno["numero_aluno_chamada"], "12")
-        self.assertEqual(aluno["codigo_situacao_matricula"], 1)
-        self.assertEqual(aluno["situacao_matricula"], "Ativo")
+        turma = aluno["matricula_turma"]
+        self.assertEqual(turma["tipo_turno"], 2)
+        self.assertEqual(turma["nome_turma"], "5A")
+        self.assertEqual(turma["codigo_etapa_ensino"], 5)
+        self.assertEqual(turma["codigo_ciclo_ensino"], 2)
+        self.assertEqual(turma["descricao_etapa_ensino"], "Ensino Fundamental")
         self.assertEqual(
-            aluno["data_atualizacao_contato"],
-            "0001-01-01T00:00:00",
+            turma["descricao_ciclo_ensino"], "Ciclo Interdisciplinar"
         )
-        self.assertEqual(
-            aluno["data_atualizacao_tabela"],
-            "0001-01-01T00:00:00",
-        )
+        self.assertEqual(turma["numero_chamada"], "12")
+        self.assertEqual(turma["codigo_situacao_aluno"], 1)
 
     def test_nao_filtra_situacao_da_matricula(self) -> None:
         """Verifica que a situação considerada vem da matrícula-turma."""
@@ -254,9 +251,10 @@ class A04AlunosDaUeTestCase(TestCase):
         )
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_situacao_matricula"], 14)
-        self.assertEqual(dados[0]["situacao_matricula"], "Remanejado Saída")
-        self.assertEqual(dados[0]["numero_aluno_chamada"], "0")
+        self.assertEqual(
+            dados[0]["matricula_turma"]["codigo_situacao_aluno"], 14
+        )
+        self.assertIsNone(dados[0]["matricula_turma"]["numero_chamada"])
 
     def test_filtra_pela_ue_da_turma(self) -> None:
         """Verifica que a UE considerada vem da turma."""
@@ -297,7 +295,7 @@ class A04AlunosDaUeTestCase(TestCase):
         )
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_turma"], 44444)
+        self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 44444)
 
     def test_retorna_um_item_por_vinculo_de_turma(self) -> None:
         """Verifica que vínculos distintos da turma não são deduplicados."""
@@ -328,7 +326,10 @@ class A04AlunosDaUeTestCase(TestCase):
         )
 
         self.assertEqual(len(dados), 2)
-        self.assertEqual({d["codigo_turma"] for d in dados}, {12345, 33333})
+        self.assertEqual(
+            {d["matricula_turma"]["codigo_turma"] for d in dados},
+            {12345, 33333},
+        )
 
 
 class A05A06AutocompleteTestCase(TestCase):
@@ -344,7 +345,7 @@ class A05A06AutocompleteTestCase(TestCase):
             limite=10,
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 7654321)
+        self.assertEqual(dados[0]["matricula"]["aluno_id"], 7654321)
 
     def test_a06_alunos_ativos(self) -> None:
         """Verifica o autocomplete restrito a alunos ativos."""
@@ -387,7 +388,7 @@ class A05A06AutocompleteTestCase(TestCase):
         )
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_turma"], 12345)
+        self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 12345)
 
     def test_a06_turma_e_modalidade_vem_da_matricula_turma(self) -> None:
         """Verifica turma/modalidade da matrícula-turma sem acompanhamento.
@@ -426,9 +427,11 @@ class A05A06AutocompleteTestCase(TestCase):
         )
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_turma"], 44444)
-        self.assertEqual(dados[0]["turma"], "9B")
-        self.assertEqual(dados[0]["modalidade"], "EM")
+        self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 44444)
+        self.assertEqual(dados[0]["matricula_turma"]["nome_turma"], "9B")
+        self.assertEqual(
+            dados[0]["matricula_turma"]["codigo_etapa_ensino"], 6
+        )
 
 
 class A07TotalAtivosTestCase(TestCase):
@@ -482,7 +485,7 @@ class A08A09AlunosTurmaTestCase(TestCase):
         seed_necessidades()
         dados = services.obter_alunos_ativos_por_turma(codigo_turma=12345)
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 1234567)
+        self.assertEqual(dados[0]["linha"]["aluno_id"], 1234567)
 
     def test_a08_filtra_por_data(self) -> None:
         """Verifica o filtro por data de referência na turma."""
@@ -535,8 +538,8 @@ class A13A14InformacoesTestCase(TestCase):
         info = services.obter_informacoes_aluno(codigo_aluno=1234567)
         self.assertIsNotNone(info)
         assert info is not None
-        self.assertEqual(info["nome_aluno"], "JOAO DA SILVA")
-        self.assertEqual(info["nis"], "123456789")
+        self.assertEqual(info["aluno"].nome, "JOAO DA SILVA")
+        self.assertEqual(info["aluno"].nis, "123456789")
 
     def test_a13_inexistente(self) -> None:
         """Verifica que aluno inexistente retorna None."""
@@ -548,7 +551,7 @@ class A13A14InformacoesTestCase(TestCase):
         seed_matriculas()
         dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 1234567)
+        self.assertEqual(dados[0]["row"]["aluno_id"], 1234567)
 
 
 class A15A16QuantidadeTestCase(TestCase):
@@ -611,7 +614,9 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         seed_responsaveis()
         dados = services.obter_dados_responsavel(cpf_responsavel="12345678901")
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["nome"], "Responsavel Exemplo")
+        self.assertEqual(
+            dados[0]["responsavel"]["nome"], "Responsavel Exemplo"
+        )
 
     def test_a21_resumido(self) -> None:
         """Verifica o retorno resumido dos dados do responsável."""
@@ -622,9 +627,11 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         )
         self.assertIsNotNone(dado)
         assert dado is not None
-        self.assertEqual(dado["cpf"], "12345678901")
-        self.assertEqual(dado["data_nascimento"], date(1980, 5, 20))
-        self.assertEqual(dado["nome_mae"], "Mae do Responsavel")
+        self.assertEqual(dado["responsavel"]["cpf"], "12345678901")
+        self.assertEqual(
+            dado["responsavel"]["data_nascimento"], date(1980, 5, 20)
+        )
+        self.assertEqual(dado["responsavel"]["nome_mae"], "Mae do Responsavel")
 
     def test_a21_resumido_ignora_vinculo_encerrado_mais_recente(
         self,
@@ -649,7 +656,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
 
         self.assertIsNotNone(dado)
         assert dado is not None
-        self.assertEqual(dado["id"], 5501)
+        self.assertEqual(dado["responsavel"]["codigo_responsavel"], 5501)
 
 
 class A22A23EscritaTestCase(TestCase):
@@ -665,7 +672,7 @@ class A22A23EscritaTestCase(TestCase):
             ddd_celular="11",
             numero_celular="999998888",
         )
-        self.assertEqual(resumo["numero_celular"], "999998888")
+        self.assertEqual(resumo["responsavel"].numero_celular, "999998888")
 
     def test_a23_atualiza_responsavel_existente(self) -> None:
         """Verifica que o cadastro atualiza um vínculo existente."""
@@ -680,8 +687,8 @@ class A22A23EscritaTestCase(TestCase):
             ddd_celular="11",
             numero_celular="911112222",
         )
-        self.assertEqual(resumo["nome"], "Responsavel Atualizado")
-        self.assertEqual(resumo["tipo_responsavel"], 2)
+        self.assertEqual(resumo["responsavel"].nome, "Responsavel Atualizado")
+        self.assertEqual(resumo["responsavel"].tipo_responsavel, 2)
 
 
 class A27FiliacaoTestCase(TestCase):
@@ -697,12 +704,14 @@ class A27FiliacaoTestCase(TestCase):
         self.assertEqual(len(dados), 1)
         responsavel = dados[0]
         self.assertEqual(
-            responsavel["nome_responsavel"], "Responsavel Exemplo"
+            responsavel["responsavel"]["nome"], "Responsavel Exemplo"
         )
-        self.assertEqual(responsavel["ddd_residencial"], "11")
-        self.assertEqual(responsavel["numero_comercial"], "55556666")
-        self.assertEqual(responsavel["endereco"]["id"], 123)
-        self.assertEqual(responsavel["endereco"]["nro"], "100")
+        self.assertEqual(responsavel["responsavel"]["ddd_telefone_fixo"], "11")
+        self.assertEqual(
+            responsavel["responsavel"]["nr_telefone_comercial"], "55556666"
+        )
+        self.assertEqual(responsavel["responsavel"]["endereco_id"], 123)
+        self.assertEqual(responsavel["responsavel"]["numero_endereco"], "100")
 
     def test_retorna_lista_vazia_sem_responsaveis_de_filiacao(self) -> None:
         """Verifica que aluno sem filiação retorna lista vazia."""
@@ -762,7 +771,7 @@ class M01M02E05ConsolidacaoTestCase(TestCase):
             ano_letivo=2025, ue_codigo="100001"
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["turma_codigo"], "54321")
+        self.assertEqual(str(dados[0]["codigo_turma"]), "54321")
         self.assertEqual(dados[0]["quantidade"], 27)
 
     def test_e05(self) -> None:
@@ -802,8 +811,8 @@ class E24MatriculasAlunoEscolaTestCase(TestCase):
             codigo_escola="100001", codigo_aluno=1234567
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_matricula"], 998877)
-        self.assertEqual(dados[0]["ano_letivo"], 2026)
+        self.assertEqual(dados[0]["matricula"]["codigo_matricula"], 998877)
+        self.assertEqual(dados[0]["matricula"]["ano_letivo"], 2026)
 
     def test_aluno_inexistente_retorna_vazio(self) -> None:
         """Verifica que aluno sem matrículas na escola gera saída vazia."""
@@ -881,7 +890,7 @@ class AutocompleteCenariosServiceTestCase(TestCase):
             limite=10,
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_turma"], 12345)
+        self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 12345)
 
     def test_limite_um(self) -> None:
         """Verifica que limite=1 corta o resultado em um único item."""
@@ -939,26 +948,29 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
         self.assertEqual(len(dados), 2)
-        por_aluno = {d["codigo_aluno"]: d for d in dados}
+        por_aluno = {d["linha"]["aluno_id"]: d for d in dados}
         joao = por_aluno[1234567]
-        self.assertEqual(joao["nome_aluno"], "JOAO DA SILVA")
-        self.assertEqual(joao["codigo_turma"], codigo_turma)
-        self.assertEqual(joao["codigo_escola"], "100001")
-        self.assertEqual(joao["codigo_dre"], "108800")
-        self.assertEqual(joao["ano_letivo"], 2026)
-        self.assertEqual(joao["sequencia"], 1)
-        self.assertEqual(joao["numero_aluno_chamada"], "12")
+        self.assertEqual(joao["aluno"]["nome"], "JOAO DA SILVA")
+        self.assertEqual(joao["linha"]["codigo_turma"], codigo_turma)
+        self.assertEqual(joao["linha"]["codigo_ue"], "100001")
+        self.assertEqual(joao["linha"]["codigo_dre"], "108800")
+        self.assertEqual(joao["linha"]["ano_letivo"], 2026)
+        self.assertEqual(joao["linha"]["sequencia"], 1)
+        self.assertEqual(joao["linha"]["numero_chamada"], "12")
         self.assertEqual(
-            joao["data_situacao"], datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
+            joao["linha"]["data_situacao_aluno_data_hora"],
+            datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
         )
         self.assertEqual(
-            joao["data_matricula"], datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
+            joao["primeira_alocacao"],
+            datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
         )
-        self.assertEqual(joao["nome_responsavel"], "Responsavel Data Aula")
-        self.assertEqual(joao["tipo_responsavel"], 1)
-        self.assertEqual(joao["celular_responsavel"], "11988887777")
+        self.assertEqual(joao["responsavel"]["nome"], "Responsavel Data Aula")
+        self.assertEqual(joao["responsavel"]["tipo_responsavel"], 1)
+        self.assertEqual(joao["responsavel"]["ddd_celular"], "11")
+        self.assertEqual(joao["responsavel"]["numero_celular"], "988887777")
         self.assertEqual(
-            joao["data_atualizacao_contato"],
+            joao["aluno"]["data_atualizacao_contato"],
             datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
         )
 
@@ -969,11 +981,9 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
-        maria = {d["codigo_aluno"]: d for d in dados}[7654321]
-        self.assertIsNone(maria["nome_responsavel"])
-        self.assertIsNone(maria["tipo_responsavel"])
-        self.assertIsNone(maria["celular_responsavel"])
-        self.assertIsNone(maria["data_atualizacao_contato"])
+        maria = {d["linha"]["aluno_id"]: d for d in dados}[7654321]
+        self.assertEqual(maria["responsavel"], {})
+        self.assertIsNone(maria["aluno"]["data_atualizacao_contato"])
 
     def test_ignora_responsavel_com_vinculo_encerrado(self) -> None:
         """Verifica que responsável sem vínculo ativo é descartado."""
@@ -994,9 +1004,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
-        self.assertEqual(joao["nome_responsavel"], "Responsavel Data Aula")
-        self.assertEqual(joao["celular_responsavel"], "11988887777")
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
+        self.assertEqual(joao["responsavel"]["nome"], "Responsavel Data Aula")
+        self.assertEqual(joao["responsavel"]["ddd_celular"], "11")
+        self.assertEqual(joao["responsavel"]["numero_celular"], "988887777")
 
     def test_data_matricula_e_a_da_alocacao_mais_antiga(self) -> None:
         """Verifica data_matricula vinda da alocação mais antiga."""
@@ -1019,9 +1030,9 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
         self.assertEqual(
-            joao["data_matricula"],
+            joao["primeira_alocacao"],
             datetime(2024, 11, 1, 13, 34, 37, tzinfo=UTC),
         )
 
@@ -1068,8 +1079,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 2, 6, 8, 0, tzinfo=UTC),
         )
 
-        maria = {d["codigo_aluno"]: d for d in dados}[7654321]
-        self.assertEqual(maria["codigo_matricula"], 700009)
+        maria = {d["linha"]["aluno_id"]: d for d in dados}[7654321]
+        self.assertEqual(maria["linha"]["codigo_matricula"], 700009)
 
     def test_turma_inexistente_retorna_vazio(self) -> None:
         """Verifica que turma sem alunos retorna lista vazia."""
@@ -1114,9 +1125,9 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             considerar_inativos=True,
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
-        self.assertEqual(joao["codigo_matricula"], 700003)
-        self.assertEqual(joao["codigo_situacao_matricula"], 4)
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
+        self.assertEqual(joao["linha"]["codigo_matricula"], 700003)
+        self.assertEqual(joao["linha"]["codigo_situacao_aluno"], 4)
 
     def test_dedup_mantem_maior_data_situacao(self) -> None:
         """Verifica a linha de maior data de situação na turma."""
@@ -1153,11 +1164,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             considerar_inativos=True,
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
-        self.assertEqual(joao["codigo_matricula"], 700004)
-        self.assertEqual(joao["numero_aluno_chamada"], "20")
-        self.assertEqual(joao["codigo_situacao_matricula"], 14)
-        self.assertEqual(joao["situacao_matricula"], "Remanejado Saída")
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
+        self.assertEqual(joao["linha"]["codigo_matricula"], 700004)
+        self.assertEqual(joao["linha"]["numero_chamada"], "20")
+        self.assertEqual(joao["linha"]["codigo_situacao_aluno"], 14)
 
     def test_data_matricula_independe_da_alocacao_vencedora(self) -> None:
         """Verifica data_matricula fixa da matrícula, mesmo com dedup."""
@@ -1181,15 +1191,17 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             considerar_inativos=True,
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
-        self.assertEqual(joao["codigo_situacao_matricula"], 14)
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
+        self.assertEqual(joao["linha"]["codigo_situacao_aluno"], 14)
         self.assertEqual(
-            joao["data_situacao"], datetime(2026, 4, 20, 9, 0, tzinfo=UTC)
+            joao["linha"]["data_situacao_aluno_data_hora"],
+            datetime(2026, 4, 20, 9, 0, tzinfo=UTC),
         )
         # A alocação vencedora é a de 20/04; a data de matrícula continua
         # sendo a da alocação mais antiga.
         self.assertEqual(
-            joao["data_matricula"], datetime(2026, 2, 10, 14, 0, tzinfo=UTC)
+            joao["primeira_alocacao"],
+            datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
         )
 
     def test_dedup_desempata_por_data_situacao(self) -> None:
@@ -1226,9 +1238,9 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
-        joao = {d["codigo_aluno"]: d for d in dados}[1234567]
-        self.assertEqual(joao["codigo_matricula"], 700005)
-        self.assertEqual(joao["numero_aluno_chamada"], "20")
+        joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
+        self.assertEqual(joao["linha"]["codigo_matricula"], 700005)
+        self.assertEqual(joao["linha"]["numero_chamada"], "20")
 
     def test_data_aula_nula_e_primeira_sequencia_ordena_chamada(self) -> None:
         """Verifica ordenação por chamada com ticks zero e sequência 1."""
@@ -1242,7 +1254,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=1,
         )
         self.assertEqual(
-            [d["numero_aluno_chamada"] for d in dados], ["07", "12"]
+            [d["linha"]["numero_chamada"] for d in dados], ["07", "12"]
         )
 
     def test_data_aula_nula_sem_primeira_sequencia_nao_ordena(self) -> None:
@@ -1253,7 +1265,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
         )
         self.assertEqual(
-            {d["codigo_aluno"] for d in dados}, {1234567, 7654321}
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
         )
 
     def test_sem_parametro_default_false_restringe_situacoes(self) -> None:
@@ -1268,7 +1280,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
 
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_considerar_inativos_false_filtra_situacoes(self) -> None:
         """Verifica que situações fora do conjunto são excluídas com False."""
@@ -1283,7 +1295,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             considerar_inativos=False,
         )
 
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_considerar_inativos_false_dedup_antes_do_filtro(self) -> None:
         """Verifica que a dedup ocorre antes do filtro de situação.
@@ -1332,7 +1344,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         )
 
         self.assertEqual(
-            {d["codigo_aluno"] for d in dados}, {1234567, 7654321}
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
         )
 
     def test_sequencia_filtra_matricula_turma(self) -> None:
@@ -1343,7 +1355,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
             sequencia=1,
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_sequencia_ausente_traz_todas(self) -> None:
         """Verifica que sem sequência todas as alocações são consideradas."""
@@ -1353,7 +1365,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
         self.assertEqual(
-            {d["codigo_aluno"] for d in dados}, {1234567, 7654321}
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
         )
 
     def test_considera_inativos_false_sem_data_filtra_situacoes(self) -> None:
@@ -1367,7 +1379,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
             considerar_inativos=False,
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_considera_inativos_true_sem_data_traz_todas(self) -> None:
         """Reproduz o legado considera-inativos=true (sem filtro de data)."""
@@ -1381,7 +1393,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             considerar_inativos=True,
         )
         self.assertEqual(
-            {d["codigo_aluno"] for d in dados}, {1234567, 7654321}
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
         )
 
     def test_codigo_aluno_com_considera_inativos(self) -> None:
@@ -1393,7 +1405,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             codigo_aluno=1234567,
             considerar_inativos=False,
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_filtra_por_codigo_aluno(self) -> None:
         """Verifica que codigo_aluno restringe o resultado ao aluno."""
@@ -1403,7 +1415,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
             codigo_aluno=7654321,
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [7654321])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [7654321])
 
     def test_codigo_aluno_ausente_na_turma_retorna_vazio(self) -> None:
         """Verifica que aluno fora da turma retorna lista vazia."""
@@ -1423,7 +1435,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
             data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
         )
-        nomes = [d["nome_aluno"] for d in dados]
+        nomes = [d["aluno"]["nome"] for d in dados]
         self.assertEqual(nomes, sorted(nomes))
 
     def test_data_matricula_descarta_vinculo_indevido(self) -> None:
@@ -1437,7 +1449,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
             data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_data_matricula_condicao_por_situacao(self) -> None:
         """Verifica a condição composta por data de situação/matrícula."""
@@ -1455,7 +1467,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_aula=None,
             data_matricula=datetime(2026, 2, 5, tzinfo=UTC),
         )
-        self.assertEqual([d["codigo_aluno"] for d in dados], [1234567])
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_data_aula_e_data_matricula_aplicam_ambos(self) -> None:
         """Verifica que os dois filtros de data convivem (AND)."""
@@ -1466,7 +1478,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_matricula=datetime(2026, 6, 1, tzinfo=UTC),
         )
         self.assertEqual(
-            {d["codigo_aluno"] for d in dados}, {1234567, 7654321}
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
         )
 
     def test_sem_n_mais_um(self) -> None:
@@ -1526,7 +1538,7 @@ class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
             data_referencia_fim=date(2026, 12, 31),
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 1234567)
+        self.assertEqual(dados[0]["linha"]["aluno_id"], 1234567)
 
     def test_matricula_posterior_ao_fim_e_excluida(self) -> None:
         """Verifica exclusão de matrícula após a data final."""
@@ -1584,8 +1596,8 @@ class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
             data_referencia_fim=date(2023, 12, 31),
         )
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_aluno"], 1234567)
-        self.assertEqual(dados[0]["ano_letivo"], 2023)
+        self.assertEqual(dados[0]["linha"]["aluno_id"], 1234567)
+        self.assertEqual(dados[0]["linha"]["ano_letivo"], 2023)
 
 
 class AcompanhamentoEscolarFiltroTurmaTestCase(TestCase):
