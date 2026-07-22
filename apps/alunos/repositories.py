@@ -107,7 +107,7 @@ def matriculas_por_codigos_turma(
     return saida
 
 
-def _matricula_turma_por_matricula(
+def matricula_turma_por_matricula(
     codigos_matricula: list[int],
 ) -> dict[int, dict[str, Any]]:
     """Indexa o vínculo de turma mais recente por matrícula."""
@@ -233,34 +233,23 @@ def quantidade_matriculados(
     ]
 
 
-def dados_acompanhamento_escolar(
-    codigo_ue: str | None = None,
-    ano_letivo: int | None = None,
-    turma_codigo: str | None = None,
-    codigo_aluno: int | None = None,
-    cpf_responsavel: str | None = None,
-    codigo_dre: str | None = None,  # NOSONAR
-    modalidade: int | None = None,  # NOSONAR
-    semestre: int | None = None,  # NOSONAR
-) -> list[dict[str, Any]]:
-    """Lista dados de acompanhamento escolar."""
-    if _usa_sql_postgresql():
-        try:
-            turma_int = int(turma_codigo) if turma_codigo else None
-        except (TypeError, ValueError):
-            return []
-        return _exec_query_rows(
-            SQL_A18_ACOMPANHAMENTO,
-            {
-                "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
-                "codigo_aluno": codigo_aluno,
-                "codigo_ue": codigo_ue or None,
-                "ano_letivo": ano_letivo,
-                "turma_codigo": turma_int,
-                "cpf": cpf_responsavel or None,
-            },
-        )
+def _turma_codigo_int(turma_codigo: str | None) -> int | None:
+    """Normaliza código de turma recebido como texto."""
+    if not turma_codigo:
+        return None
+    try:
+        return int(turma_codigo)
+    except (TypeError, ValueError):
+        return None
 
+
+def _matriculas_acompanhamento_escolar(
+    codigo_ue: str | None,
+    ano_letivo: int | None,
+    codigo_aluno: int | None,
+    cpf_responsavel: str | None,
+) -> list[dict[str, Any]]:
+    """Consulta as matrículas elegíveis para acompanhamento escolar."""
     qs = Matricula.objects.filter(
         codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
     )
@@ -278,7 +267,7 @@ def dados_acompanhamento_escolar(
             ).values("aluno_id")
         )
 
-    matriculas = list(
+    return list(
         qs.values(
             "codigo_matricula",
             "aluno_id",
@@ -289,29 +278,32 @@ def dados_acompanhamento_escolar(
             "data_situacao_matricula",
         )
     )
-    if not matriculas:
+
+
+def _filtrar_matriculas_acompanhamento_por_turma(
+    matriculas: list[dict[str, Any]],
+    mts: dict[int, dict[str, Any]],
+    turma_codigo: str | None,
+) -> list[dict[str, Any]]:
+    """Filtra matrículas pelo código de turma informado."""
+    if not turma_codigo:
+        return matriculas
+    codigo_turma_int = _turma_codigo_int(turma_codigo)
+    if codigo_turma_int is None:
         return []
+    return [
+        matricula
+        for matricula in matriculas
+        if mts.get(matricula["codigo_matricula"], {}).get("codigo_turma")
+        == codigo_turma_int
+    ]
 
-    mts = _matricula_turma_por_matricula(
-        [m["codigo_matricula"] for m in matriculas]
-    )
-    if turma_codigo:
-        try:
-            codigo_turma_int = int(turma_codigo)
-        except (TypeError, ValueError):
-            return []
-        matriculas = [
-            m
-            for m in matriculas
-            if mts.get(m["codigo_matricula"], {}).get("codigo_turma")
-            == codigo_turma_int
-        ]
-        if not matriculas:
-            return []
 
-    codigos_alunos = [m["aluno_id"] for m in matriculas]
-    alunos_idx = alunos_indexados(codigos_alunos)
-    responsaveis = {
+def _responsaveis_acompanhamento_escolar(
+    codigos_alunos: Sequence[int],
+) -> dict[int, dict[str, Any]]:
+    """Indexa responsáveis vigentes por aluno."""
+    return {
         r["aluno_id"]: r
         for r in ResponsavelAluno.objects.filter(
             aluno_id__in=codigos_alunos,
@@ -321,28 +313,90 @@ def dados_acompanhamento_escolar(
         .values("aluno_id", "nome", "cpf", "tipo_responsavel")
     }
 
-    saida: list[dict[str, Any]] = []
-    for m in matriculas:
-        a = alunos_idx.get(m["aluno_id"], {})
-        resp = responsaveis.get(m["aluno_id"], {})
-        mt = mts.get(m["codigo_matricula"], {})
-        saida.append(
+
+def _linha_acompanhamento_escolar(
+    matricula: dict[str, Any],
+    aluno: dict[str, Any],
+    responsavel: dict[str, Any],
+    matricula_turma: dict[str, Any],
+) -> dict[str, Any]:
+    """Monta uma linha de acompanhamento escolar no contrato externo."""
+    return {
+        "codigo_eol": matricula["aluno_id"],
+        "nome_responsavel": responsavel.get("nome"),
+        "cpf_responsavel": responsavel.get("cpf"),
+        "nome": aluno.get("nome", ""),
+        "nome_social": aluno.get("nome_social"),
+        "codigo_escola": matricula["codigo_ue"],
+        "tipo_responsavel": responsavel.get("tipo_responsavel"),
+        "codigo_turma": matricula_turma.get("codigo_turma") or 0,
+        "situacao_matricula": matricula["situacao_matricula"],
+        "data_nascimento": aluno.get("data_nascimento"),
+        "data_situacao_matricula": matricula["data_situacao_matricula"],
+        "ano_letivo": matricula["ano_letivo"],
+    }
+
+
+def dados_acompanhamento_escolar(
+    codigo_ue: str | None = None,
+    ano_letivo: int | None = None,
+    turma_codigo: str | None = None,
+    codigo_aluno: int | None = None,
+    cpf_responsavel: str | None = None,
+    codigo_dre: str | None = None,  # NOSONAR
+    modalidade: int | None = None,  # NOSONAR
+    semestre: int | None = None,  # NOSONAR
+) -> list[dict[str, Any]]:
+    """Lista dados de acompanhamento escolar."""
+    if _usa_sql_postgresql():
+        turma_int = _turma_codigo_int(turma_codigo)
+        if turma_codigo and turma_int is None:
+            return []
+        return _exec_query_rows(
+            SQL_A18_ACOMPANHAMENTO,
             {
-                "codigo_eol": m["aluno_id"],
-                "nome_responsavel": resp.get("nome"),
-                "cpf_responsavel": resp.get("cpf"),
-                "nome": a.get("nome", ""),
-                "nome_social": a.get("nome_social"),
-                "codigo_escola": m["codigo_ue"],
-                "tipo_responsavel": resp.get("tipo_responsavel"),
-                "codigo_turma": mt.get("codigo_turma") or 0,
-                "situacao_matricula": m["situacao_matricula"],
-                "data_nascimento": a.get("data_nascimento"),
-                "data_situacao_matricula": m["data_situacao_matricula"],
-                "ano_letivo": m["ano_letivo"],
-            }
+                "situacoes": list(SITUACOES_MATRICULA_VALIDAS),
+                "codigo_aluno": codigo_aluno,
+                "codigo_ue": codigo_ue or None,
+                "ano_letivo": ano_letivo,
+                "turma_codigo": turma_int,
+                "cpf": cpf_responsavel or None,
+            },
         )
-    return saida
+
+    matriculas = _matriculas_acompanhamento_escolar(
+        codigo_ue,
+        ano_letivo,
+        codigo_aluno,
+        cpf_responsavel,
+    )
+    if not matriculas:
+        return []
+
+    mts = matricula_turma_por_matricula(
+        [m["codigo_matricula"] for m in matriculas]
+    )
+    matriculas = _filtrar_matriculas_acompanhamento_por_turma(
+        matriculas,
+        mts,
+        turma_codigo,
+    )
+    if not matriculas:
+        return []
+
+    codigos_alunos = [m["aluno_id"] for m in matriculas]
+    alunos_idx = alunos_indexados(codigos_alunos)
+    responsaveis = _responsaveis_acompanhamento_escolar(codigos_alunos)
+
+    return [
+        _linha_acompanhamento_escolar(
+            m,
+            alunos_idx.get(m["aluno_id"], {}),
+            responsaveis.get(m["aluno_id"], {}),
+            mts.get(m["codigo_matricula"], {}),
+        )
+        for m in matriculas
+    ]
 
 
 def responsaveis_dre_ue_turma(

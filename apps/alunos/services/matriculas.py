@@ -2,8 +2,9 @@
 
 from typing import Any
 
-from django.db.models import Count, F
+from django.db.models import Count
 
+from apps.alunos import repositories
 from apps.alunos.enums import SITUACOES_MATRICULA_VALIDAS
 from apps.alunos.models import (
     Aluno,
@@ -35,33 +36,6 @@ def _consolidacao_por_turma(
         .order_by("codigo_turma")
     )
     return list(agrupado)
-
-
-def _matricula_turma_por_matricula(
-    codigos_matricula: list[int],
-) -> dict[int, dict[str, Any]]:
-    """Indexa o vínculo de turma mais recente por matrícula."""
-    if not codigos_matricula:
-        return {}
-    saida: dict[int, dict[str, Any]] = {}
-    for mt in (
-        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
-        .values(
-            "codigo_matricula",
-            "codigo_turma",
-            "data_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-            "codigo_situacao_aluno",
-        )
-        .order_by(
-            "codigo_matricula",
-            "-data_situacao_aluno_data_hora",
-            "-data_situacao_aluno",
-            F("numero_chamada").desc(nulls_last=True),
-        )
-    ):
-        saida.setdefault(mt["codigo_matricula"], mt)
-    return saida
 
 
 def obter_matriculas_ano_atual(
@@ -142,7 +116,7 @@ def obter_matriculas_aluno_na_escola(
         .first()
         or {}
     )
-    mts = _matricula_turma_por_matricula(
+    mts = repositories.matricula_turma_por_matricula(
         [m["codigo_matricula"] for m in matriculas]
     )
     return [

@@ -833,11 +833,11 @@ class HelpersInternosTestCase(TestCase):
 
     def test_matricula_turma_por_matricula_vazio(self) -> None:
         """Verifica que entrada vazia em matrícula da turma gera dict vazio."""
-        from apps.alunos.services.matriculas import (
-            _matricula_turma_por_matricula,
+        from apps.alunos.repositories import (
+            matricula_turma_por_matricula,
         )
 
-        self.assertEqual(_matricula_turma_por_matricula([]), {})
+        self.assertEqual(matricula_turma_por_matricula([]), {})
 
     def test_matriculas_por_codigos_turma_vazio(self) -> None:
         """Verifica que entrada vazia por codigo_turma gera lista vazia."""
