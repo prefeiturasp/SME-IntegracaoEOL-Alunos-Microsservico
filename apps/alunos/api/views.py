@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Any
 
-from django.http import HttpResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -49,8 +48,6 @@ _TAG_ALUNO = ["Alunos"]
 _TAG_RESPONSAVEL = ["Alunos — Responsáveis"]
 _TAG_MATRICULA = ["Matrículas"]
 _TAG_ESCOLA = ["Escolas"]
-
-_CONTENT_TYPE_JSON = "application/json"
 
 ALUNO_SEM_TURMA = "Não foram encontradas turmas para o aluno."
 CODIGO_ALUNO_OBRIGATORIO = "Código do aluno obrigatório."
@@ -992,13 +989,15 @@ class QuantidadeMatriculadosPorAnoCCView(APIView):
         if not componentes:
             return _erro_400("componentes_curriculares é obrigatório.")
 
-        payload = services.obter_quantidade_matriculados_por_ano_e_cc_json(
+        dados = services.obter_quantidade_matriculados_por_ano_e_cc(
             ano_letivo=ano,
             componentes_curriculares=componentes,
             dre_id=request.query_params.get("dre_id"),
             ue_id=request.query_params.get("ue_id"),
         )
-        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
+        return Response(
+            QuantidadeMatriculadosCCSerializer(dados, many=True).data
+        )
 
 
 class QuantidadeMatriculadosView(APIView):
@@ -1038,7 +1037,7 @@ class QuantidadeMatriculadosView(APIView):
             return _erro_400(str(exc))
 
         turma = request.query_params.getlist("turma")
-        payload = services.obter_quantidade_matriculados_json(
+        dados = services.obter_quantidade_matriculados(
             ano_letivo=ano,
             dre_codigo=request.query_params.get("dre_codigo", ""),
             ue_codigo=request.query_params.get("ue_codigo", ""),
@@ -1046,7 +1045,9 @@ class QuantidadeMatriculadosView(APIView):
             ano=ano_lst,
             turma=turma,
         )
-        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
+        return Response(
+            QuantidadeMatriculadosSerializer(dados, many=True).data
+        )
 
 
 class DadosAcompanhamentoEscolarView(APIView):
@@ -1094,15 +1095,17 @@ class DadosAcompanhamentoEscolarView(APIView):
             (codigo_aluno is not None, codigo_ue, cpf_responsavel)
         )
         if codigo_dre and not outros_filtros:
-            return HttpResponse(b"[]", content_type=_CONTENT_TYPE_JSON)
+            return Response([])
 
-        payload = services.obter_dados_acompanhamento_escolar_json(
+        dados = services.obter_dados_acompanhamento_escolar(
             codigo_aluno=codigo_aluno,
             codigo_dre=codigo_dre,
             codigo_ue=codigo_ue,
             cpf_responsavel=cpf_responsavel,
         )
-        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
+        return Response(
+            DadosAcompanhamentoEscolarSerializer(dados, many=True).data
+        )
 
 
 class QuantidadeMatriculadosCCContratoView(APIView):
@@ -1292,12 +1295,12 @@ class ResponsaveisDreUeTurmaView(APIView):
 
         codigo_ue = request.query_params.get("codigo_ue")
 
-        payload = services.obter_responsaveis_dre_ue_turma_json(
+        dados = services.obter_responsaveis_dre_ue_turma(
             codigo_dre=codigo_dre,
             codigo_ue=codigo_ue,
             ano_letivo=ano,
         )
-        return HttpResponse(payload, content_type=_CONTENT_TYPE_JSON)
+        return Response(ResponsavelTurmaSerializer(dados, many=True).data)
 
 
 class DadosResponsavelView(APIView):

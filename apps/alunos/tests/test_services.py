@@ -817,34 +817,36 @@ class HelpersInternosTestCase(TestCase):
     """Testes para os helpers internos."""
 
     def test_alunos_indexados_vazio(self) -> None:
-        """Verifica que entrada vazia em _alunos_indexados gera dict vazio."""
-        from apps.alunos.services import _alunos_indexados
+        """Verifica que entrada vazia em alunos_indexados gera dict vazio."""
+        from apps.alunos.repositories import alunos_indexados
 
-        self.assertEqual(_alunos_indexados([]), {})
+        self.assertEqual(alunos_indexados([]), {})
 
     def test_matricula_turma_por_matricula_vazio(self) -> None:
         """Verifica que entrada vazia em matrícula da turma gera dict vazio."""
-        from apps.alunos.services import _matricula_turma_por_matricula
+        from apps.alunos.services.matriculas import (
+            _matricula_turma_por_matricula,
+        )
 
         self.assertEqual(_matricula_turma_por_matricula([]), {})
 
     def test_matriculas_por_codigos_turma_vazio(self) -> None:
         """Verifica que entrada vazia por codigo_turma gera lista vazia."""
-        from apps.alunos.services import _matriculas_por_codigos_turma
+        from apps.alunos.repositories import matriculas_por_codigos_turma
 
-        self.assertEqual(_matriculas_por_codigos_turma([]), [])
+        self.assertEqual(matriculas_por_codigos_turma([]), [])
 
     def test_matriculas_por_codigos_turma_sem_match(self) -> None:
         """Verifica que turmas inexistentes geram lista vazia."""
-        from apps.alunos.services import _matriculas_por_codigos_turma
+        from apps.alunos.repositories import matriculas_por_codigos_turma
 
-        self.assertEqual(_matriculas_por_codigos_turma([99999999]), [])
+        self.assertEqual(matriculas_por_codigos_turma([99999999]), [])
 
     def test_responsavel_principal_inexistente(self) -> None:
         """Verifica que aluno sem responsável retorna None."""
-        from apps.alunos.services import _responsavel_principal
+        from apps.alunos.services.responsaveis import responsavel_principal
 
-        self.assertIsNone(_responsavel_principal(99999999))
+        self.assertIsNone(responsavel_principal(99999999))
 
 
 class AutocompleteCenariosServiceTestCase(TestCase):
@@ -895,7 +897,7 @@ class AutocompleteCenariosServiceTestCase(TestCase):
 class BuscarTurmasDoAlunoFiltrosTestCase(TestCase):
     """Valida o repasse de filtros em buscar_turmas_do_aluno."""
 
-    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    @patch("apps.alunos.services.turmas._consultar_turmas_do_aluno")
     def test_default_exclui_programa_e_filtra_situacao(
         self, mock_consultar: MagicMock
     ) -> None:
@@ -908,7 +910,7 @@ class BuscarTurmasDoAlunoFiltrosTestCase(TestCase):
             codigo_aluno=1234567, tipo_turma=True, filtrar_situacao=True
         )
 
-    @patch("apps.alunos.services._consultar_turmas_do_aluno")
+    @patch("apps.alunos.services.turmas._consultar_turmas_do_aluno")
     def test_repassa_tipo_turma_e_filtrar_situacao(
         self, mock_consultar: MagicMock
     ) -> None:
@@ -997,7 +999,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(joao["celular_responsavel"], "11988887777")
 
     def test_data_matricula_e_a_da_alocacao_mais_antiga(self) -> None:
-        """Verifica data_matricula vinda da alocação mais antiga da matrícula."""
+        """Verifica data_matricula vinda da alocação mais antiga."""
         codigo_turma = seed_turma_data_aula()
         MatriculaTurma.objects.create(
             codigo_matricula=700001,
@@ -1478,8 +1480,10 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
 
     def test_responsaveis_por_aluno_vazio(self) -> None:
         """Verifica que lista de códigos vazia não consulta o banco."""
+        from apps.alunos.services.responsaveis import responsaveis_por_aluno
+
         with self.assertNumQueries(0):
-            resultado = services._responsaveis_por_aluno([])
+            resultado = responsaveis_por_aluno([])
         self.assertEqual(resultado, {})
 
 
@@ -1488,20 +1492,26 @@ class MapeamentosInternosTestCase(TestCase):
 
     def test_modalidade_por_etapa_cobre_faixas(self) -> None:
         """Verifica a sigla legada de cada faixa de etapa de ensino."""
-        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(1), "EI")
-        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(2), "EJA")
-        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(4), "EF")
-        self.assertEqual(services._MODALIDADE_POR_ETAPA.get(6), "EM")
+        from apps.alunos.constants import MODALIDADE_POR_ETAPA
+
+        self.assertEqual(MODALIDADE_POR_ETAPA.get(1), "EI")
+        self.assertEqual(MODALIDADE_POR_ETAPA.get(2), "EJA")
+        self.assertEqual(MODALIDADE_POR_ETAPA.get(4), "EF")
+        self.assertEqual(MODALIDADE_POR_ETAPA.get(6), "EM")
 
     def test_modalidade_por_etapa_desconhecida(self) -> None:
         """Verifica que etapa fora do mapa retorna None."""
-        self.assertIsNone(services._MODALIDADE_POR_ETAPA.get(99))
-        self.assertIsNone(services._MODALIDADE_POR_ETAPA.get(None))
+        from apps.alunos.constants import MODALIDADE_POR_ETAPA
+
+        self.assertIsNone(MODALIDADE_POR_ETAPA.get(99))
+        self.assertIsNone(MODALIDADE_POR_ETAPA.get(None))
 
     def test_codigo_raca_vazia_retorna_none(self) -> None:
         """Verifica que raça/cor ausente ou vazia retorna None."""
-        self.assertIsNone(services._codigo_raca(None))
-        self.assertIsNone(services._codigo_raca(""))
+        from apps.alunos.constants import codigo_raca
+
+        self.assertIsNone(codigo_raca(None))
+        self.assertIsNone(codigo_raca(""))
 
 
 class AlunosAtivosPorPeriodoTurmaTestCase(TestCase):
