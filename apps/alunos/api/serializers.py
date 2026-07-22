@@ -127,6 +127,23 @@ class AlunoAtivoDataAulaSerializer(serializers.Serializer):
     codigo_dre = serializers.CharField()
 
 
+class AlunoAcompanhamentoEscolarSerializer(serializers.Serializer):
+    """Serializa alunos e responsáveis para acompanhamento escolar."""
+
+    numero_chamada = serializers.CharField(allow_null=True)
+    nome_aluno = serializers.CharField()
+    codigo_eol_aluno = serializers.IntegerField()
+    cpf = serializers.IntegerField()
+    nome_responsavel = serializers.CharField(allow_null=True)
+    tipo_responsavel = serializers.IntegerField(allow_null=True)
+    ddd_celular = serializers.CharField(allow_null=True)
+    celular = serializers.CharField(allow_null=True)
+    ddd_fixo = serializers.CharField(allow_null=True)
+    telefone_fixo = serializers.CharField(allow_null=True)
+    situacao_aluno = serializers.IntegerField(allow_null=True)
+    data_situacao_aluno = serializers.DateTimeField(allow_null=True)
+
+
 class NecessidadeEspecialSerializer(serializers.Serializer):
     """Serializa necessidades especiais do aluno."""
 

@@ -1,6 +1,5 @@
 """Queries SQL do domínio Alunos (réplicas do contrato legado)."""
 
-
 SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
 SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT

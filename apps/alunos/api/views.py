@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from apps.alunos import services
 from apps.alunos.api.serializers import (
+    AlunoAcompanhamentoEscolarSerializer,
     AlunoAtivoDataAulaSerializer,
     AlunoAtivoTurmaSerializer,
     AlunoAutocompleteSerializer,
@@ -293,9 +294,7 @@ class BuscaTurmasDoAlunoComHistoricoView(APIView):
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
             OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
             OpenApiParameter("historico", bool, OpenApiParameter.PATH),
-            OpenApiParameter(
-                "filtrar_situacao", bool, OpenApiParameter.PATH
-            ),
+            OpenApiParameter("filtrar_situacao", bool, OpenApiParameter.PATH),
             OpenApiParameter("tipo_turma", bool, OpenApiParameter.PATH),
         ],
         responses={200: TurmaDoAlunoSerializer(many=True)},
@@ -588,7 +587,7 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
             modalidades=modalidades,
         )
         # Replica o erro do legado quando não há resultado.
-        if dados.quantidade == 0:
+        if dados["quantidade"] == 0:
             return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
 
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
@@ -733,6 +732,12 @@ class AlunosTurmaView(APIView):
                 OpenApiParameter.QUERY,
                 required=False,
             ),
+            OpenApiParameter(
+                "ano_letivo",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
         ],
         responses={200: AlunoAtivoDataAulaSerializer(many=True)},
     )
@@ -742,7 +747,8 @@ class AlunosTurmaView(APIView):
         Args:
             request: Requisição com o filtro obrigatório
                 ``considerar_inativos`` e os opcionais ``data_aula_ticks``,
-                ``data_matricula_ticks``, ``codigo_aluno`` e ``sequencia``.
+                ``data_matricula_ticks``, ``codigo_aluno``, ``sequencia`` e
+                ``ano_letivo``.
             codigo_turma: Código da turma consultada.
 
         Returns:
@@ -769,6 +775,12 @@ class AlunosTurmaView(APIView):
             sequencia = (
                 to_int(sequencia_raw, "sequencia") if sequencia_raw else None
             )
+            ano_letivo_raw = request.query_params.get("ano_letivo")
+            ano_letivo = (
+                to_int(ano_letivo_raw, "ano_letivo")
+                if ano_letivo_raw
+                else None
+            )
         except ValueError as exc:
             return _erro_400(str(exc))
 
@@ -779,6 +791,180 @@ class AlunosTurmaView(APIView):
             codigo_aluno=codigo_aluno,
             considerar_inativos=considerar_inativos,
             sequencia=sequencia,
+            ano_letivo=ano_letivo if ano_letivo and ano_letivo > 0 else None,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
+
+
+class QuantidadeMatriculasTurmasPeriodoView(APIView):
+    """Conta alocações válidas em turmas cuja matrícula começou até a data."""
+
+    @extend_schema(
+        tags=_TAG_MATRICULA,
+        summary="Quantidade de matrículas-turma por período",
+        request=None,
+        responses={200: dict},
+    )
+    def post(self, request: Request) -> Response:
+        """Conta as alocações válidas das turmas até a data informada.
+
+        Args:
+            request: Requisição com ``codigos_turmas`` (lista) e ``data_fim``
+                (ticks .NET) no corpo.
+
+        Returns:
+            Dicionário com a quantidade de alocações no período.
+        """
+        codigos_turmas = request.data.get("codigos_turmas")
+        data_fim_ticks = request.data.get("data_fim")
+        if not isinstance(codigos_turmas, list):
+            return _erro_400("codigos_turmas deve ser uma lista.")
+        try:
+            codigos = [to_int(c, "codigos_turmas") for c in codigos_turmas]
+            ticks = to_int(data_fim_ticks, "data_fim")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+        if ticks <= 0:
+            return _erro_400("data_fim é obrigatório.")
+
+        quantidade = services.contar_matriculas_turmas_periodo(
+            codigos_turmas=codigos,
+            data_fim=ticks_to_datetime(ticks),
+        )
+        return Response({"quantidade": quantidade})
+
+
+class AcompanhamentoEscolarTurmaView(APIView):
+    """Lista alunos e responsáveis vigentes de uma turma de acompanhamento."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Acompanhamento escolar da turma",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+        ],
+        responses={200: AlunoAcompanhamentoEscolarSerializer(many=True)},
+    )
+    def get(self, _request: Request, codigo_turma: str) -> Response:
+        """Lista alunos e responsáveis vigentes da turma.
+
+        Args:
+            _request: Requisição HTTP recebida.
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Um registro por aluno com responsável vigente na turma.
+        """
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_acompanhamento_escolar_turma(
+            codigo_turma=codigo,
+        )
+        return Response(
+            AlunoAcompanhamentoEscolarSerializer(dados, many=True).data
+        )
+
+
+class TodosAlunosTurmaView(APIView):
+    """Lista o histórico de vínculos dos alunos com a turma."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Histórico de vínculos dos alunos com a turma",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "codigo_aluno", int, OpenApiParameter.QUERY, required=False
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista o histórico de vínculos dos alunos com a turma.
+
+        Args:
+            request: Requisição com o filtro opcional ``codigo_aluno``.
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Vínculos dos alunos com a turma, sem filtro de situação.
+        """
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            codigo_aluno_raw = request.query_params.get("codigo_aluno")
+            codigo_aluno = (
+                to_int(codigo_aluno_raw, "codigo_aluno")
+                if codigo_aluno_raw
+                else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_todos_alunos_turma(
+            codigo_turma=codigo,
+            codigo_aluno=codigo_aluno,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
+
+
+class MatriculasTurmasAlunoView(APIView):
+    """Lista as matrículas-turma do aluno em todas as turmas e anos."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Matrículas-turma do aluno",
+        parameters=[
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_aula_ticks",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+            OpenApiParameter(
+                "ano_letivo",
+                int,
+                OpenApiParameter.QUERY,
+                required=False,
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Lista as matrículas-turma do aluno.
+
+        Args:
+            request: Requisição com os filtros opcionais ``data_aula_ticks``
+                e ``ano_letivo``.
+            codigo_aluno: Código do aluno consultado.
+
+        Returns:
+            Uma linha por matrícula do aluno conforme os filtros informados.
+        """
+        try:
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            data_aula_raw = request.query_params.get("data_aula_ticks")
+            data_aula = (
+                ticks_to_datetime(to_int(data_aula_raw, "data_aula_ticks"))
+                if data_aula_raw is not None
+                else None
+            )
+            ano_letivo_raw = request.query_params.get("ano_letivo")
+            ano_letivo = (
+                to_int(ano_letivo_raw, "ano_letivo")
+                if ano_letivo_raw
+                else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_matriculas_turmas_aluno(
+            codigo_aluno=codigo,
+            data_aula=data_aula,
+            ano_letivo=ano_letivo if ano_letivo and ano_letivo > 0 else None,
         )
         return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
@@ -1125,9 +1311,7 @@ class QuantidadeMatriculadosCCContratoView(APIView):
             OpenApiParameter("dre_id", str, OpenApiParameter.QUERY),
             OpenApiParameter("ue_id", str, OpenApiParameter.QUERY),
         ],
-        responses={
-            200: QuantidadeMatriculadosCCContratoSerializer(many=True)
-        },
+        responses={200: QuantidadeMatriculadosCCContratoSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
         """Lista matriculados por componente conforme filtros do legado.
@@ -1141,9 +1325,7 @@ class QuantidadeMatriculadosCCContratoView(APIView):
         """
         try:
             ano_int = to_int(ano_letivo, "ano_letivo")
-            componentes = query_int_list(
-                request, "componentes_curriculares"
-            )
+            componentes = query_int_list(request, "componentes_curriculares")
         except ValueError as exc:
             return _erro_400(str(exc))
         if not componentes:
@@ -1176,9 +1358,7 @@ class QuantidadeMatriculadosContratoView(APIView):
             OpenApiParameter("ano", int, OpenApiParameter.QUERY, many=True),
             OpenApiParameter("turma", int, OpenApiParameter.QUERY, many=True),
         ],
-        responses={
-            200: QuantidadeMatriculadosContratoSerializer(many=True)
-        },
+        responses={200: QuantidadeMatriculadosContratoSerializer(many=True)},
     )
     def get(self, request: Request, ano_letivo: str) -> Response:
         """Lista quantidades de matriculados conforme filtros do legado.
@@ -1262,9 +1442,7 @@ class DadosAcompanhamentoEscolarContratoView(APIView):
             cpf_responsavel=cpf_responsavel,
         )
         return Response(
-            DadosAcompanhamentoEscolarContratoSerializer(
-                dados, many=True
-            ).data
+            DadosAcompanhamentoEscolarContratoSerializer(dados, many=True).data
         )
 
 
