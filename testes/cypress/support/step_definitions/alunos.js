@@ -159,7 +159,7 @@ When("realizo consulta de matrículas", () => {
 
 When("realizo consulta de matrículas de anos anteriores", () => {
   cy.apiGet(
-    `/api/v1/alunos/matriculas/anos-anteriores?ano_letivo=${Cypress.env("ANO_LETIVO")}&ue_codigo=${Cypress.env("CODIGO_UE")}`,
+    `/api/v1/alunos/matriculas/anos-anteriores?ano_letivo=${Cypress.env("ANO_LETIVO") - 1}&ue_codigo=${Cypress.env("CODIGO_UE")}`,
   ).as("response");
 });
 
