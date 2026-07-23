@@ -138,7 +138,7 @@ def contar_matriculas_turmas_periodo(
 ) -> int:
     """Conta alocações válidas nas turmas cuja matrícula começou até a data.
 
-    O grão da contagem é a alocação (matrícula + sequência), não o aluno
+    A contagem é a alocação (matrícula + sequência), não o aluno
     distinto: um aluno com várias alocações válidas conta várias vezes. Só
     entram as alocações em situação regular cuja matrícula tem a primeira
     alocação com data anterior ou igual a ``data_fim``.

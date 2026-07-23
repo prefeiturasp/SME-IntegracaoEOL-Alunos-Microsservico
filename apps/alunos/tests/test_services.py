@@ -159,9 +159,7 @@ class TurmasDoAlunoTestCase(TestCase):
             [d["matricula_turma"]["codigo_turma"] for d in dados],
             [12345, 23456],
         )
-        self.assertEqual(
-            [d["codigo_situacao"] for d in dados], [1, 1]
-        )
+        self.assertEqual([d["codigo_situacao"] for d in dados], [1, 1])
 
 
 class A04AlunosDaUeTestCase(TestCase):
@@ -429,9 +427,7 @@ class A05A06AutocompleteTestCase(TestCase):
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 44444)
         self.assertEqual(dados[0]["matricula_turma"]["nome_turma"], "9B")
-        self.assertEqual(
-            dados[0]["matricula_turma"]["codigo_etapa_ensino"], 6
-        )
+        self.assertEqual(dados[0]["matricula_turma"]["codigo_etapa_ensino"], 6)
 
 
 class A07TotalAtivosTestCase(TestCase):
@@ -1564,15 +1560,15 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = [
             d
             for d in services.obter_todos_alunos_turma(codigo_turma)
-            if d["codigo_matricula"] == 700001
+            if d["linha"]["codigo_matricula"] == 700001
         ]
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["codigo_situacao_matricula"], 3)
-        self.assertEqual(dados[0]["numero_aluno_chamada"], "88")
+        self.assertEqual(dados[0]["linha"]["codigo_situacao_aluno"], 3)
+        self.assertEqual(dados[0]["linha"]["numero_chamada"], "88")
         # A data de matrícula continua sendo a da alocação que abriu a linha.
         self.assertEqual(
-            dados[0]["data_matricula"],
+            dados[0]["primeira_alocacao"],
             datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
         )
 
@@ -1589,19 +1585,19 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = [
             d
             for d in services.obter_todos_alunos_turma(codigo_turma)
-            if d["codigo_matricula"] == 700001
+            if d["linha"]["codigo_matricula"] == 700001
         ]
 
         self.assertEqual(len(dados), 2)
-        self.assertEqual(dados[0]["codigo_situacao_matricula"], 14)
-        self.assertEqual(dados[1]["codigo_situacao_matricula"], 1)
+        self.assertEqual(dados[0]["linha"]["codigo_situacao_aluno"], 14)
+        self.assertEqual(dados[1]["linha"]["codigo_situacao_aluno"], 1)
         # Cada linha carrega a data da alocação que a abriu.
         self.assertEqual(
-            dados[0]["data_matricula"],
+            dados[0]["primeira_alocacao"],
             datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
         )
         self.assertEqual(
-            dados[1]["data_matricula"],
+            dados[1]["primeira_alocacao"],
             datetime(2026, 3, 5, 10, 0, tzinfo=UTC),
         )
 
@@ -1621,12 +1617,12 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = [
             d
             for d in services.obter_todos_alunos_turma(codigo_turma)
-            if d["codigo_matricula"] == 700001
+            if d["linha"]["codigo_matricula"] == 700001
         ]
 
         self.assertEqual(len(dados), 2)
-        self.assertEqual(dados[1]["codigo_situacao_matricula"], 5)
-        self.assertEqual(dados[1]["numero_aluno_chamada"], "77")
+        self.assertEqual(dados[1]["linha"]["codigo_situacao_aluno"], 5)
+        self.assertEqual(dados[1]["linha"]["numero_chamada"], "77")
 
     def test_todos_alunos_turma_empate_de_data_usa_sequencia(self) -> None:
         """Empate na data de situação é resolvido pela sequência.
@@ -1657,12 +1653,12 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = [
             d
             for d in services.obter_todos_alunos_turma(codigo_turma)
-            if d["codigo_matricula"] == 700001
+            if d["linha"]["codigo_matricula"] == 700001
         ]
 
         self.assertEqual(len(dados), 2)
-        self.assertEqual(dados[0]["codigo_situacao_matricula"], 14)
-        self.assertEqual(dados[1]["codigo_situacao_matricula"], 1)
+        self.assertEqual(dados[0]["linha"]["codigo_situacao_aluno"], 14)
+        self.assertEqual(dados[1]["linha"]["codigo_situacao_aluno"], 1)
 
     def test_todos_alunos_turma_nao_filtra_situacao(self) -> None:
         """Situações inativas permanecem no resultado."""
@@ -1674,7 +1670,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = services.obter_todos_alunos_turma(codigo_turma)
 
         situacoes = {
-            d["codigo_matricula"]: d["codigo_situacao_matricula"]
+            d["linha"]["codigo_matricula"]: d["linha"]["codigo_situacao_aluno"]
             for d in dados
         }
         self.assertEqual(situacoes[700002], 8)
@@ -1687,7 +1683,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             codigo_turma, codigo_aluno=1234567
         )
 
-        self.assertEqual({d["codigo_aluno"] for d in dados}, {1234567})
+        self.assertEqual({d["linha"]["aluno_id"] for d in dados}, {1234567})
 
     def test_todos_alunos_turma_sem_vinculo(self) -> None:
         """Turma sem vínculo devolve lista vazia."""
@@ -1704,10 +1700,12 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
 
         dados = services.obter_matriculas_turmas_aluno(codigo_aluno=1234567)
 
-        self.assertEqual([d["codigo_matricula"] for d in dados], [700001])
-        self.assertEqual(dados[0]["codigo_escola"], "100001")
-        self.assertEqual(dados[0]["codigo_dre"], "108800")
-        self.assertEqual(dados[0]["ano_letivo"], 2026)
+        self.assertEqual(
+            [d["linha"]["codigo_matricula"] for d in dados], [700001]
+        )
+        self.assertEqual(dados[0]["linha"]["codigo_ue"], "100001")
+        self.assertEqual(dados[0]["linha"]["codigo_dre"], "108800")
+        self.assertEqual(dados[0]["linha"]["ano_letivo"], 2026)
 
     def test_matriculas_turmas_aluno_alocacao_mais_recente(self) -> None:
         """Verifica que a alocação mais recente da matrícula prevalece."""
@@ -1728,8 +1726,8 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         dados = services.obter_matriculas_turmas_aluno(codigo_aluno=1234567)
 
         self.assertEqual(len(dados), 1)
-        self.assertEqual(dados[0]["numero_aluno_chamada"], "99")
-        self.assertEqual(dados[0]["codigo_situacao_matricula"], 3)
+        self.assertEqual(dados[0]["linha"]["numero_chamada"], "99")
+        self.assertEqual(dados[0]["linha"]["codigo_situacao_aluno"], 3)
 
     def test_matriculas_turmas_aluno_data_aula_restringe(self) -> None:
         """Verifica o filtro por data de situação da alocação."""
@@ -1780,9 +1778,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             ano_letivo=2026,
         )
 
-        self.assertEqual(
-            [d["linha"]["aluno_id"] for d in dados], [1234567]
-        )
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
 
     def test_ano_letivo_ausente_traz_todos_os_anos(self) -> None:
         """Verifica que sem ano letivo todas as alocações são consideradas."""

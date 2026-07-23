@@ -1,4 +1,5 @@
 """Services do domínio Alunos."""
+
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -28,7 +29,6 @@ from apps.alunos.services.responsaveis import (
 from apps.core.utils import fim_do_dia, numero_chamada_int
 
 SITUACOES_MATRICULA_TURMA_ATIVAS = (1, 6, 10, 13)
-
 
 
 def _chamada_valida(numero_chamada: str | None) -> bool:
@@ -526,8 +526,7 @@ def _consultar_alunos_ativos_periodo_turma(
 
     alunos_idx = alunos_indexados([r["aluno_id"] for r in rows])
     return [
-        {"linha": r, "aluno": alunos_idx.get(r["aluno_id"], {})}
-        for r in rows
+        {"linha": r, "aluno": alunos_idx.get(r["aluno_id"], {})} for r in rows
     ]
 
 
@@ -903,45 +902,6 @@ def _chave_dedup_matricula(
     )
 
 
-def _montar_aluno_matricula_turma(
-    row: dict[str, Any],
-    alunos_idx: dict[int, dict[str, Any]],
-    responsaveis_idx: dict[int, dict[str, Any]],
-    primeiras_alocacoes: dict[int, datetime | None],
-) -> dict[str, Any]:
-    """Monta os dados do aluno a partir do registro deduplicado."""
-    aluno = alunos_idx.get(row["aluno_id"], {})
-    resp = responsaveis_idx.get(row["aluno_id"], {})
-    celular = None
-    if resp.get("ddd_celular") or resp.get("numero_celular"):
-        celular = f"{resp.get('ddd_celular') or ''}" + (
-            resp.get("numero_celular") or ""
-        )
-    codigo_situacao = row["codigo_situacao_aluno"]
-    return {
-        "codigo_aluno": row["aluno_id"],
-        "nome_aluno": aluno.get("nome", ""),
-        "nome_social_aluno": aluno.get("nome_social"),
-        "data_nascimento": aluno.get("data_nascimento"),
-        "codigo_situacao_matricula": codigo_situacao,
-        "situacao_matricula": SituacaoMatricula.get_descricao(codigo_situacao),
-        "data_situacao": row["data_situacao_aluno_data_hora"],
-        "numero_aluno_chamada": row["numero_chamada"],
-        "possui_deficiencia": aluno.get("possui_deficiencia", False),
-        "codigo_matricula": row["codigo_matricula"],
-        "codigo_turma": row["codigo_turma"],
-        "codigo_escola": row["codigo_ue"],
-        "ano_letivo": row["ano_letivo"],
-        "data_matricula": primeiras_alocacoes.get(row["codigo_matricula"]),
-        "nome_responsavel": resp.get("nome"),
-        "tipo_responsavel": resp.get("tipo_responsavel"),
-        "celular_responsavel": celular,
-        "data_atualizacao_contato": aluno.get("data_atualizacao_contato"),
-        "sequencia": row["sequencia"],
-        "codigo_dre": row["codigo_dre"],
-    }
-
-
 def obter_todos_alunos_turma(
     codigo_turma: int,
     codigo_aluno: int | None = None,
@@ -1035,7 +995,7 @@ def obter_todos_alunos_turma(
     alunos_idx = alunos_indexados(codigos_alunos)
     responsaveis_idx = responsaveis_por_aluno(codigos_alunos)
     return [
-        _montar_aluno_matricula_turma(
+        _linha_aluno_matricula_turma(
             entrada,
             alunos_idx,
             responsaveis_idx,
@@ -1117,7 +1077,7 @@ def obter_matriculas_turmas_aluno(
     alunos_idx = alunos_indexados(codigos_alunos)
     responsaveis_idx = responsaveis_por_aluno(codigos_alunos)
     return [
-        _montar_aluno_matricula_turma(
+        _linha_aluno_matricula_turma(
             r, alunos_idx, responsaveis_idx, primeiras_alocacoes
         )
         for r in finais
