@@ -1,8 +1,10 @@
 """Services de matrículas e consolidações."""
 
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 
-from django.db.models import Count
+from django.db.models import Count, Min
 
 from apps.alunos import repositories
 from apps.alunos.enums import SITUACOES_MATRICULA_VALIDAS
@@ -12,6 +14,7 @@ from apps.alunos.models import (
     MatriculaAnoAnterior,
     MatriculaTurma,
 )
+from apps.core.utils import fim_do_dia
 
 
 def _consolidacao_por_turma(
@@ -127,3 +130,41 @@ def obter_matriculas_aluno_na_escola(
         }
         for m in matriculas
     ]
+
+
+def contar_matriculas_turmas_periodo(
+    codigos_turmas: Sequence[int],
+    data_fim: datetime,
+) -> int:
+    """Conta alocações válidas nas turmas cuja matrícula começou até a data.
+
+    A contagem é a alocação (matrícula + sequência), não o aluno
+    distinto: um aluno com várias alocações válidas conta várias vezes. Só
+    entram as alocações em situação regular cuja matrícula tem a primeira
+    alocação com data anterior ou igual a ``data_fim``.
+
+    Args:
+        codigos_turmas: Códigos EOL das turmas consideradas.
+        data_fim: Limite superior para a data de início da matrícula.
+
+    Returns:
+        Quantidade de alocações que atendem aos critérios.
+    """
+    if not codigos_turmas:
+        return 0
+    alocacoes = list(
+        MatriculaTurma.objects.filter(
+            codigo_turma__in=codigos_turmas,
+            codigo_situacao_aluno__in=SITUACOES_MATRICULA_VALIDAS,
+        ).values_list("codigo_matricula", flat=True)
+    )
+    if not alocacoes:
+        return 0
+    no_periodo = set(
+        MatriculaTurma.objects.filter(codigo_matricula__in=set(alocacoes))
+        .values("codigo_matricula")
+        .annotate(primeira=Min("data_situacao_aluno_data_hora"))
+        .filter(primeira__lte=fim_do_dia(data_fim))
+        .values_list("codigo_matricula", flat=True)
+    )
+    return sum(1 for matricula in alocacoes if matricula in no_periodo)

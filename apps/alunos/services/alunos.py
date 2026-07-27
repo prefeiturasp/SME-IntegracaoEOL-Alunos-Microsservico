@@ -1,5 +1,6 @@
 """Services do domínio Alunos."""
-from datetime import date, datetime
+
+from datetime import UTC, date, datetime
 from typing import Any
 
 from django.db.models import Min
@@ -28,7 +29,6 @@ from apps.alunos.services.responsaveis import (
 from apps.core.utils import fim_do_dia, numero_chamada_int
 
 SITUACOES_MATRICULA_TURMA_ATIVAS = (1, 6, 10, 13)
-
 
 
 def _chamada_valida(numero_chamada: str | None) -> bool:
@@ -526,8 +526,7 @@ def _consultar_alunos_ativos_periodo_turma(
 
     alunos_idx = alunos_indexados([r["aluno_id"] for r in rows])
     return [
-        {"linha": r, "aluno": alunos_idx.get(r["aluno_id"], {})}
-        for r in rows
+        {"linha": r, "aluno": alunos_idx.get(r["aluno_id"], {})} for r in rows
     ]
 
 
@@ -676,6 +675,7 @@ def obter_alunos_turma(
     codigo_aluno: int | None = None,
     considerar_inativos: bool = False,
     sequencia: int | None = None,
+    ano_letivo: int | None = None,
 ) -> list[dict[str, Any]]:
     """Lista os alunos de uma turma conforme os filtros informados.
 
@@ -695,6 +695,8 @@ def obter_alunos_turma(
             não filtra por situação.
         sequencia: Quando informado, restringe matrícula-turma àquela
             ``sequencia``; ``None`` traz todas as sequências.
+        ano_letivo: Quando informado, restringe às alocações cuja turma
+            pertence a esse ano letivo.
 
     Returns:
         Alunos distintos na turma conforme os filtros informados.
@@ -704,6 +706,8 @@ def obter_alunos_turma(
         filtros["data_situacao_aluno_data_hora__lte"] = fim_do_dia(data_aula)
     if sequencia is not None:
         filtros["sequencia"] = sequencia
+    if ano_letivo is not None:
+        filtros["ano_letivo_turma"] = ano_letivo
 
     mts = list(
         MatriculaTurma.objects.filter(**filtros).values(
@@ -873,3 +877,208 @@ def obter_informacoes_alunos_da_turma(
         for r in rows_validas
     ]
     return sorted(saida, key=lambda item: item["aluno"].get("nome", ""))
+
+
+def _chave_dedup_matricula(
+    row: dict[str, Any],
+    primeiras_alocacoes: dict[int, datetime | None],
+) -> tuple[datetime, datetime, str]:
+    """Ordena as alocações de uma matrícula da mais recente para a mais antiga.
+
+    Args:
+        row: Registro combinado de matrícula e matrícula-turma.
+        primeiras_alocacoes: Código da matrícula -> data da alocação mais
+            antiga.
+
+    Returns:
+        Chave de ordenação por data de matrícula, data de situação e
+        número de chamada.
+    """
+    minimo = datetime.min.replace(tzinfo=UTC)
+    return (
+        primeiras_alocacoes.get(row["codigo_matricula"]) or minimo,
+        row["data_situacao_aluno_data_hora"] or minimo,
+        row["numero_chamada"] or "",
+    )
+
+
+def obter_todos_alunos_turma(
+    codigo_turma: int,
+    codigo_aluno: int | None = None,
+) -> list[dict[str, Any]]:
+    """Lista o histórico de vínculos dos alunos com a turma.
+
+    Cada matrícula rende uma linha por período de permanência na turma: um
+    remanejamento de saída encerra a linha corrente e a alocação seguinte
+    da mesma matrícula abre uma linha nova, de modo que a matrícula aparece
+    antes e depois do remanejamento. Sem remanejamento, as alocações
+    seguintes atualizam a linha existente. A data de matrícula de cada
+    linha é a da alocação que a abriu.
+
+    Args:
+        codigo_turma: Código EOL da turma.
+        codigo_aluno: Quando informado, restringe o resultado ao aluno
+            correspondente.
+
+    Returns:
+        Vínculos dos alunos com a turma, sem filtro de situação.
+    """
+    mts = list(
+        MatriculaTurma.objects.filter(codigo_turma=codigo_turma).values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "sequencia",
+            "codigo_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+        )
+    )
+    if not mts:
+        return []
+
+    matriculas_idx = {
+        m["codigo_matricula"]: m
+        for m in Matricula.objects.filter(
+            codigo_matricula__in=[mt["codigo_matricula"] for mt in mts],
+        ).values(
+            "codigo_matricula",
+            "aluno_id",
+            "codigo_ue",
+            "codigo_dre",
+            "ano_letivo",
+        )
+    }
+    rows = [
+        {**matriculas_idx[mt["codigo_matricula"]], **mt}
+        for mt in mts
+        if mt["codigo_matricula"] in matriculas_idx
+    ]
+    if codigo_aluno is not None:
+        rows = [r for r in rows if r["aluno_id"] == codigo_aluno]
+    if not rows:
+        return []
+
+    # Alocações da mesma matrícula podem empatar na data de situação (troca
+    # de turma registrada no mesmo instante). A sequência desempata para que
+    # a ordem de percurso — e portanto o colapso — seja determinística.
+    minimo = datetime.min.replace(tzinfo=UTC)
+    rows.sort(
+        key=lambda r: (
+            r["aluno_id"],
+            r["data_situacao_aluno_data_hora"] or minimo,
+            r["sequencia"],
+        )
+    )
+
+    entradas: list[dict[str, Any]] = []
+    corrente_por_matricula: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        corrente = corrente_por_matricula.get(row["codigo_matricula"])
+        encerrada = (
+            corrente is not None
+            and corrente["codigo_situacao_aluno"]
+            == SituacaoMatricula.REMANEJADO_SAIDA
+        )
+        if corrente is not None and not encerrada:
+            corrente["numero_chamada"] = row["numero_chamada"]
+            corrente["codigo_situacao_aluno"] = row["codigo_situacao_aluno"]
+            corrente["data_situacao_aluno_data_hora"] = row[
+                "data_situacao_aluno_data_hora"
+            ]
+        else:
+            nova = dict(row)
+            nova["data_matricula"] = row["data_situacao_aluno_data_hora"]
+            entradas.append(nova)
+            corrente_por_matricula[row["codigo_matricula"]] = nova
+
+    codigos_alunos = [e["aluno_id"] for e in entradas]
+    alunos_idx = alunos_indexados(codigos_alunos)
+    responsaveis_idx = responsaveis_por_aluno(codigos_alunos)
+    return [
+        _linha_aluno_matricula_turma(
+            entrada,
+            alunos_idx,
+            responsaveis_idx,
+            {entrada["codigo_matricula"]: entrada["data_matricula"]},
+        )
+        for entrada in entradas
+    ]
+
+
+def obter_matriculas_turmas_aluno(
+    codigo_aluno: int,
+    data_aula: datetime | None = None,
+    ano_letivo: int | None = None,
+) -> list[dict[str, Any]]:
+    """Lista as matrículas-turma do aluno em todas as turmas e anos.
+
+    Cada matrícula do aluno rende uma única linha, a da alocação mais
+    recente; um aluno com matrículas em anos ou turmas distintas rende uma
+    linha por matrícula.
+
+    Args:
+        codigo_aluno: Código EOL do aluno.
+        data_aula: Quando informada, restringe às alocações cuja situação é
+            anterior ou igual a essa data.
+        ano_letivo: Quando informado, restringe às alocações cuja turma
+            pertence a esse ano letivo.
+
+    Returns:
+        Uma linha por matrícula do aluno conforme os filtros informados.
+    """
+    matriculas_idx = {
+        m["codigo_matricula"]: m
+        for m in Matricula.objects.filter(aluno_id=codigo_aluno).values(
+            "codigo_matricula",
+            "aluno_id",
+            "codigo_ue",
+            "codigo_dre",
+            "ano_letivo",
+            "data_situacao_matricula_data_hora",
+        )
+    }
+    if not matriculas_idx:
+        return []
+
+    filtros: dict[str, Any] = {"codigo_matricula__in": list(matriculas_idx)}
+    if data_aula is not None:
+        filtros["data_situacao_aluno_data_hora__lte"] = fim_do_dia(data_aula)
+    if ano_letivo is not None:
+        filtros["ano_letivo_turma"] = ano_letivo
+
+    mts = list(
+        MatriculaTurma.objects.filter(**filtros).values(
+            "codigo_matricula",
+            "codigo_turma",
+            "numero_chamada",
+            "sequencia",
+            "codigo_situacao_aluno",
+            "data_situacao_aluno_data_hora",
+        )
+    )
+    if not mts:
+        return []
+
+    rows = [{**matriculas_idx[mt["codigo_matricula"]], **mt} for mt in mts]
+    primeiras_alocacoes = _primeira_alocacao_por_matricula(
+        [r["codigo_matricula"] for r in rows]
+    )
+
+    por_matricula: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        atual = por_matricula.get(row["codigo_matricula"])
+        if atual is None or _chave_dedup_matricula(
+            row, primeiras_alocacoes
+        ) > _chave_dedup_matricula(atual, primeiras_alocacoes):
+            por_matricula[row["codigo_matricula"]] = row
+
+    finais = list(por_matricula.values())
+    codigos_alunos = [r["aluno_id"] for r in finais]
+    alunos_idx = alunos_indexados(codigos_alunos)
+    responsaveis_idx = responsaveis_por_aluno(codigos_alunos)
+    return [
+        _linha_aluno_matricula_turma(
+            r, alunos_idx, responsaveis_idx, primeiras_alocacoes
+        )
+        for r in finais
+    ]

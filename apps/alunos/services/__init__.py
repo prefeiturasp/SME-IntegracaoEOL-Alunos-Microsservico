@@ -4,6 +4,7 @@
 
 from apps.alunos.services import alunos
 from apps.alunos.services.acompanhamento import (
+    obter_acompanhamento_escolar_turma,
     obter_dados_acompanhamento_escolar,
     obter_dados_acompanhamento_escolar_contrato,
 )
@@ -14,7 +15,9 @@ from apps.alunos.services.alunos import (
     obter_alunos_turma,
     obter_informacoes_aluno,
     obter_informacoes_alunos_da_turma,
+    obter_matriculas_turmas_aluno,
     obter_necessidades_especiais_por_aluno,
+    obter_todos_alunos_turma,
     obter_total_alunos_ativos_periodo,
 )
 from apps.alunos.services.autocomplete import (
@@ -22,6 +25,7 @@ from apps.alunos.services.autocomplete import (
     buscar_alunos_autocomplete,
 )
 from apps.alunos.services.matriculas import (
+    contar_matriculas_turmas_periodo,
     obter_matriculas_aluno_na_escola,
     obter_matriculas_ano_atual,
     obter_matriculas_anos_anteriores,

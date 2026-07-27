@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import cast
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
@@ -17,6 +17,7 @@ from apps.alunos.models import (
     MatriculaAnoLetivo,
     MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
+    ResponsavelAluno,
 )
 from apps.alunos.tests.helpers import (
     seed_alunos,
@@ -398,6 +399,160 @@ class TurmasRotaResolucaoTestCase(TestCase):
         """Verifica que turmas/<codigo>/ resolve para a rota unificada."""
         url = reverse("alunos-turma", kwargs={"codigo_turma": "30156"})
         self.assertTrue(url.endswith("/turmas/30156/"))
+
+
+class QuantidadeMatriculasTurmasPeriodoApiTestCase(TestCase):
+    """Valida o endpoint POST de quantidade de matrículas-turma."""
+
+    def _url(self) -> str:
+        return reverse("quantidade-matriculas-turmas-periodo")
+
+    def test_conta_alocacoes_no_periodo(self) -> None:
+        """Verifica a contagem de alocações válidas até a data."""
+        codigo_turma = seed_turma_data_aula()
+        # Ticks de 2026-12-31 (data bem posterior às alocações do seed).
+        ticks = 639_000_000_000_000_000 + 10_000_000 * 60 * 60 * 24 * 365 * 26
+        resp = _autenticado().post(
+            self._url(),
+            data={"codigos_turmas": [codigo_turma], "data_fim": ticks},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("quantidade", resp.json())
+
+    def test_codigos_turmas_ausente_retorna_400(self) -> None:
+        """Verifica erro 400 quando o corpo não traz a lista de turmas."""
+        resp = _autenticado().post(
+            self._url(), data={"data_fim": 1}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_data_fim_zero_retorna_400(self) -> None:
+        """Verifica erro 400 quando a data de fim é zero."""
+        resp = _autenticado().post(
+            self._url(),
+            data={"codigos_turmas": [1], "data_fim": 0},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AcompanhamentoEscolarTurmaApiTestCase(TestCase):
+    """Valida o endpoint de acompanhamento escolar da turma."""
+
+    def _url(self, codigo_turma: str) -> str:
+        return reverse(
+            "acompanhamento-escolar-turma",
+            kwargs={"codigo_turma": codigo_turma},
+        )
+
+    def test_lista_aluno_e_responsavel(self) -> None:
+        """Verifica a listagem de aluno com responsável vigente."""
+        from apps.alunos.tests.helpers import seed_responsaveis
+
+        codigo_turma = seed_turma_data_aula()
+        seed_responsaveis()
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["codigo_eol_aluno"], 1234567)
+        self.assertEqual(corpo[0]["cpf"], 12345678901)
+
+    def test_turma_sem_responsavel_retorna_lista_vazia(self) -> None:
+        """Verifica que turma sem responsável vigente devolve lista vazia."""
+        codigo_turma = seed_turma_data_aula()
+        ResponsavelAluno.objects.filter(aluno_id=1234567).update(
+            data_fim_vinculo=date(2026, 3, 1)
+        )
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [])
+
+    def test_codigo_turma_nao_numerico_retorna_400(self) -> None:
+        """Verifica erro 400 para código de turma não numérico."""
+        resp = _autenticado().get(self._url("abc"))
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class TodosAlunosTurmaApiTestCase(TestCase):
+    """Valida o endpoint de histórico de vínculos com a turma."""
+
+    def _url(self, codigo_turma: str) -> str:
+        return reverse(
+            "todos-alunos-turma",
+            kwargs={"codigo_turma": codigo_turma},
+        )
+
+    def test_lista_vinculos_da_turma(self) -> None:
+        """Verifica a listagem dos vínculos da turma."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.json()), 2)
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        """Verifica o filtro por código de aluno."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            f"{self._url(str(codigo_turma))}?codigo_aluno=1234567"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["codigo_aluno"], 1234567)
+
+    def test_turma_sem_vinculo_retorna_lista_vazia(self) -> None:
+        """Verifica que turma sem vínculo devolve 200 com lista vazia."""
+        seed_turma_data_aula()
+        resp = _autenticado().get(self._url("9999999"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [])
+
+    def test_codigo_turma_nao_numerico_retorna_400(self) -> None:
+        """Verifica erro 400 para código de turma não numérico."""
+        resp = _autenticado().get(self._url("abc"))
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class MatriculasTurmasAlunoApiTestCase(TestCase):
+    """Valida o endpoint de matrículas-turma do aluno."""
+
+    def _url(self, codigo_aluno: str = "1234567") -> str:
+        return reverse(
+            "matriculas-turmas-aluno",
+            kwargs={"codigo_aluno": codigo_aluno},
+        )
+
+    def test_lista_matriculas_do_aluno(self) -> None:
+        """Verifica a listagem de matrículas-turma do aluno."""
+        seed_turma_data_aula()
+        resp = _autenticado().get(self._url())
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 1)
+        self.assertEqual(corpo[0]["codigo_aluno"], 1234567)
+        self.assertEqual(corpo[0]["codigo_matricula"], 700001)
+
+    def test_ano_letivo_sem_correspondencia_retorna_lista_vazia(self) -> None:
+        """Verifica que ano letivo sem alocação devolve 200 com lista vazia."""
+        seed_turma_data_aula()
+        MatriculaTurma.objects.all().update(ano_letivo_turma=2026)
+        resp = _autenticado().get(f"{self._url()}?ano_letivo=2024")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [])
+
+    def test_data_aula_ticks_zero_restringe_resultado(self) -> None:
+        """Verifica que ticks zero restringe o resultado a vazio."""
+        seed_turma_data_aula()
+        resp = _autenticado().get(f"{self._url()}?data_aula_ticks=0")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json(), [])
+
+    def test_codigo_aluno_nao_numerico_retorna_400(self) -> None:
+        """Verifica erro 400 para código de aluno não numérico."""
+        resp = _autenticado().get(self._url("abc"))
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class A10A13A14ApiTestCase(TestCase):
