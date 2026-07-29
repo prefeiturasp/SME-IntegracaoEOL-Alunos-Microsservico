@@ -18,6 +18,7 @@ from apps.alunos.api.views import (
     CodigosTurmasRegularesAlunoView,
     DadosAcompanhamentoEscolarContratoView,
     DadosAcompanhamentoEscolarView,
+    DadosResponsavelContratoView,
     DadosResponsavelResumidoView,
     DadosResponsavelView,
     FiliacaoAlunoView,
@@ -28,6 +29,7 @@ from apps.alunos.api.views import (
     MatriculasAnosAnterioresView,
     MatriculasTurmasAlunoView,
     NecessidadesEspeciaisAlunoView,
+    ObterNomesAlunosView,
     QuantidadeAlunosPorTurmaEscolaView,
     QuantidadeMatriculadosCCContratoView,
     QuantidadeMatriculadosContratoView,
@@ -196,6 +198,11 @@ urlpatterns = [
         name="dados-responsavel-resumido",
     ),
     path(
+        "responsaveis/<str:cpf_responsavel>/contrato",
+        DadosResponsavelContratoView.as_view(),
+        name="dados-responsavel-contrato",
+    ),
+    path(
         "<str:codigo_aluno>/responsaveis/filiacao",
         FiliacaoAlunoView.as_view(),
         name="filiacao-aluno",
@@ -204,6 +211,11 @@ urlpatterns = [
         "<str:codigo_aluno>/responsaveis/<str:cpf_responsavel>",
         ResponsavelAlunoView.as_view(),
         name="responsavel-aluno",
+    ),
+    path(
+        "obter-nomes-alunos/contrato",
+        ObterNomesAlunosView.as_view(),
+        name="obter-nomes-alunos-contrato",
     ),
     path(
         "matriculas",

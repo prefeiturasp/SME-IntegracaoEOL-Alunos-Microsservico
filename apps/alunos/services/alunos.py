@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from django.db.models import Min
+from django.utils import timezone
 
 from apps.alunos.constants import codigo_raca
 from apps.alunos.enums import (
@@ -1082,3 +1083,93 @@ def obter_matriculas_turmas_aluno(
         )
         for r in finais
     ]
+
+
+def obter_nomes_alunos(
+    codigos_alunos: list[int],
+    ano_letivo: int | None = None,
+) -> list[dict[str, Any]]:
+    """Lista nomes e matrículas-turma dos alunos informados.
+
+    Args:
+        codigos_alunos: Códigos EOL dos alunos consultados.
+        ano_letivo: Ano letivo usado como filtro opcional.
+
+    Returns:
+        Uma linha por vínculo de matrícula-turma encontrado.
+    """
+    if not codigos_alunos:
+        return []
+
+    matriculas_qs = Matricula.objects.filter(aluno_id__in=codigos_alunos)
+    origem_atual: bool | None = None
+    if ano_letivo is not None and ano_letivo > 0:
+        matriculas_qs = matriculas_qs.filter(ano_letivo=ano_letivo)
+        ano_atual = timezone.localtime(timezone.now()).year
+        origem_atual = ano_letivo >= ano_atual
+        matriculas_qs = matriculas_qs.filter(origem_atual=origem_atual)
+
+    matriculas = list(
+        matriculas_qs.order_by("codigo_matricula").values(
+            "codigo_matricula",
+            "aluno_id",
+            "aluno__nome",
+            "codigo_ue",
+            "data_situacao_matricula",
+            "data_situacao_matricula_data_hora",
+            "origem_atual",
+        )
+    )
+    if not matriculas:
+        return []
+
+    matriculas_idx = {
+        matricula["codigo_matricula"]: matricula
+        for matricula in matriculas
+    }
+    turmas_qs = MatriculaTurma.objects.filter(
+        codigo_matricula__in=matriculas_idx
+    )
+    if origem_atual is not None:
+        turmas_qs = turmas_qs.filter(origem_atual=origem_atual)
+
+    turmas = turmas_qs.order_by(
+        "codigo_matricula", "sequencia", "codigo_turma"
+    ).values(
+        "codigo_matricula",
+        "codigo_turma",
+        "codigo_situacao_aluno",
+        "origem_atual",
+    )
+    resultado: list[dict[str, Any]] = []
+    for turma in turmas:
+        matricula = matriculas_idx.get(turma["codigo_matricula"])
+        if matricula is None:
+            continue
+        if turma["origem_atual"] != matricula["origem_atual"]:
+            continue
+        codigo_situacao = turma["codigo_situacao_aluno"]
+        data_matricula = (
+            matricula["data_situacao_matricula_data_hora"]
+            or matricula["data_situacao_matricula"]
+        )
+        if isinstance(data_matricula, date) and not isinstance(
+            data_matricula, datetime
+        ):
+            data_matricula = datetime.combine(
+                data_matricula, datetime.min.time()
+            )
+        resultado.append(
+            {
+                "nome_aluno": matricula["aluno__nome"],
+                "situacao_matricula": SituacaoMatricula.get_descricao(
+                    codigo_situacao
+                ),
+                "codigo_escola": matricula["codigo_ue"],
+                "data_matricula": data_matricula,
+                "codigo_aluno": matricula["aluno_id"],
+                "codigo_turma": turma["codigo_turma"],
+                "codigo_situacao_matricula": codigo_situacao or 0,
+            }
+        )
+    return resultado

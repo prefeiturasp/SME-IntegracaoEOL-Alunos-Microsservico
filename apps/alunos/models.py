@@ -39,6 +39,7 @@ class Aluno(models.Model):
     cns = models.CharField(max_length=20, null=True, blank=True)
     data_atualizacao_contato = models.DateTimeField(null=True, blank=True)
     possui_deficiencia = models.BooleanField(default=False)
+    tipo_sigilo = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         app_label = "alunos"
@@ -93,6 +94,13 @@ class ResponsavelAluno(models.Model):
     tipo_logradouro = models.CharField(max_length=50, null=True, blank=True)
     data_atualizacao_tabela = models.DateTimeField(null=True, blank=True)
     data_fim_vinculo = models.DateField(null=True, blank=True)
+    numero_rg = models.CharField(max_length=30, null=True, blank=True)
+    digito_rg = models.CharField(max_length=10, null=True, blank=True)
+    uf_rg = models.CharField(max_length=2, null=True, blank=True)
+    cpf_confere = models.CharField(max_length=1, null=True, blank=True)
+    tipo_turno_celular = models.SmallIntegerField(null=True, blank=True)
+    tipo_turno_fixo = models.SmallIntegerField(null=True, blank=True)
+    tipo_turno_comercial = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         app_label = "alunos"
@@ -166,6 +174,8 @@ class Matricula(models.Model):
         null=True,
         blank=True,
     )
+    codigo_serie_ensino = models.IntegerField(null=True, blank=True)
+    codigo_tipo_escola = models.SmallIntegerField(null=True, blank=True)
 
     class Meta:
         app_label = "alunos"
