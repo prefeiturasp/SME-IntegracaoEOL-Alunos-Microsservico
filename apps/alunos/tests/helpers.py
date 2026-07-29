@@ -68,6 +68,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
         origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
     )
     m2 = Matricula.objects.create(
         codigo_matricula=998878,
@@ -79,6 +81,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
         origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998877,
@@ -183,6 +187,11 @@ def seed_responsaveis() -> ResponsavelAluno:
             data_nascimento=date(1980, 5, 20),
             nome_mae="Mae do Responsavel",
             autoriza_sms="S",
+            numero_rg="000000037112360",
+            digito_rg="4   ",
+            uf_rg="SP",
+            cpf_confere="S",
+            tipo_turno_celular=1,
             endereco_id=123,
             numero_endereco="100",
             complemento="AP 1",

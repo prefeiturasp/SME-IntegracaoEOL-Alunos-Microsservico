@@ -17,6 +17,7 @@ from apps.alunos.services.alunos import (
     obter_informacoes_alunos_da_turma,
     obter_matriculas_turmas_aluno,
     obter_necessidades_especiais_por_aluno,
+    obter_nomes_alunos,
     obter_todos_alunos_turma,
     obter_total_alunos_ativos_periodo,
 )
@@ -40,9 +41,10 @@ from apps.alunos.services.quantidades import (
     obter_quantidade_matriculados_por_ano_e_cc,
 )
 from apps.alunos.services.responsaveis import (
+    atualizar_dados_responsavel,
     atualizar_dados_responsavel_busca_ativa,
-    cadastrar_dados_responsavel,
     obter_dados_responsavel,
+    obter_dados_responsavel_contrato,
     obter_dados_responsavel_filiacao,
     obter_dados_responsavel_resumido,
     obter_responsaveis_dre_ue_turma,
