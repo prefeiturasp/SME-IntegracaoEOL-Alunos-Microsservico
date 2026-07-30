@@ -623,9 +623,12 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         seed_matriculas()
         seed_responsaveis()
 
-        with patch(
-            "apps.alunos.services.responsaveis.timezone.now",
-            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        with (
+            patch(
+                "apps.alunos.services.responsaveis.timezone.now",
+                return_value=datetime(2026, 6, 1, tzinfo=UTC),
+            ),
+            self.assertNumQueries(2),
         ):
             dados = services.obter_dados_responsavel_contrato(
                 cpf_responsavel="12345678901"
@@ -651,6 +654,24 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         ):
             dados = services.obter_dados_responsavel_contrato(
                 cpf_responsavel="12345678901"
+            )
+
+        self.assertEqual(dados, [])
+
+    def test_contrato_cpf_inexistente_consulta_apenas_vinculos(self) -> None:
+        """Verifica que CPF desconhecido não varre matrículas do ano."""
+        seed_matriculas()
+        seed_responsaveis()
+
+        with (
+            patch(
+                "apps.alunos.services.responsaveis.timezone.now",
+                return_value=datetime(2026, 6, 1, tzinfo=UTC),
+            ),
+            self.assertNumQueries(1),
+        ):
+            dados = services.obter_dados_responsavel_contrato(
+                cpf_responsavel="00000000000"
             )
 
         self.assertEqual(dados, [])
