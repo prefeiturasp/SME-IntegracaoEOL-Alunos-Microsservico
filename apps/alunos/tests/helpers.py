@@ -18,6 +18,7 @@ from apps.alunos.models import (
 )
 
 DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL = "Ensino Fundamental"
+DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR = "Ciclo Interdisciplinar"
 
 
 def agora() -> datetime:
@@ -97,7 +98,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
         sequencia=1,
         origem_atual=origem_atual,
         ano_letivo_turma=2026,
@@ -132,7 +133,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=7654321,
@@ -402,7 +403,7 @@ def seed_matricula_duas_turmas_dre_108100() -> None:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
         sequencia=1,
         origem_atual=True,
         ano_letivo_turma=2026,
@@ -421,7 +422,7 @@ def seed_matricula_duas_turmas_dre_108100() -> None:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
         sequencia=2,
         origem_atual=True,
         ano_letivo_turma=2026,
@@ -483,7 +484,7 @@ def seed_matricula_uma_turma_dre_108100() -> None:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
         sequencia=1,
         origem_atual=True,
         ano_letivo_turma=2026,
