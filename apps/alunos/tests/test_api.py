@@ -14,15 +14,21 @@ from rest_framework.test import APIClient
 
 from apps.alunos.models import (
     DadosAlunoAcompanhamentoEscolar,
+    Matricula,
     MatriculaAnoLetivo,
     MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
     ResponsavelAluno,
 )
 from apps.alunos.tests.helpers import (
+    RESULTADO_ESPERADO_M04_DRE_108100,
+    RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA,
     seed_alunos,
+    seed_matricula_duas_turmas_dre_108100,
+    seed_matricula_uma_turma_dre_108100,
     seed_matriculas,
     seed_matriculas_ano_anterior,
+    seed_matriculas_com_responsaveis,
     seed_necessidades,
     seed_responsaveis,
     seed_turma_data_aula,
@@ -60,8 +66,7 @@ class A01TurmasDoAlunoTestCase(TestCase):
 
     def test_retorna_turmas(self) -> None:
         """Verifica shape do payload e omissão de campos fora do domínio."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2026, 6, 1, tzinfo=UTC),
@@ -609,8 +614,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_lista(self) -> None:
         """Verifica a listagem de responsáveis vigentes por DRE/UE/ano."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(
             url + "?codigo_dre=108&codigo_ue=100001&ano_letivo=2026"
@@ -627,8 +631,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_sem_codigo_dre_aceita(self) -> None:
         """Verifica que a consulta funciona sem codigo_dre."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigo_ue=100001&ano_letivo=2026")
         self.assertEqual(resp.status_code, 200)
@@ -636,8 +639,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_so_codigo_dre_filtra_responsaveis(self) -> None:
         """Verifica a consulta apenas com o filtro de DRE."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigo_dre=108")
         self.assertEqual(resp.status_code, 200)
@@ -671,8 +673,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_dados_responsavel_no_contrato_legado(self) -> None:
         """Verifica os 27 campos do contrato completo."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse(
             "dados-responsavel-contrato",
             kwargs={"cpf_responsavel": "12345678901"},
@@ -896,7 +897,7 @@ class A12AlunosPorCodigosApiTestCase(TestCase):
 
 
 class MatriculasApiTestCase(TestCase):
-    """Valida os endpoints de matrículas (consolidação e out-of-scope)."""
+    """Valida os endpoints de matrículas (consolidação e agregações)."""
 
     def test_m01(self) -> None:
         """Verifica a consolidação do ano atual por UE."""
@@ -922,24 +923,54 @@ class MatriculasApiTestCase(TestCase):
             resp.json(), [{"turma_codigo": "54321", "quantidade": 27}]
         )
 
-    def test_m03_out_of_scope(self) -> None:
-        """Verifica que o endpoint M03 fora de escopo devolve []."""
+    def test_m03_retorna_total_por_turno_ue(self) -> None:
+        """Verifica que M03 retorna total por turno no contrato legado."""
         url = reverse(
             "matriculas-quantidades-ue", kwargs={"ue_codigo": "100001"}
         )
+        seed_matriculas()
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(
+            resp.json(),
+            {
+                "totalMatricula": 2,
+                "turnos": [
+                    {
+                        "turno": "Intermediário",
+                        "tipoTurno": 2,
+                        "quantidade": 1,
+                    },
+                    {
+                        "turno": "Tarde",
+                        "tipoTurno": 3,
+                        "quantidade": 1,
+                    },
+                ],
+            },
+        )
 
-    def test_m04_out_of_scope(self) -> None:
-        """Verifica que o endpoint M04 fora de escopo devolve []."""
+    def test_m04_retorna_total_por_turno_dre(self) -> None:
+        """Verifica que M04 retorna total por escola no contrato legado."""
+        seed_matricula_uma_turma_dre_108100()
         url = reverse(
             "matriculas-quantidades-dre",
-            kwargs={"dre_codigo": "100001"},
+            kwargs={"dre_codigo": "108100"},
         )
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(resp.json(), RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA)
+
+    def test_m04_agrupa_pela_ue_da_ultima_alocacao(self) -> None:
+        """Verifica que M04 usa a UE da última alocação da matrícula."""
+        seed_matricula_duas_turmas_dre_108100()
+        url = reverse(
+            "matriculas-quantidades-dre",
+            kwargs={"dre_codigo": "108100"},
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), RESULTADO_ESPERADO_M04_DRE_108100)
 
 
 class EscolasApiTestCase(TestCase):
@@ -1241,8 +1272,7 @@ class A18AcompanhamentoApiTestCase(TestCase):
 
     def test_filtra_por_codigo_aluno(self) -> None:
         """Verifica o retorno filtrado pelo código do aluno."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("dados-acompanhamento-escolar")
         resp = _autenticado().get(url + "?codigo_aluno=1234567")
         self.assertEqual(resp.status_code, 200)
@@ -1252,8 +1282,7 @@ class A18AcompanhamentoApiTestCase(TestCase):
 
     def test_filtra_por_cpf_responsavel(self) -> None:
         """Verifica o retorno filtrado pelo CPF do responsável."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("dados-acompanhamento-escolar")
         resp = _autenticado().get(url + "?cpf_responsavel=12345678901")
         self.assertEqual(resp.status_code, 200)
