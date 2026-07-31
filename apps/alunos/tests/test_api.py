@@ -672,7 +672,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(resp.json()["nome_mae"], "Mae do Responsavel")
 
     def test_dados_responsavel_no_contrato_legado(self) -> None:
-        """Verifica os 27 campos do contrato completo."""
+        """Verifica os 28 campos do contrato completo."""
         seed_matriculas_com_responsaveis()
         url = reverse(
             "dados-responsavel-contrato",
@@ -717,10 +717,12 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
                 "numero_telefone_comercial",
                 "tipo_turno_telefone_comercial",
                 "autoriza_envio_sms",
+                "data_nascimento_mae",
             ],
         )
         self.assertEqual(resp.json()[0]["codigo_aluno"], "1234567")
         self.assertEqual(resp.json()[0]["digito_rg"], "4   ")
+        self.assertIsNone(resp.json()[0]["data_nascimento_mae"])
 
 
 class A22A23EscritaApiTestCase(TestCase):
@@ -800,8 +802,8 @@ class A22A23EscritaApiTestCase(TestCase):
 class ObterNomesAlunosApiTestCase(TestCase):
     """Valida a consulta de nomes por códigos de alunos."""
 
-    def test_retorna_todas_as_situacoes_de_matricula_turma(self) -> None:
-        """Verifica o contrato e a ausência de filtro por situação."""
+    def test_retorna_situacoes_regulares_e_ignora_turma_programa(self) -> None:
+        """Verifica o contrato para situações de turmas regulares."""
         seed_matriculas()
         MatriculaTurma.objects.create(
             codigo_matricula=998877,
@@ -809,6 +811,15 @@ class ObterNomesAlunosApiTestCase(TestCase):
             codigo_situacao_aluno=14,
             codigo_tipo_turma=1,
             sequencia=2,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=60000,
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=3,
+            sequencia=1,
             origem_atual=True,
             ano_letivo_turma=2026,
         )
@@ -841,6 +852,7 @@ class ObterNomesAlunosApiTestCase(TestCase):
             {item["codigo_situacao_matricula"] for item in resp.json()},
             {1, 14},
         )
+        self.assertNotIn(60000, {item["codigo_turma"] for item in resp.json()})
 
     def test_lista_vazia_retorna_erro_legado(self) -> None:
         """Verifica mensagem e status para lista vazia."""

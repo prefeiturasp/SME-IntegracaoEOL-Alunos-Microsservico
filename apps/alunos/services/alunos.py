@@ -1089,14 +1089,14 @@ def obter_nomes_alunos(
     codigos_alunos: list[int],
     ano_letivo: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Lista nomes e matrículas-turma dos alunos informados.
+    """Lista nomes e turmas regulares dos alunos informados.
 
     Args:
         codigos_alunos: Códigos EOL dos alunos consultados.
         ano_letivo: Ano letivo usado como filtro opcional.
 
     Returns:
-        Uma linha por vínculo de matrícula-turma encontrado.
+        Uma linha por vínculo encontrado em turma regular.
     """
     if not codigos_alunos:
         return []
@@ -1124,11 +1124,11 @@ def obter_nomes_alunos(
         return []
 
     matriculas_idx = {
-        matricula["codigo_matricula"]: matricula
-        for matricula in matriculas
+        matricula["codigo_matricula"]: matricula for matricula in matriculas
     }
     turmas_qs = MatriculaTurma.objects.filter(
-        codigo_matricula__in=matriculas_idx
+        codigo_matricula__in=matriculas_idx,
+        codigo_tipo_turma=1,
     )
     if origem_atual is not None:
         turmas_qs = turmas_qs.filter(origem_atual=origem_atual)

@@ -635,6 +635,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         self.assertEqual(dados[0]["tipo_sigilo"], 0)
         self.assertEqual(dados[0]["digito_rg"], "4   ")
         self.assertEqual(dados[0]["ddd_telefone_fixo"], "11")
+        self.assertIsNone(dados[0]["data_nascimento_mae"])
 
     def test_contrato_exclui_vinculo_encerrado(self) -> None:
         """Verifica que vínculos encerrados não são retornados."""
@@ -829,8 +830,8 @@ class A22A23EscritaTestCase(TestCase):
 class ObterNomesAlunosServiceTestCase(TestCase):
     """Valida nomes e vínculos de matrícula-turma."""
 
-    def test_retorna_uma_linha_por_turma_sem_filtrar_situacao(self) -> None:
-        """Verifica que situações ativas e inativas são retornadas."""
+    def test_retorna_turmas_regulares_sem_filtrar_situacao(self) -> None:
+        """Verifica situações distintas e exclui turma-programa."""
         seed_matriculas()
         Matricula.objects.filter(codigo_matricula=998877).update(
             data_situacao_matricula_data_hora=datetime(
@@ -843,6 +844,15 @@ class ObterNomesAlunosServiceTestCase(TestCase):
             codigo_situacao_aluno=14,
             codigo_tipo_turma=1,
             sequencia=2,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=60000,
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=3,
+            sequencia=1,
             origem_atual=True,
             ano_letivo_turma=2026,
         )
@@ -859,6 +869,7 @@ class ObterNomesAlunosServiceTestCase(TestCase):
         )
         self.assertEqual(dados[1]["situacao_matricula"], "Remanejado Saída")
         self.assertEqual(dados[0]["codigo_escola"], "100001")
+        self.assertNotIn(60000, {dado["codigo_turma"] for dado in dados})
 
     def test_lista_vazia_retorna_vazia(self) -> None:
         """Verifica a ausência de resultados sem códigos."""
