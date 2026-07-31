@@ -24,6 +24,7 @@ from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
     seed_matriculas_ano_anterior,
+    seed_matriculas_com_responsaveis,
     seed_necessidades,
     seed_responsaveis,
     seed_turma_data_aula,
@@ -61,8 +62,7 @@ class A01TurmasDoAlunoTestCase(TestCase):
 
     def test_retorna_turmas(self) -> None:
         """Verifica shape do payload e omissão de campos fora do domínio."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2026, 6, 1, tzinfo=UTC),
@@ -610,8 +610,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_lista(self) -> None:
         """Verifica a listagem de responsáveis vigentes por DRE/UE/ano."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(
             url + "?codigo_dre=108&codigo_ue=100001&ano_letivo=2026"
@@ -628,8 +627,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_sem_codigo_dre_aceita(self) -> None:
         """Verifica que a consulta funciona sem codigo_dre."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigo_ue=100001&ano_letivo=2026")
         self.assertEqual(resp.status_code, 200)
@@ -637,8 +635,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_a19_so_codigo_dre_filtra_responsaveis(self) -> None:
         """Verifica a consulta apenas com o filtro de DRE."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("responsaveis-dre-ue-turma")
         resp = _autenticado().get(url + "?codigo_dre=108")
         self.assertEqual(resp.status_code, 200)
@@ -672,8 +669,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
 
     def test_dados_responsavel_no_contrato_legado(self) -> None:
         """Verifica os 27 campos do contrato completo."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse(
             "dados-responsavel-contrato",
             kwargs={"cpf_responsavel": "12345678901"},
@@ -1390,8 +1386,7 @@ class A18AcompanhamentoApiTestCase(TestCase):
 
     def test_filtra_por_codigo_aluno(self) -> None:
         """Verifica o retorno filtrado pelo código do aluno."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("dados-acompanhamento-escolar")
         resp = _autenticado().get(url + "?codigo_aluno=1234567")
         self.assertEqual(resp.status_code, 200)
@@ -1401,8 +1396,7 @@ class A18AcompanhamentoApiTestCase(TestCase):
 
     def test_filtra_por_cpf_responsavel(self) -> None:
         """Verifica o retorno filtrado pelo CPF do responsável."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         url = reverse("dados-acompanhamento-escolar")
         resp = _autenticado().get(url + "?cpf_responsavel=12345678901")
         self.assertEqual(resp.status_code, 200)

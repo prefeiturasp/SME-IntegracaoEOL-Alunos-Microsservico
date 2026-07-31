@@ -18,6 +18,7 @@ from apps.alunos.tests.helpers import (
     seed_alunos,
     seed_matriculas,
     seed_matriculas_ano_anterior,
+    seed_matriculas_com_responsaveis,
     seed_necessidades,
     seed_responsaveis,
     seed_turma_data_aula,
@@ -29,8 +30,7 @@ class TurmasDoAlunoTestCase(TestCase):
 
     def test_a01_retorna_lista(self) -> None:
         """Verifica os campos retornados para o aluno no ano corrente."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         with patch(
             "django.utils.timezone.now",
             return_value=datetime(2026, 6, 1, tzinfo=UTC),
@@ -169,6 +169,14 @@ class TurmasDoAlunoTestCase(TestCase):
 class A04AlunosDaUeTestCase(TestCase):
     """Valida a busca de alunos por UE/ano letivo."""
 
+    def _buscar_aluno_joao(self) -> list[dict[str, object]]:
+        """Busca aluno João (1234567) na UE 100001 em 2026."""
+        return services.buscar_alunos_da_ue(
+            codigo_ue="100001",
+            ano_letivo=2026,
+            codigo_eol="1234567",
+        )
+
     def test_filtra_por_codigo_eol(self) -> None:
         """Verifica filtro por substring do código EOL."""
         seed_matriculas()
@@ -193,12 +201,7 @@ class A04AlunosDaUeTestCase(TestCase):
     def test_retorna_campos_do_contrato_da_listagem(self) -> None:
         """Verifica os campos complementares da listagem da UE."""
         seed_matriculas()
-
-        dados = services.buscar_alunos_da_ue(
-            codigo_ue="100001",
-            ano_letivo=2026,
-            codigo_eol="1234567",
-        )
+        dados = self._buscar_aluno_joao()
 
         self.assertEqual(len(dados), 1)
         aluno = dados[0]
@@ -290,11 +293,7 @@ class A04AlunosDaUeTestCase(TestCase):
             ano_letivo_turma=2026,
         )
 
-        dados = services.buscar_alunos_da_ue(
-            codigo_ue="100001",
-            ano_letivo=2026,
-            codigo_eol="1234567",
-        )
+        dados = self._buscar_aluno_joao()
 
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0]["matricula_turma"]["codigo_turma"], 44444)
@@ -321,11 +320,7 @@ class A04AlunosDaUeTestCase(TestCase):
             ano_letivo_turma=2026,
         )
 
-        dados = services.buscar_alunos_da_ue(
-            codigo_ue="100001",
-            ano_letivo=2026,
-            codigo_eol="1234567",
-        )
+        dados = self._buscar_aluno_joao()
 
         self.assertEqual(len(dados), 2)
         self.assertEqual(
@@ -480,8 +475,7 @@ class A08A09AlunosTurmaTestCase(TestCase):
 
     def test_a09_retorna_alunos_da_turma(self) -> None:
         """Verifica os alunos retornados para a turma informada."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         seed_necessidades()
         dados = services.obter_alunos_ativos_por_turma(codigo_turma=12345)
         self.assertEqual(len(dados), 1)
@@ -581,8 +575,7 @@ class A18AcompanhamentoTestCase(TestCase):
 
     def test_filtra_por_turma(self) -> None:
         """Verifica o filtro por código de turma e responsável vigente."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         dados = services.obter_dados_acompanhamento_escolar(
             codigo_ue="100001",
             ano_letivo=2026,
@@ -598,8 +591,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
 
     def test_a19_lista_responsaveis_da_ue(self) -> None:
         """Verifica a listagem de responsáveis vigentes por UE/ano."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         dados = services.obter_responsaveis_dre_ue_turma(
             codigo_ue="100001", ano_letivo=2026
         )
@@ -620,8 +612,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
 
     def test_contrato_retorna_campos_legados_do_vinculo_e_aluno(self) -> None:
         """Verifica o contrato completo para vínculo elegível."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
 
         with patch(
             "apps.alunos.services.responsaveis.timezone.now",
@@ -657,8 +648,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
 
     def test_contrato_aceita_escola_especial_sem_serie(self) -> None:
         """Verifica a exceção para escolas dos tipos 22 e 23."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         Matricula.objects.filter(codigo_matricula=998877).update(
             codigo_serie_ensino=None,
             codigo_tipo_escola=22,
@@ -683,8 +673,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
 
     def test_contrato_preserva_uma_linha_por_matricula_turma(self) -> None:
         """Verifica a multiplicidade produzida pelos joins do legado."""
-        seed_matriculas()
-        seed_responsaveis()
+        seed_matriculas_com_responsaveis()
         MatriculaTurma.objects.create(
             codigo_matricula=998877,
             codigo_turma=54321,
@@ -1118,16 +1107,13 @@ class E24MatriculasAlunoEscolaTestCase(TestCase):
 
     def test_data_situacao_matricula_sem_hora(self) -> None:
         """Verifica matrícula com data_situacao sem hora (apenas date)."""
+        from apps.alunos.tests.helpers import criar_matricula_simples
+
         seed_alunos()
-        Matricula.objects.create(
+        criar_matricula_simples(
             codigo_matricula=888001,
             aluno_id=1234567,
             codigo_ue="100002",
-            codigo_dre="108800",
-            ano_letivo=2026,
-            codigo_situacao_matricula=1,
-            situacao_matricula="Ativo",
-            data_situacao_matricula=date(2026, 3, 15),
             data_situacao_matricula_data_hora=None,
         )
 
@@ -1257,13 +1243,19 @@ class BuscarTurmasDoAlunoFiltrosTestCase(TestCase):
 class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     """Valida a consulta de alunos ativos na turma por data de aula."""
 
-    def test_retorna_alunos_dedup_por_aluno(self) -> None:
-        """Verifica dedup por aluno e campos enriquecidos do contrato."""
-        codigo_turma = seed_turma_data_aula()
-        dados = services.obter_alunos_turma(
+    def _obter_alunos_turma_junho(
+        self, codigo_turma: int
+    ) -> list[dict[str, object]]:
+        """Busca alunos da turma na data 2026-06-01."""
+        return services.obter_alunos_turma(
             codigo_turma=codigo_turma,
             data_aula=datetime(2026, 6, 1, tzinfo=UTC),
         )
+
+    def test_retorna_alunos_dedup_por_aluno(self) -> None:
+        """Verifica dedup por aluno e campos enriquecidos do contrato."""
+        codigo_turma = seed_turma_data_aula()
+        dados = self._obter_alunos_turma_junho(codigo_turma)
         self.assertEqual(len(dados), 2)
         por_aluno = {d["linha"]["aluno_id"]: d for d in dados}
         joao = por_aluno[1234567]
@@ -1294,10 +1286,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
     def test_aluno_sem_responsavel_tem_campos_nulos(self) -> None:
         """Verifica que aluno sem responsável retorna campos nulos."""
         codigo_turma = seed_turma_data_aula()
-        dados = services.obter_alunos_turma(
-            codigo_turma=codigo_turma,
-            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
-        )
+        dados = self._obter_alunos_turma_junho(codigo_turma)
         maria = {d["linha"]["aluno_id"]: d for d in dados}[7654321]
         self.assertEqual(maria["responsavel"], {})
         self.assertIsNone(maria["aluno"]["data_atualizacao_contato"])
@@ -1316,10 +1305,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             data_atualizacao_tabela=datetime(2026, 5, 1, 11, 48, tzinfo=UTC),
         )
 
-        dados = services.obter_alunos_turma(
-            codigo_turma=codigo_turma,
-            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
-        )
+        dados = self._obter_alunos_turma_junho(codigo_turma)
 
         joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
         self.assertEqual(joao["responsavel"]["nome"], "Responsavel Data Aula")
@@ -1342,10 +1328,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
             sequencia=0,
         )
 
-        dados = services.obter_alunos_turma(
-            codigo_turma=codigo_turma,
-            data_aula=datetime(2026, 6, 1, tzinfo=UTC),
-        )
+        dados = self._obter_alunos_turma_junho(codigo_turma)
 
         joao = {d["linha"]["aluno_id"]: d for d in dados}[1234567]
         self.assertEqual(

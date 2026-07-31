@@ -312,3 +312,52 @@ def seed_necessidades(
             data_inicio=date(2025, 1, 1),
         ),
     )
+
+
+def criar_matricula_simples(
+    codigo_matricula: int,
+    aluno_id: int,
+    codigo_ue: str,
+    **kwargs: object,
+) -> Matricula:
+    """Cria uma matrícula com campos mínimos obrigatórios.
+
+    Args:
+        codigo_matricula: Código único da matrícula.
+        aluno_id: Código do aluno.
+        codigo_ue: Código da unidade educacional.
+        **kwargs: Campos opcionais da matrícula.
+
+    Returns:
+        Matrícula criada.
+    """
+    defaults = {
+        "codigo_dre": "108800",
+        "ano_letivo": 2026,
+        "codigo_situacao_matricula": 1,
+        "situacao_matricula": "Ativo",
+        "data_situacao_matricula": date(2026, 3, 15),
+    }
+    defaults.update(kwargs)
+    return Matricula.objects.create(
+        codigo_matricula=codigo_matricula,
+        aluno_id=aluno_id,
+        codigo_ue=codigo_ue,
+        **defaults,
+    )
+
+
+def seed_matriculas_com_responsaveis(
+    origem_atual: bool = True,
+) -> tuple[list[Matricula], ResponsavelAluno]:
+    """Cria matrículas e responsáveis juntos.
+
+    Args:
+        origem_atual: Define se as matrículas são da origem atual.
+
+    Returns:
+        Tupla com (lista de matrículas, responsável).
+    """
+    matriculas = seed_matriculas(origem_atual=origem_atual)
+    responsavel = seed_responsaveis()
+    return matriculas, responsavel
