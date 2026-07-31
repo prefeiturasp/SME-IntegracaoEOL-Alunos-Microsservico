@@ -1116,6 +1116,28 @@ class E24MatriculasAlunoEscolaTestCase(TestCase):
         )
         self.assertEqual(dados, [])
 
+    def test_data_situacao_matricula_sem_hora(self) -> None:
+        """Verifica matrícula com data_situacao sem hora (apenas date)."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=888001,
+            aluno_id=1234567,
+            codigo_ue="100002",
+            codigo_dre="108800",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 3, 15),
+            data_situacao_matricula_data_hora=None,
+        )
+
+        dados = services.obter_matriculas_aluno_na_escola(
+            codigo_escola="100002", codigo_aluno=1234567
+        )
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]["matricula"]["codigo_matricula"], 888001)
+        self.assertIsNotNone(dados[0]["matricula"]["data_situacao_matricula"])
+
 
 class HelpersInternosTestCase(TestCase):
     """Testes para os helpers internos."""
