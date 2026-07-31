@@ -285,14 +285,13 @@ def _matriculas_ativas_ultimo_ano_dre(dre_codigo: str) -> dict[str, Any]:
     }
 
 
+# ATENÇÃO: Esta implementação replica o comportamento do sistema legado,
+# contando ALUNOS ÚNICOS ao invés de todas as matrículas.
+#
+# IMPORTANTE: Alunos com múltiplas matrículas em turnos diferentes são
+# contados uma vez em CADA turno (replicando comportamento do legado).
 def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> dict[str, Any]:
     """Retorna total de alunos únicos por turno da UE.
-
-    ATENÇÃO: Esta implementação replica o comportamento do sistema legado,
-    contando ALUNOS ÚNICOS ao invés de todas as matrículas.
-    
-    IMPORTANTE: Alunos com múltiplas matrículas em turnos diferentes são
-    contados uma vez em CADA turno (replicando comportamento do legado).
 
     Args:
         ue_codigo: Código da unidade educacional.
@@ -344,14 +343,13 @@ def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> dict[str, Any]:
     }
 
 
+# ATENÇÃO: Esta implementação replica o comportamento do sistema legado,
+# contando ALUNOS ÚNICOS ao invés de todas as matrículas.
+#
+# IMPORTANTE: Alunos com múltiplas matrículas em turnos diferentes são
+# contados uma vez em CADA turno (replicando comportamento do legado).
 def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]]:
     """Retorna total de alunos únicos por turno da DRE.
-
-    ATENÇÃO: Esta implementação replica o comportamento do sistema legado,
-    contando ALUNOS ÚNICOS ao invés de todas as matrículas.
-    
-    IMPORTANTE: Alunos com múltiplas matrículas em turnos diferentes são
-    contados uma vez em CADA turno (replicando comportamento do legado).
 
     Args:
         dre_codigo: Código da DRE.
