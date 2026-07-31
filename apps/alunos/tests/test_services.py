@@ -15,7 +15,11 @@ from apps.alunos.models import (
 )
 from apps.alunos.tests.helpers import (
     DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+    RESULTADO_ESPERADO_M04_DRE_108100,
+    RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA,
     seed_alunos,
+    seed_matricula_duas_turmas_dre_108100,
+    seed_matricula_uma_turma_dre_108100,
     seed_matriculas,
     seed_matriculas_ano_anterior,
     seed_matriculas_com_responsaveis,
@@ -959,130 +963,15 @@ class M03M04AgregacoesTestCase(TestCase):
 
     def test_m04_retorna_agregado_por_escola(self) -> None:
         """Verifica que M04 retorna lista agregada por escola."""
-        seed_alunos()
-        Matricula.objects.create(
-            codigo_matricula=999001,
-            aluno_id=1234567,
-            codigo_ue="100001",
-            codigo_dre="108100",
-            ano_letivo=2026,
-            codigo_situacao_matricula=1,
-            situacao_matricula="Ativo",
-            data_situacao_matricula=date(2026, 2, 1),
-            origem_atual=True,
-            origem_historica=False,
-            codigo_serie_ensino=100,
-            codigo_tipo_escola=1,
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999001,
-            codigo_turma=32345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 1),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=6,
-            nome_turma="5A",
-            codigo_ue_turma="100001",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=1,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-        self.assertEqual(
-            services.obter_total_matriculas_por_turno_dre(dre_codigo="108100"),
-            [
-                {
-                    "totalMatriculas": 1,
-                    "codigoEolEscola": "100001",
-                    "turnos": [
-                        {
-                            "turno": "Integral",
-                            "tipoTurno": 6,
-                            "quantidade": 1,
-                        }
-                    ],
-                }
-            ],
-        )
+        seed_matricula_uma_turma_dre_108100()
+        dados = services.obter_total_matriculas_por_turno_dre(dre_codigo="108100")
+        self.assertEqual(dados, RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA)
 
     def test_m04_usa_escola_da_ultima_alocacao_da_turma(self) -> None:
         """Verifica que M04 agrega pela UE da última alocação da turma."""
-        seed_alunos()
-        Matricula.objects.create(
-            codigo_matricula=999002,
-            aluno_id=1234567,
-            codigo_ue="100001",
-            codigo_dre="108100",
-            ano_letivo=2026,
-            codigo_situacao_matricula=1,
-            situacao_matricula="Ativo",
-            data_situacao_matricula=date(2026, 2, 1),
-            origem_atual=True,
-            origem_historica=False,
-            codigo_serie_ensino=100,
-            codigo_tipo_escola=1,
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999002,
-            codigo_turma=42345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 10),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=6,
-            nome_turma="5A",
-            codigo_ue_turma="100001",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=1,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999002,
-            codigo_turma=52345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 20),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=3,
-            nome_turma="5B",
-            codigo_ue_turma="100002",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=2,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-
+        seed_matricula_duas_turmas_dre_108100()
         dados = services.obter_total_matriculas_por_turno_dre(dre_codigo="108100")
-        self.assertEqual(
-            dados,
-            [
-                {
-                    "totalMatriculas": 1,
-                    "codigoEolEscola": "100002",
-                    "turnos": [
-                        {
-                            "turno": "Tarde",
-                            "tipoTurno": 3,
-                            "quantidade": 1,
-                        }
-                    ],
-                }
-            ],
-        )
+        self.assertEqual(dados, RESULTADO_ESPERADO_M04_DRE_108100)
 
 
 class E24MatriculasAlunoEscolaTestCase(TestCase):

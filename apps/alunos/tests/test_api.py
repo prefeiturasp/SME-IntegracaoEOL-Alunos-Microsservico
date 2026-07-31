@@ -21,7 +21,11 @@ from apps.alunos.models import (
     ResponsavelAluno,
 )
 from apps.alunos.tests.helpers import (
+    RESULTADO_ESPERADO_M04_DRE_108100,
+    RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA,
     seed_alunos,
+    seed_matricula_duas_turmas_dre_108100,
+    seed_matricula_uma_turma_dre_108100,
     seed_matriculas,
     seed_matriculas_ano_anterior,
     seed_matriculas_com_responsaveis,
@@ -948,143 +952,25 @@ class MatriculasApiTestCase(TestCase):
 
     def test_m04_retorna_total_por_turno_dre(self) -> None:
         """Verifica que M04 retorna total por escola no contrato legado."""
-        seed_alunos()
-        Matricula.objects.create(
-            codigo_matricula=999001,
-            aluno_id=1234567,
-            codigo_ue="100001",
-            codigo_dre="108100",
-            ano_letivo=2026,
-            codigo_situacao_matricula=1,
-            situacao_matricula="Ativo",
-            data_situacao_matricula=date(2026, 2, 1),
-            origem_atual=True,
-            origem_historica=False,
-            codigo_serie_ensino=100,
-            codigo_tipo_escola=1,
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999001,
-            codigo_turma=32345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 1),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=6,
-            nome_turma="5A",
-            codigo_ue_turma="100001",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino="Ensino Fundamental",
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=1,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-
+        seed_matricula_uma_turma_dre_108100()
         url = reverse(
             "matriculas-quantidades-dre",
             kwargs={"dre_codigo": "108100"},
         )
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            resp.json(),
-            [
-                {
-                    "totalMatriculas": 1,
-                    "codigoEolEscola": "100001",
-                    "turnos": [
-                        {
-                            "turno": "Integral",
-                            "tipoTurno": 6,
-                            "quantidade": 1,
-                        }
-                    ],
-                }
-            ],
-        )
+        self.assertEqual(resp.json(), RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA)
 
     def test_m04_agrupa_pela_ue_da_ultima_alocacao(self) -> None:
         """Verifica que M04 usa a UE da última alocação da matrícula."""
-        seed_alunos()
-        Matricula.objects.create(
-            codigo_matricula=999002,
-            aluno_id=1234567,
-            codigo_ue="100001",
-            codigo_dre="108100",
-            ano_letivo=2026,
-            codigo_situacao_matricula=1,
-            situacao_matricula="Ativo",
-            data_situacao_matricula=date(2026, 2, 1),
-            origem_atual=True,
-            origem_historica=False,
-            codigo_serie_ensino=100,
-            codigo_tipo_escola=1,
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999002,
-            codigo_turma=42345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 10),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=6,
-            nome_turma="5A",
-            codigo_ue_turma="100001",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino="Ensino Fundamental",
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=1,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-        MatriculaTurma.objects.create(
-            codigo_matricula=999002,
-            codigo_turma=52345,
-            numero_chamada="12",
-            data_situacao_aluno=date(2026, 2, 20),
-            codigo_situacao_aluno=1,
-            codigo_tipo_turma=1,
-            tipo_turno=3,
-            nome_turma="5B",
-            codigo_ue_turma="100002",
-            codigo_etapa_ensino=5,
-            codigo_ciclo_ensino=2,
-            descricao_etapa_ensino="Ensino Fundamental",
-            descricao_ciclo_ensino="Ciclo Interdisciplinar",
-            sequencia=2,
-            origem_atual=True,
-            ano_letivo_turma=2026,
-            serie_resumida="5",
-        )
-
+        seed_matricula_duas_turmas_dre_108100()
         url = reverse(
             "matriculas-quantidades-dre",
             kwargs={"dre_codigo": "108100"},
         )
         resp = _autenticado().get(url)
-
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            resp.json(),
-            [
-                {
-                    "totalMatriculas": 1,
-                    "codigoEolEscola": "100002",
-                    "turnos": [
-                        {
-                            "turno": "Tarde",
-                            "tipoTurno": 3,
-                            "quantidade": 1,
-                        }
-                    ],
-                }
-            ],
-        )
+        self.assertEqual(resp.json(), RESULTADO_ESPERADO_M04_DRE_108100)
 
 
 class EscolasApiTestCase(TestCase):
