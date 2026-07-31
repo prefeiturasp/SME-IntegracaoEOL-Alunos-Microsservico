@@ -3,7 +3,11 @@
 from datetime import datetime
 from typing import Any
 
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+)
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,10 +21,11 @@ from apps.alunos.api.serializers import (
     AlunoAutocompleteSerializer,
     AlunoDaUeSerializer,
     AtualizarResponsavelBuscaAtivaRequestSerializer,
-    CadastrarResponsavelRequestSerializer,
+    AtualizarResponsavelRequestSerializer,
     ConsolidacaoMatriculaSerializer,
     DadosAcompanhamentoEscolarContratoSerializer,
     DadosAcompanhamentoEscolarSerializer,
+    DadosResponsavelContratoSerializer,
     DadosResponsavelFiliacaoSerializer,
     DadosResponsavelResumidoSerializer,
     DadosResponsavelSerializer,
@@ -28,6 +33,8 @@ from apps.alunos.api.serializers import (
     InformacoesAlunoTurmaSerializer,
     MatriculaEscolaAlunoSerializer,
     NecessidadeEspecialSerializer,
+    NomeAlunoSerializer,
+    ObterNomesAlunosRequestSerializer,
     QuantidadeMatriculadosCCContratoSerializer,
     QuantidadeMatriculadosCCSerializer,
     QuantidadeMatriculadosContratoSerializer,
@@ -75,6 +82,9 @@ ERRO_LEGADO_ACOMPANHAMENTO_SEM_FILTRO = (
 )
 ERRO_LEGADO_ANO_LETIVO_OBRIGATORIO = "Ano Letivo deve ser informado"
 ERRO_LEGADO_CODIGOS_ALUNOS = "Os códigos dos Alunos são obrigatórios."
+ERRO_LEGADO_CODIGOS_ALUNOS_NOMES = (
+    "Os códigos dos alunos são obrigatórios."
+)
 ERRO_LEGADO_COMPONENTES_CURRICULARES = (
     "Os códigos dos componentes curriculares são obrigatórios."
 )
@@ -1517,6 +1527,34 @@ class DadosResponsavelView(APIView):
         return Response(DadosResponsavelSerializer(dados, many=True).data)
 
 
+class DadosResponsavelContratoView(APIView):
+    """Lista os dados do responsável e dos alunos vinculados."""
+
+    @extend_schema(
+        tags=_TAG_RESPONSAVEL,
+        summary="Dados do responsável no contrato de integração",
+        parameters=[
+            OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH)
+        ],
+        responses={200: DadosResponsavelContratoSerializer(many=True)},
+    )
+    def get(self, request: Request, cpf_responsavel: str) -> Response:
+        """Lista os dados do responsável e dos alunos vinculados.
+
+        Args:
+            cpf_responsavel: CPF do responsável consultado.
+
+        Returns:
+            Dados dos vínculos encontrados.
+        """
+        dados = services.obter_dados_responsavel_contrato(
+            cpf_responsavel=cpf_responsavel
+        )
+        return Response(
+            DadosResponsavelContratoSerializer(dados, many=True).data
+        )
+
+
 class DadosResponsavelResumidoView(APIView):
     """Lista dados resumidos do responsável."""
 
@@ -1560,7 +1598,7 @@ class ResponsavelAlunoView(APIView):
             OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH),
         ],
         request=AtualizarResponsavelBuscaAtivaRequestSerializer,
-        responses={200: DadosResponsavelResumidoSerializer},
+        responses={200: OpenApiTypes.BOOL},
     )
     def put(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
@@ -1573,7 +1611,7 @@ class ResponsavelAlunoView(APIView):
             cpf_responsavel: CPF do responsável atualizado.
 
         Returns:
-            Dados resumidos do responsável após a atualização.
+            Indicador de atualização do vínculo.
 
         Raises:
             ValidationError: Quando os dados informados são inválidos.
@@ -1589,29 +1627,33 @@ class ResponsavelAlunoView(APIView):
         serializer.is_valid(raise_exception=True)
         body: dict[str, Any] = serializer.validated_data
 
-        resumo = services.atualizar_dados_responsavel_busca_ativa(
+        atualizado = services.atualizar_dados_responsavel_busca_ativa(
             codigo_aluno=codigo,
             cpf_responsavel=cpf_responsavel,
             email=body.get("email"),
             ddd_celular=body.get("ddd_celular"),
             numero_celular=body.get("numero_celular"),
+            ddd_residencial=body.get("ddd_residencial"),
+            numero_residencial=body.get("numero_residencial"),
+            ddd_comercial=body.get("ddd_comercial"),
+            numero_comercial=body.get("numero_comercial"),
         )
-        return Response(DadosResponsavelResumidoSerializer(resumo).data)
+        return Response(atualizado)
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
-        summary="Cadastrar dados do responsável do aluno",
+        summary="Atualizar dados do responsável do aluno",
         parameters=[
             OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
             OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH),
         ],
-        request=CadastrarResponsavelRequestSerializer,
-        responses={200: DadosResponsavelResumidoSerializer},
+        request=AtualizarResponsavelRequestSerializer,
+        responses={200: OpenApiTypes.BOOL},
     )
     def post(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
     ) -> Response:
-        """Cadastra os dados de um responsável do aluno.
+        """Atualiza os dados de um responsável do aluno.
 
         Args:
             request: Requisição com os dados do responsável no corpo.
@@ -1619,7 +1661,7 @@ class ResponsavelAlunoView(APIView):
             cpf_responsavel: CPF do responsável cadastrado.
 
         Returns:
-            Dados resumidos do responsável cadastrado.
+            Indicador de atualização do vínculo.
 
         Raises:
             ValidationError: Quando os dados informados são inválidos.
@@ -1629,20 +1671,59 @@ class ResponsavelAlunoView(APIView):
         except ValueError as exc:
             return _erro_400(str(exc))
 
-        serializer = CadastrarResponsavelRequestSerializer(data=request.data)
+        serializer = AtualizarResponsavelRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         body: dict[str, Any] = serializer.validated_data
 
-        resumo = services.cadastrar_dados_responsavel(
+        atualizado = services.atualizar_dados_responsavel(
             codigo_aluno=codigo,
             cpf_responsavel=cpf_responsavel,
-            nome=body.get("nome", ""),
-            email=body.get("email", ""),
-            tipo_responsavel=body.get("tipo_responsavel"),
-            ddd_celular=body.get("ddd_celular", ""),
-            numero_celular=body.get("numero_celular", ""),
+            email=body.get("email"),
+            data_nascimento=body.get("data_nascimento"),
+            nome_mae=body.get("nome_mae"),
+            ddd_celular=body.get("ddd_celular"),
+            numero_celular=body.get("numero_celular"),
         )
-        return Response(DadosResponsavelResumidoSerializer(resumo).data)
+        return Response(atualizado)
+
+
+class ObterNomesAlunosView(APIView):
+    """Lista nomes e dados de matrícula-turma dos alunos."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Nomes dos alunos por códigos",
+        request=ObterNomesAlunosRequestSerializer,
+        responses={200: NomeAlunoSerializer(many=True)},
+    )
+    def post(self, request: Request) -> Response:
+        """Lista os nomes e vínculos de matrícula-turma dos alunos.
+
+        Args:
+            request: Requisição com códigos de alunos e ano letivo opcional.
+
+        Returns:
+            Nomes e dados de matrícula-turma encontrados.
+
+        Raises:
+            ValidationError: Quando os filtros informados são inválidos.
+        """
+        serializer = ObterNomesAlunosRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        body: dict[str, Any] = serializer.validated_data
+        codigos_brutos = body.get("codigos_alunos") or []
+        if not codigos_brutos:
+            return _erro_legado(ERRO_LEGADO_CODIGOS_ALUNOS_NOMES)
+        try:
+            codigos = [int(codigo) for codigo in codigos_brutos]
+        except (TypeError, ValueError) as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_nomes_alunos(
+            codigos_alunos=codigos,
+            ano_letivo=body.get("ano_letivo"),
+        )
+        return Response(NomeAlunoSerializer(dados, many=True).data)
 
 
 class FiliacaoAlunoView(APIView):

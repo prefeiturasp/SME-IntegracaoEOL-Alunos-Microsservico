@@ -18,6 +18,7 @@ from apps.alunos.models import (
 )
 
 DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL = "Ensino Fundamental"
+DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR = "Ciclo Interdisciplinar"
 
 
 def agora() -> datetime:
@@ -68,6 +69,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
         origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
     )
     m2 = Matricula.objects.create(
         codigo_matricula=998878,
@@ -79,6 +82,8 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         data_situacao_matricula=date(2026, 2, 1),
         origem_atual=origem_atual,
         origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
     )
     MatriculaTurma.objects.create(
         codigo_matricula=998877,
@@ -93,7 +98,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
         sequencia=1,
         origem_atual=origem_atual,
         ano_letivo_turma=2026,
@@ -128,7 +133,7 @@ def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
         codigo_etapa_ensino=5,
         codigo_ciclo_ensino=2,
         descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
-        descricao_ciclo_ensino="Ciclo Interdisciplinar",
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
     )
     DadosAlunoAcompanhamentoEscolar.objects.create(
         codigo_aluno=7654321,
@@ -183,6 +188,11 @@ def seed_responsaveis() -> ResponsavelAluno:
             data_nascimento=date(1980, 5, 20),
             nome_mae="Mae do Responsavel",
             autoriza_sms="S",
+            numero_rg="000000037112360",
+            digito_rg="4   ",
+            uf_rg="SP",
+            cpf_confere="S",
+            tipo_turno_celular=1,
             endereco_id=123,
             numero_endereco="100",
             complemento="AP 1",
@@ -303,3 +313,196 @@ def seed_necessidades(
             data_inicio=date(2025, 1, 1),
         ),
     )
+
+
+def criar_matricula_simples(
+    codigo_matricula: int,
+    aluno_id: int,
+    codigo_ue: str,
+    **kwargs: object,
+) -> Matricula:
+    """Cria uma matrícula com campos mínimos obrigatórios.
+
+    Args:
+        codigo_matricula: Código único da matrícula.
+        aluno_id: Código do aluno.
+        codigo_ue: Código da unidade educacional.
+        **kwargs: Campos opcionais da matrícula.
+
+    Returns:
+        Matrícula criada.
+    """
+    defaults = {
+        "codigo_dre": "108800",
+        "ano_letivo": 2026,
+        "codigo_situacao_matricula": 1,
+        "situacao_matricula": "Ativo",
+        "data_situacao_matricula": date(2026, 3, 15),
+    }
+    defaults.update(kwargs)
+    return Matricula.objects.create(
+        codigo_matricula=codigo_matricula,
+        aluno_id=aluno_id,
+        codigo_ue=codigo_ue,
+        **defaults,
+    )
+
+
+def seed_matriculas_com_responsaveis(
+    origem_atual: bool = True,
+) -> tuple[list[Matricula], ResponsavelAluno]:
+    """Cria matrículas e responsáveis juntos.
+
+    Args:
+        origem_atual: Define se as matrículas são da origem atual.
+
+    Returns:
+        Tupla com (lista de matrículas, responsável).
+    """
+    matriculas = seed_matriculas(origem_atual=origem_atual)
+    responsavel = seed_responsaveis()
+    return matriculas, responsavel
+
+
+def seed_matricula_duas_turmas_dre_108100() -> None:
+    """Cria matrícula com duas alocações de turma para teste M04.
+
+    Cria matrícula 999002 do aluno 1234567 com duas turmas:
+    - Turma 42345: tipo_turno=6 (Integral), sequencia=1, UE 100001
+    - Turma 52345: tipo_turno=3 (Tarde), sequencia=2, UE 100002
+
+    O resultado esperado para M04 (DRE 108100) é:
+    [{"totalMatriculas": 1, "codigoEolEscola": "100002",
+      "turnos": [{"turno": "Tarde", "tipoTurno": 3, "quantidade": 1}]}]
+    """
+    seed_alunos()
+    Matricula.objects.create(
+        codigo_matricula=999002,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108100",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=True,
+        origem_historica=False,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999002,
+        codigo_turma=42345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 10),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=6,
+        nome_turma="5A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=1,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999002,
+        codigo_turma=52345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 20),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=3,
+        nome_turma="5B",
+        codigo_ue_turma="100002",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=2,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+
+
+# Estrutura JSON esperada para teste M04 com dados de seed_matricula_duas_turmas_dre_108100
+RESULTADO_ESPERADO_M04_DRE_108100 = [
+    {
+        "totalMatriculas": 1,
+        "codigoEolEscola": "100002",
+        "turnos": [
+            {
+                "turno": "Tarde",
+                "tipoTurno": 3,
+                "quantidade": 1,
+            }
+        ],
+    }
+]
+
+
+def seed_matricula_uma_turma_dre_108100() -> None:
+    """Cria matrícula com uma única turma para teste M04.
+
+    Cria matrícula 999001 do aluno 1234567 com uma turma:
+    - Turma 32345: tipo_turno=6 (Integral), UE 100001
+
+    O resultado esperado para M04 (DRE 108100) é:
+    [{"totalMatriculas": 1, "codigoEolEscola": "100001",
+      "turnos": [{"turno": "Integral", "tipoTurno": 6, "quantidade": 1}]}]
+    """
+    seed_alunos()
+    Matricula.objects.create(
+        codigo_matricula=999001,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108100",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=True,
+        origem_historica=False,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999001,
+        codigo_turma=32345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=6,
+        nome_turma="5A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=1,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+
+
+# Estrutura JSON esperada para teste M04 com dados de seed_matricula_uma_turma_dre_108100
+RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA = [
+    {
+        "totalMatriculas": 1,
+        "codigoEolEscola": "100001",
+        "turnos": [
+            {
+                "turno": "Integral",
+                "tipoTurno": 6,
+                "quantidade": 1,
+            }
+        ],
+    }
+]
