@@ -640,6 +640,7 @@ class A19A20A21ResponsaveisTestCase(TestCase):
         self.assertEqual(dados[0]["tipo_sigilo"], 0)
         self.assertEqual(dados[0]["digito_rg"], "4   ")
         self.assertEqual(dados[0]["ddd_telefone_fixo"], "11")
+        self.assertIsNone(dados[0]["data_nascimento_mae"])
 
     def test_contrato_exclui_vinculo_encerrado(self) -> None:
         """Verifica que vínculos encerrados não são retornados."""

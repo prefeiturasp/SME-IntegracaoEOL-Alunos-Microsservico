@@ -849,6 +849,7 @@ class DadosResponsavelContratoSerializer(serializers.Serializer):
     numero_telefone_comercial = serializers.CharField(allow_blank=True)
     tipo_turno_telefone_comercial = serializers.CharField(allow_null=True)
     autoriza_envio_sms = serializers.CharField(allow_null=True)
+    data_nascimento_mae = serializers.DateField(allow_null=True)
 
 
 class DadosResponsavelResumidoSerializer(serializers.Serializer):

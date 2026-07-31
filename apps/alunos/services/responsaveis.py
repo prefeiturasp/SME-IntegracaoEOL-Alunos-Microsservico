@@ -246,6 +246,7 @@ def obter_dados_responsavel_contrato(
             "numero_telefone_comercial": (vinculo.nr_telefone_comercial or ""),
             "tipo_turno_telefone_comercial": (vinculo.tipo_turno_comercial),
             "autoriza_envio_sms": vinculo.autoriza_sms,
+            "data_nascimento_mae": None,
         }
         for vinculo in vinculos
         for _ in range(quantidade_linhas_por_aluno[vinculo.aluno_id])

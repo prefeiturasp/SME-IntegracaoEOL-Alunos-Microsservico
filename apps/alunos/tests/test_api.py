@@ -670,7 +670,7 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
         self.assertEqual(resp.json()["nome_mae"], "Mae do Responsavel")
 
     def test_dados_responsavel_no_contrato_legado(self) -> None:
-        """Verifica os 27 campos do contrato completo."""
+        """Verifica os 28 campos do contrato completo."""
         seed_matriculas()
         seed_responsaveis()
         url = reverse(
@@ -716,10 +716,12 @@ class A19A20A21ResponsavelApiTestCase(TestCase):
                 "numero_telefone_comercial",
                 "tipo_turno_telefone_comercial",
                 "autoriza_envio_sms",
+                "data_nascimento_mae",
             ],
         )
         self.assertEqual(resp.json()[0]["codigo_aluno"], "1234567")
         self.assertEqual(resp.json()[0]["digito_rg"], "4   ")
+        self.assertIsNone(resp.json()[0]["data_nascimento_mae"])
 
 
 class A22A23EscritaApiTestCase(TestCase):
