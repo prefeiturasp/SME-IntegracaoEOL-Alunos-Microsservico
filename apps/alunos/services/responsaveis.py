@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import Any, cast
 
 from django.db import connection
-from django.db.models import Q
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.utils import timezone
 
 from apps.alunos import repositories
@@ -175,8 +175,30 @@ def obter_dados_responsavel_contrato(
         return []
 
     ano_atual = timezone.localtime(timezone.now()).year
-    matriculas_elegiveis = list(
+    vinculos = list(
+        ResponsavelAluno.objects.filter(
+            cpf=cpf,
+            data_fim_vinculo__isnull=True,
+        )
+        .select_related("aluno")
+        .order_by("codigo_responsavel")
+    )
+    if not vinculos:
+        return []
+
+    contagem_matriculas_turma = (
+        MatriculaTurma.objects.filter(
+            codigo_matricula=OuterRef("codigo_matricula"),
+            origem_atual=True,
+            codigo_situacao_aluno__in=(1, 6, 10, 13),
+        )
+        .values("codigo_matricula")
+        .annotate(quantidade=Count("pk"))
+        .values("quantidade")
+    )
+    matriculas_elegiveis = (
         Matricula.objects.filter(
+            aluno_id__in={vinculo.aluno_id for vinculo in vinculos},
             origem_atual=True,
             codigo_situacao_matricula=1,
             ano_letivo=ano_atual,
@@ -185,30 +207,15 @@ def obter_dados_responsavel_contrato(
             Q(codigo_serie_ensino__isnull=False)
             | Q(codigo_tipo_escola__in=(22, 23))
         )
-        .values("codigo_matricula", "aluno_id")
-    )
-    alunos_por_matricula = {
-        item["codigo_matricula"]: item["aluno_id"]
-        for item in matriculas_elegiveis
-    }
-    matriculas_turma = MatriculaTurma.objects.filter(
-        codigo_matricula__in=alunos_por_matricula,
-        origem_atual=True,
-        codigo_situacao_aluno__in=(1, 6, 10, 13),
-    ).values_list("codigo_matricula", flat=True)
-    quantidade_linhas_por_aluno = Counter(
-        alunos_por_matricula[codigo_matricula]
-        for codigo_matricula in matriculas_turma
-    )
-    vinculos = (
-        ResponsavelAluno.objects.filter(
-            cpf=cpf,
-            aluno_id__in=quantidade_linhas_por_aluno,
-            data_fim_vinculo__isnull=True,
+        .annotate(
+            quantidade_matriculas_turma=Subquery(contagem_matriculas_turma)
         )
-        .select_related("aluno")
-        .order_by("codigo_responsavel")
+        .values_list("aluno_id", "quantidade_matriculas_turma")
     )
+    quantidade_linhas_por_aluno: Counter[int] = Counter()
+    for aluno_id, quantidade in matriculas_elegiveis:
+        if quantidade:
+            quantidade_linhas_por_aluno[aluno_id] += quantidade
 
     return [
         {
@@ -235,15 +242,9 @@ def obter_dados_responsavel_contrato(
             "ddd_telefone_fixo": vinculo.ddd_telefone_fixo or "",
             "numero_telefone_fixo": vinculo.nr_telefone_fixo or "",
             "tipo_turno_telefone_fixo": vinculo.tipo_turno_fixo,
-            "ddd_telefone_comercial": (
-                vinculo.ddd_telefone_comercial or ""
-            ),
-            "numero_telefone_comercial": (
-                vinculo.nr_telefone_comercial or ""
-            ),
-            "tipo_turno_telefone_comercial": (
-                vinculo.tipo_turno_comercial
-            ),
+            "ddd_telefone_comercial": (vinculo.ddd_telefone_comercial or ""),
+            "numero_telefone_comercial": (vinculo.nr_telefone_comercial or ""),
+            "tipo_turno_telefone_comercial": (vinculo.tipo_turno_comercial),
             "autoriza_envio_sms": vinculo.autoriza_sms,
         }
         for vinculo in vinculos
@@ -417,7 +418,4 @@ def obter_dados_responsavel_filiacao(
         )
         .order_by("tipo_responsavel")
     )
-    return [
-        {"responsavel": responsavel}
-        for responsavel in responsaveis
-    ]
+    return [{"responsavel": responsavel} for responsavel in responsaveis]
