@@ -1,6 +1,6 @@
 """Serializers do domínio Alunos."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, cast
 
 from rest_framework import serializers
@@ -403,6 +403,9 @@ def _matricula_escola_aluno_representation(
         matricula.get("data_situacao_matricula_data_hora")
         or matricula["data_situacao_matricula"]
     )
+    # Converte datetime.date para datetime.datetime se necessário
+    if isinstance(data_situacao, date) and not isinstance(data_situacao, datetime):
+        data_situacao = datetime.combine(data_situacao, datetime.min.time())
     return {
         "codigo_aluno": matricula["aluno_id"],
         "nome_aluno": aluno.get("nome", ""),

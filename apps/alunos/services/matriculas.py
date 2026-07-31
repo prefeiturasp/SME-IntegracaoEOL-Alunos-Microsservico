@@ -412,7 +412,8 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]
         ]
         resposta.append(
             {
-                "totalMatricula": sum(item["quantidade"] for item in turnos),
+                "totalMatriculas": sum(item["quantidade"] for item in turnos),
+                "codigoEolEscola": codigo_ue,
                 "turnos": turnos,
             }
         )
