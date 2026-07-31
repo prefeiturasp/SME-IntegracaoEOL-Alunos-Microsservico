@@ -399,13 +399,17 @@ def _matricula_escola_aluno_representation(
     matricula = instance["matricula"]
     aluno = instance["aluno"]
     matricula_turma = instance["matricula_turma"]
+    data_situacao = (
+        matricula.get("data_situacao_matricula_data_hora")
+        or matricula["data_situacao_matricula"]
+    )
     return {
         "codigo_aluno": matricula["aluno_id"],
         "nome_aluno": aluno.get("nome", ""),
         "nome_social_aluno": aluno.get("nome_social"),
         "codigo_situacao_matricula": matricula["codigo_situacao_matricula"],
         "situacao_matricula": matricula["situacao_matricula"],
-        "data_situacao": matricula["data_situacao_matricula"],
+        "data_situacao": data_situacao,
         "codigo_turma": matricula_turma.get("codigo_turma") or 0,
         "codigo_matricula": matricula["codigo_matricula"],
         "ano_letivo": matricula["ano_letivo"],
@@ -936,7 +940,7 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
     nome_social_aluno = serializers.CharField(allow_null=True)
     codigo_situacao_matricula = serializers.IntegerField()
     situacao_matricula = serializers.CharField()
-    data_situacao = serializers.DateField(allow_null=True)
+    data_situacao = serializers.DateTimeField(allow_null=True)
     codigo_turma = serializers.IntegerField()
     codigo_matricula = serializers.IntegerField()
     ano_letivo = serializers.IntegerField()
@@ -945,7 +949,18 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
         """Serializa linha composta retornada pelo service."""
         if isinstance(instance, dict) and "matricula" in instance:
             instance = _matricula_escola_aluno_representation(instance)
-        return cast(dict[str, Any], super().to_representation(instance))
+        data = cast(dict[str, Any], super().to_representation(instance))
+        # Formatar data_situacao sem timezone, igual ao legado
+        if data.get("data_situacao") and isinstance(data["data_situacao"], str):
+            # Remove timezone se presente
+            data["data_situacao"] = data["data_situacao"].replace("-03:00", "").replace("+00:00", "")
+            # Remove zeros extras dos microssegundos para ficar igual ao legado (.187 ao invés de .183000)
+            if "." in data["data_situacao"]:
+                partes = data["data_situacao"].split(".")
+                if len(partes) == 2:
+                    # Limita a 3 dígitos de microssegundos
+                    data["data_situacao"] = f"{partes[0]}.{partes[1][:3]}"
+        return data
 
 
 class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):

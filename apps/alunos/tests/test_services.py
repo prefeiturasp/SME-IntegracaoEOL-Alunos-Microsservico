@@ -943,21 +943,156 @@ class M01M02E05ConsolidacaoTestCase(TestCase):
         self.assertEqual(len(dados), 2)
 
 
-class M03M04OutOfScopeTestCase(TestCase):
-    """Valida que endpoints fora de escopo retornam lista vazia."""
+class M03M04AgregacoesTestCase(TestCase):
+    """Valida agregações por turno de M03 e M04."""
 
-    def test_m03_retorna_vazio(self) -> None:
-        """Verifica que o total por turno da UE retorna lista vazia."""
+    def test_m03_retorna_agregado_por_turno(self) -> None:
+        """Verifica que M03 retorna objeto agregado por turno."""
+        seed_matriculas()
         self.assertEqual(
             services.obter_total_matriculas_por_turno_ue(ue_codigo="100001"),
-            [],
+            {
+                "totalMatricula": 2,
+                "turnos": [
+                    {
+                        "turno": "Intermediário",
+                        "tipoTurno": 2,
+                        "quantidade": 1,
+                    },
+                    {
+                        "turno": "Tarde",
+                        "tipoTurno": 3,
+                        "quantidade": 1,
+                    },
+                ],
+            },
         )
 
-    def test_m04_retorna_vazio(self) -> None:
-        """Verifica que o total por turno da DRE retorna lista vazia."""
+    def test_m04_retorna_agregado_por_escola(self) -> None:
+        """Verifica que M04 retorna lista agregada por escola."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=999001,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+            origem_historica=False,
+            codigo_serie_ensino=100,
+            codigo_tipo_escola=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999001,
+            codigo_turma=32345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=6,
+            nome_turma="5A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
         self.assertEqual(
-            services.obter_total_matriculas_por_turno_dre(dre_codigo="100001"),
-            [],
+            services.obter_total_matriculas_por_turno_dre(dre_codigo="108100"),
+            [
+                {
+                    "totalMatriculas": 1,
+                    "codigoEolEscola": "100001",
+                    "turnos": [
+                        {
+                            "turno": "Integral",
+                            "tipoTurno": 6,
+                            "quantidade": 1,
+                        }
+                    ],
+                }
+            ],
+        )
+
+    def test_m04_usa_escola_da_ultima_alocacao_da_turma(self) -> None:
+        """Verifica que M04 agrega pela UE da última alocação da turma."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=999002,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+            origem_historica=False,
+            codigo_serie_ensino=100,
+            codigo_tipo_escola=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999002,
+            codigo_turma=42345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 10),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=6,
+            nome_turma="5A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999002,
+            codigo_turma=52345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 20),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=3,
+            nome_turma="5B",
+            codigo_ue_turma="100002",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=2,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
+
+        dados = services.obter_total_matriculas_por_turno_dre(dre_codigo="108100")
+        self.assertEqual(
+            dados,
+            [
+                {
+                    "totalMatriculas": 1,
+                    "codigoEolEscola": "100002",
+                    "turnos": [
+                        {
+                            "turno": "Tarde",
+                            "tipoTurno": 3,
+                            "quantidade": 1,
+                        }
+                    ],
+                }
+            ],
         )
 
 

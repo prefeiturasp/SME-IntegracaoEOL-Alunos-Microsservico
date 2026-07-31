@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 
 from apps.alunos.models import (
     DadosAlunoAcompanhamentoEscolar,
+    Matricula,
     MatriculaAnoLetivo,
     MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
@@ -896,7 +897,7 @@ class A12AlunosPorCodigosApiTestCase(TestCase):
 
 
 class MatriculasApiTestCase(TestCase):
-    """Valida os endpoints de matrículas (consolidação e out-of-scope)."""
+    """Valida os endpoints de matrículas (consolidação e agregações)."""
 
     def test_m01(self) -> None:
         """Verifica a consolidação do ano atual por UE."""
@@ -922,24 +923,172 @@ class MatriculasApiTestCase(TestCase):
             resp.json(), [{"turma_codigo": "54321", "quantidade": 27}]
         )
 
-    def test_m03_out_of_scope(self) -> None:
-        """Verifica que o endpoint M03 fora de escopo devolve []."""
+    def test_m03_retorna_total_por_turno_ue(self) -> None:
+        """Verifica que M03 retorna total por turno no contrato legado."""
         url = reverse(
             "matriculas-quantidades-ue", kwargs={"ue_codigo": "100001"}
         )
+        seed_matriculas()
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(
+            resp.json(),
+            {
+                "totalMatricula": 2,
+                "turnos": [
+                    {
+                        "turno": "Intermediário",
+                        "tipoTurno": 2,
+                        "quantidade": 1,
+                    },
+                    {
+                        "turno": "Tarde",
+                        "tipoTurno": 3,
+                        "quantidade": 1,
+                    },
+                ],
+            },
+        )
 
-    def test_m04_out_of_scope(self) -> None:
-        """Verifica que o endpoint M04 fora de escopo devolve []."""
+    def test_m04_retorna_total_por_turno_dre(self) -> None:
+        """Verifica que M04 retorna total por escola no contrato legado."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=999001,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+            origem_historica=False,
+            codigo_serie_ensino=100,
+            codigo_tipo_escola=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999001,
+            codigo_turma=32345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 1),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=6,
+            nome_turma="5A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
+
         url = reverse(
             "matriculas-quantidades-dre",
-            kwargs={"dre_codigo": "100001"},
+            kwargs={"dre_codigo": "108100"},
         )
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(
+            resp.json(),
+            [
+                {
+                    "totalMatriculas": 1,
+                    "codigoEolEscola": "100001",
+                    "turnos": [
+                        {
+                            "turno": "Integral",
+                            "tipoTurno": 6,
+                            "quantidade": 1,
+                        }
+                    ],
+                }
+            ],
+        )
+
+    def test_m04_agrupa_pela_ue_da_ultima_alocacao(self) -> None:
+        """Verifica que M04 usa a UE da última alocação da matrícula."""
+        seed_alunos()
+        Matricula.objects.create(
+            codigo_matricula=999002,
+            aluno_id=1234567,
+            codigo_ue="100001",
+            codigo_dre="108100",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+            origem_historica=False,
+            codigo_serie_ensino=100,
+            codigo_tipo_escola=1,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999002,
+            codigo_turma=42345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 10),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=6,
+            nome_turma="5A",
+            codigo_ue_turma="100001",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=1,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=999002,
+            codigo_turma=52345,
+            numero_chamada="12",
+            data_situacao_aluno=date(2026, 2, 20),
+            codigo_situacao_aluno=1,
+            codigo_tipo_turma=1,
+            tipo_turno=3,
+            nome_turma="5B",
+            codigo_ue_turma="100002",
+            codigo_etapa_ensino=5,
+            codigo_ciclo_ensino=2,
+            descricao_etapa_ensino="Ensino Fundamental",
+            descricao_ciclo_ensino="Ciclo Interdisciplinar",
+            sequencia=2,
+            origem_atual=True,
+            ano_letivo_turma=2026,
+            serie_resumida="5",
+        )
+
+        url = reverse(
+            "matriculas-quantidades-dre",
+            kwargs={"dre_codigo": "108100"},
+        )
+        resp = _autenticado().get(url)
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.json(),
+            [
+                {
+                    "totalMatriculas": 1,
+                    "codigoEolEscola": "100002",
+                    "turnos": [
+                        {
+                            "turno": "Tarde",
+                            "tipoTurno": 3,
+                            "quantidade": 1,
+                        }
+                    ],
+                }
+            ],
+        )
 
 
 class EscolasApiTestCase(TestCase):
