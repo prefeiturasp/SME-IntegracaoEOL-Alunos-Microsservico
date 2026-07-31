@@ -1,8 +1,6 @@
 """Queries SQL do domínio Alunos (réplicas do contrato legado)."""
 
-
 SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
         mt.codigo_turma AS "codigo_turma",
         COUNT(*) AS quantidade,
@@ -14,11 +12,9 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
       AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
     GROUP BY mt.codigo_turma
     ORDER BY mt.codigo_turma
-) t
 """
 
 SQL_A16_QUANTIDADE = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
         COUNT(*) AS quantidade,
         ROW_NUMBER() OVER (ORDER BY m.codigo_ue, mt.codigo_turma) AS ordem,
@@ -31,11 +27,9 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
       AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
     GROUP BY m.codigo_ue, mt.codigo_turma
     ORDER BY m.codigo_ue, mt.codigo_turma
-) t
 """
 
 SQL_A18_ACOMPANHAMENTO = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT
         m.codigo_aluno AS "codigo_eol",
         r.nome AS "nome_responsavel",
@@ -79,11 +73,9 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
             AND r2.cpf = %(cpf)s
             AND r2.data_fim_vinculo IS NULL
       ))
-) t
 """
 
 SQL_A19_RESPONSAVEIS = """
-SELECT json_agg(row_to_json(t))::text AS j FROM (
     SELECT DISTINCT
         r.codigo_dre AS "codigo_dre",
         r.dre AS "dre",
@@ -107,5 +99,4 @@ SELECT json_agg(row_to_json(t))::text AS j FROM (
            OR r.codigo_ue = %(codigo_ue)s)
     ORDER BY r.codigo_dre, r.codigo_ue, r.codigo_turma,
              r.codigo_aluno, r.cpf_responsavel
-) t
 """

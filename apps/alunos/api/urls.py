@@ -3,6 +3,7 @@
 from django.urls import path
 
 from apps.alunos.api.views import (
+    AcompanhamentoEscolarTurmaView,
     AlunosAtivosPeriodoTurmaView,
     AlunosAtivosTurmaView,
     AlunosPorCodigosEAnoView,
@@ -25,14 +26,17 @@ from apps.alunos.api.views import (
     MatriculasAlunoEscolaView,
     MatriculasAnoAtualView,
     MatriculasAnosAnterioresView,
+    MatriculasTurmasAlunoView,
     NecessidadesEspeciaisAlunoView,
     QuantidadeAlunosPorTurmaEscolaView,
     QuantidadeMatriculadosCCContratoView,
     QuantidadeMatriculadosContratoView,
     QuantidadeMatriculadosPorAnoCCView,
     QuantidadeMatriculadosView,
+    QuantidadeMatriculasTurmasPeriodoView,
     ResponsaveisDreUeTurmaView,
     ResponsavelAlunoView,
+    TodosAlunosTurmaView,
     TotalAlunosAtivosPorPeriodoView,
     TotalMatriculasPorTurnoDreView,
     TotalMatriculasPorTurnoUeView,
@@ -97,9 +101,29 @@ urlpatterns = [
         name="alunos-ativos-turma",
     ),
     path(
+        "matriculas-turmas/quantidade",
+        QuantidadeMatriculasTurmasPeriodoView.as_view(),
+        name="quantidade-matriculas-turmas-periodo",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/acompanhamento-escolar",
+        AcompanhamentoEscolarTurmaView.as_view(),
+        name="acompanhamento-escolar-turma",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/todos-alunos",
+        TodosAlunosTurmaView.as_view(),
+        name="todos-alunos-turma",
+    ),
+    path(
         "turmas/<str:codigo_turma>/",
         AlunosTurmaView.as_view(),
         name="alunos-turma",
+    ),
+    path(
+        "<str:codigo_aluno>/matriculas-turmas",
+        MatriculasTurmasAlunoView.as_view(),
+        name="matriculas-turmas-aluno",
     ),
     path(
         "<str:codigo_aluno>/necessidades-especiais",
