@@ -22,6 +22,7 @@ Os dados consumidos pelo microsserviço são consolidados pelo
 | Documentação OpenAPI  | drf-spectacular                               |
 | Persistência          | PostgreSQL (via dj_db_conn_pool / psycopg2)   |
 | Autenticação          | API Key via header `X-API-Key`                |
+| Observabilidade       | SME Sidecar SDK v1.0.0                        |
 | Testes                | manage.py test + coverage (≥ 80%)             |
 | Qualidade             | black + ruff + mypy                           |
 
@@ -29,7 +30,7 @@ Os dados consumidos pelo microsserviço são consolidados pelo
 
 ```
 apps/
-├── core/               # ApiKey auth e utilitários compartilhados
+├── core/               # API Key, boot do SDK e utilitários compartilhados
 └── alunos/
     ├── enums.py        # SituacaoMatricula, TipoSexo, TipoResponsavel...
     ├── models.py       # tabelas read-only (managed=False) do alunos_db
@@ -109,19 +110,47 @@ microsserviços (Pedagógico, Programas).
 
 Veja [`.env.example`](./.env.example).
 
-| Variável                    | Default                                            | Descrição                                |
-|-----------------------------|----------------------------------------------------|------------------------------------------|
-| `URL_BANCO_ALUNOS`          | `postgresql://postgres:postgres@.../alunos_db`     | Connection string do `alunos_db`         |
-| `DJANGO_SECRET_KEY`         | obrigatório em produção                            | Secret do Django                         |
-| `DJANGO_DEBUG`              | `1`                                                | Modo debug (`0` em produção)             |
-| `DJANGO_ALLOWED_HOSTS`      | `*`                                                | Lista CSV de hosts permitidos            |
-| `API_KEY`                   | `dev-key-default`                                  | Chave usada para autenticar consumidores |
-| `API_KEY_HEADER`            | `X-API-Key`                                        | Header da API Key                        |
-| `DB_POOL_SIZE`              | `5`                                                | Pool size do datasource                  |
-| `NOME_APLICACAO`            | `SME-IntegracaoEOL-Alunos-Microsservico`           | Nome da aplicação (logs / health)        |
-| `AMBIENTE_APLICACAO`        | `local`                                            | Ambiente (`local`, `staging`, `prod`)    |
-| `NIVEL_LOG`                 | `INFO`                                             | Nível de log                             |
-| `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                    | Portas em dev                            |
+| Variável                    | Default                                        | Descrição                                |
+|-----------------------------|------------------------------------------------|------------------------------------------|
+| `URL_BANCO_ALUNOS`          | SQLite em memória quando ausente              | Connection string do `alunos_db`         |
+| `DJANGO_SECRET_KEY`         | valor apenas para desenvolvimento             | Secret do Django                         |
+| `DJANGO_DEBUG`              | `1`                                            | Modo debug (`0` em produção)             |
+| `DJANGO_ALLOWED_HOSTS`      | `*`                                            | Lista CSV de hosts permitidos            |
+| `API_KEY`                   | `dev-key-default`                              | Chave usada para autenticar consumidores |
+| `API_KEY_HEADER`            | `X-API-Key`                                    | Header da API Key                        |
+| `DB_POOL_SIZE`              | `5`                                            | Pool size do datasource                  |
+| `SME_SDK_ENABLED`           | `true`                                         | Ativa o runtime do SDK                   |
+| `SME_SERVICE_NAME`          | `unnamed-service`                              | Identidade em logs e traces              |
+| `SME_SERVICE_VERSION`       | `unknown`                                      | Versão publicada na telemetria           |
+| `SME_ENVIRONMENT`           | `dev`                                          | Ambiente em logs e traces                |
+| `SME_LOG_LEVEL`             | `ERROR`                                        | Nível mínimo dos logs                    |
+| `SME_LOG_FORMAT`            | `json`                                         | Formato `json` ou `console`              |
+| `SME_CORRELATION_ID_HEADER` | `X-Request-ID`                                 | Header de correlação HTTP                |
+| `SME_OTEL_ENABLED`          | `false`                                        | Ativa tracing OpenTelemetry              |
+| `SME_LOG_QUEUE`             | vazio                                          | Ativa o provider quando definida         |
+| `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                | Portas em dev                            |
+
+As opções de timeout, retry e circuit breaker também são carregadas pelo
+runtime, mas passam a atuar somente quando o serviço usa os clientes HTTP da
+SDK. Atualmente o MS Alunos não realiza chamadas HTTP de saída.
+
+## Observabilidade e correlação
+
+O runtime do SME Sidecar SDK é inicializado pelo `CoreConfig` antes da
+primeira requisição. O middleware da SDK:
+
+- reutiliza ou gera o `X-Request-ID`;
+- devolve o identificador na resposta;
+- registra método, caminho, status e duração em log estruturado;
+- continua o trace recebido quando OpenTelemetry está habilitado.
+
+O tracing permanece desabilitado no ambiente local de exemplo. Habilite
+`SME_OTEL_ENABLED` somente com um endpoint OTLP acessível pelo container.
+O envio de logs ao RabbitMQ é opcional e só é ativado quando
+`SME_LOG_QUEUE` possui valor; stdout permanece como saída principal.
+
+Não registre API Keys, documentos pessoais, payloads completos ou outros
+dados sensíveis nos logs e spans.
 
 ## Descrição de dados do model:
 

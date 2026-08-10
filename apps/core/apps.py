@@ -9,3 +9,9 @@ class CoreConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.core"
     label = "core"
+
+    def ready(self) -> None:
+        """Inicializa os recursos compartilhados da aplicação."""
+        from sme_sidecar_sdk import runtime
+
+        runtime.configure()
