@@ -50,7 +50,9 @@ When("realizo consulta de turmas do aluno", () => {
 When(
   "realizo consulta de turmas do aluno com código de aluno inexistente",
   () => {
-    cy.apiGet(`/api/v1/alunos/0101010/turmas`).as("response");
+    cy.apiGet(
+      `/api/v1/alunos/${Cypress.env("CODIGO_ALUNO_INEXISTENTE_TURMAS")}/turmas`,
+    ).as("response");
   },
 );
 
@@ -68,7 +70,7 @@ When(
   "realizo consulta de turmas do aluno por ano letivo com código de aluno inexistente",
   () => {
     cy.apiGet(
-      `/api/v1/alunos/10101010/turmas/anos_letivos/${Cypress.env("ANO_LETIVO")}/historico/true/filtrar-situacao/true/tipo-turma/true`,
+      `/api/v1/alunos/${Cypress.env("CODIGO_ALUNO_INEXISTENTE_TURMAS_ANO_LETIVO")}/turmas/anos_letivos/${Cypress.env("ANO_LETIVO")}/historico/true/filtrar-situacao/true/tipo-turma/true`,
     ).as("response");
   },
 );
@@ -92,7 +94,7 @@ When(
   "realizo consulta de alunos matriculados para um ano letivo sem alunos matriculados",
   () => {
     cy.apiGet(
-      `/api/v1/alunos/ano-letivo/2000/matriculados?componentes_curriculares=1`,
+      `/api/v1/alunos/ano-letivo/${Cypress.env("ANO_LETIVO_SEM_MATRICULADOS")}/matriculados?componentes_curriculares=1`,
     ).as("response");
   },
 );
@@ -117,7 +119,7 @@ When("realizo consulta de alunos por UE", () => {
 
 When("realizo consulta de autocomplete de alunos ativos", () => {
   cy.apiGet(
-    `/api/v1/alunos/ues/${Cypress.env("CODIGO_UE")}/autocomplete/ativos?aluno_nome=Joa&limite=2`,
+    `/api/v1/alunos/ues/${Cypress.env("CODIGO_UE")}/autocomplete/ativos?aluno_nome=${Cypress.env("AUTOCOMPLETE_ALUNO_NOME")}&limite=${Cypress.env("AUTOCOMPLETE_LIMITE")}`,
   ).as("response");
 });
 
@@ -141,7 +143,7 @@ When("realizo consulta de resumo do responsável", () => {
 
 When("realizo consulta de matrículas de aluno na escola", () => {
   cy.apiGet(
-    `/api/v1/alunos/escolas/094773/aluno/${Cypress.env("CODIGO_ALUNO")}/matriculas`,
+    `/api/v1/alunos/escolas/${Cypress.env("CODIGO_ESCOLA")}/aluno/${Cypress.env("CODIGO_ALUNO")}/matriculas`,
   ).as("response");
 });
 
@@ -161,6 +163,62 @@ When("realizo consulta de matrículas de anos anteriores", () => {
   cy.apiGet(
     `/api/v1/alunos/matriculas/anos-anteriores?ano_letivo=${Cypress.env("ANO_LETIVO") - 1}&ue_codigo=${Cypress.env("CODIGO_UE")}`,
   ).as("response");
+});
+
+When(
+  "realizo atualização de dados do responsável do aluno sem alterar dados",
+  () => {
+    cy.apiPost(
+      `/api/v1/alunos/${Cypress.env("CODIGO_ALUNO_SEM_ALTERACAO")}/responsaveis/${Cypress.env("CPF_RESPONSAVEL_SEM_ALTERACAO")}`,
+      {
+        id: 0,
+        cpf: Cypress.env("CPF_RESPONSAVEL_SEM_ALTERACAO"),
+        email: Cypress.env("EMAIL_RESPONSAVEL_SEM_ALTERACAO"),
+        nome: Cypress.env("NOME_RESPONSAVEL_SEM_ALTERACAO"),
+        tipo_responsavel: 0,
+        data_nascimento: Cypress.env("DATA_NASCIMENTO_SEM_ALTERACAO"),
+        data_atualizacao: Cypress.env("DATA_ATUALIZACAO_SEM_ALTERACAO"),
+        nome_mae: Cypress.env("NOME_RESPONSAVEL_SEM_ALTERACAO"),
+        ddd_celular: Cypress.env("DDD_SEM_ALTERACAO"),
+        numero_celular: Cypress.env("NUMERO_CELULAR_SEM_ALTERACAO"),
+        codigo_aluno: Cypress.env("CODIGO_ALUNO_SEM_ALTERACAO"),
+      },
+    ).as("response");
+  },
+);
+
+When(
+  "realizo atualização de dados de contato do responsável do aluno sem alterar dados",
+  () => {
+    cy.apiPut(
+      `/api/v1/alunos/${Cypress.env("CODIGO_ALUNO_SEM_ALTERACAO")}/responsaveis/${Cypress.env("CPF_RESPONSAVEL_SEM_ALTERACAO")}`,
+      {
+        codigo_aluno: Cypress.env("CODIGO_ALUNO_SEM_ALTERACAO"),
+        cpf: Cypress.env("CPF_RESPONSAVEL_SEM_ALTERACAO"),
+        email: Cypress.env("EMAIL_RESPONSAVEL_SEM_ALTERACAO"),
+        ddd_celular: Cypress.env("DDD_SEM_ALTERACAO"),
+        numero_celular: Cypress.env("NUMERO_CELULAR_SEM_ALTERACAO"),
+        ddd_residencial: Cypress.env("DDD_SEM_ALTERACAO"),
+        numero_residencial: Cypress.env("NUMERO_RESIDENCIAL_SEM_ALTERACAO"),
+        ddd_comercial: Cypress.env("DDD_SEM_ALTERACAO"),
+        numero_comercial: Cypress.env("NUMERO_COMERCIAL_SEM_ALTERACAO"),
+      },
+    ).as("response");
+  },
+);
+
+When("realizo consulta de nomes dos alunos por código", () => {
+  cy.apiPost(`/api/v1/alunos/obter-nomes-alunos/contrato`, {
+    codigos_alunos: [Cypress.env("CODIGO_ALUNO")],
+    ano_letivo: Number(Cypress.env("ANO_LETIVO")),
+  }).as("response");
+});
+
+When("realizo consulta de nomes dos alunos sem informar códigos", () => {
+  cy.apiPost(`/api/v1/alunos/obter-nomes-alunos/contrato`, {
+    codigos_alunos: [],
+    ano_letivo: Number(Cypress.env("ANO_LETIVO")),
+  }).as("response");
 });
 
 // THEN
@@ -472,3 +530,41 @@ And("o retorno das matrículas deve ser válido", () => {
     }
   });
 });
+
+And(
+  "o retorno da atualização do responsável deve indicar que nenhum dado foi alterado",
+  () => {
+    cy.get("@response").then((response) => {
+      if (response.status === 200) {
+        expect(response.body).to.eq(false);
+      }
+    });
+  },
+);
+
+And("o retorno dos nomes dos alunos deve ser válido", () => {
+  cy.get("@response").then((response) => {
+    if (response.status === 200) {
+      expect(response.body[0]).to.have.property("nome_aluno");
+      expect(response.body[0]).to.have.property("situacao_matricula");
+      expect(response.body[0]).to.have.property("codigo_escola");
+      expect(response.body[0]).to.have.property("data_matricula");
+      expect(response.body[0]).to.have.property("codigo_aluno");
+      expect(response.body[0]).to.have.property("codigo_turma");
+      expect(response.body[0]).to.have.property("codigo_situacao_matricula");
+    }
+  });
+});
+
+And(
+  "a mensagem de códigos dos alunos obrigatórios deve ser exibida",
+  () => {
+    cy.get("@response").then((response) => {
+      if (response.status === 400) {
+        expect(response.body).to.eq(
+          "Os códigos dos alunos são obrigatórios.",
+        );
+      }
+    });
+  },
+);

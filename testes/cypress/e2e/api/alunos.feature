@@ -142,5 +142,27 @@ Funcionalidade: API - Alunos
     Quando realizo consulta de matrículas de anos anteriores
     Então retorna o status 200
     E o retorno das matrículas de anos anteriores deve ser válido
-    
-    
+
+  Cenário: Atualizar dados do responsável do aluno sem alterar dados
+    Dado que possuo acesso à API de alunos
+    Quando realizo atualização de dados do responsável do aluno sem alterar dados
+    Então retorna o status 200
+    E o retorno da atualização do responsável deve indicar que nenhum dado foi alterado
+
+  Cenário: Atualizar dados de contato do responsável do aluno sem alterar dados
+    Dado que possuo acesso à API de alunos
+    Quando realizo atualização de dados de contato do responsável do aluno sem alterar dados
+    Então retorna o status 200
+    E o retorno da atualização do responsável deve indicar que nenhum dado foi alterado
+
+  Cenário: Consultar nomes dos alunos por código
+    Dado que possuo acesso à API de alunos
+    Quando realizo consulta de nomes dos alunos por código
+    Então retorna o status 200
+    E o retorno dos nomes dos alunos deve ser válido
+
+  Cenário: Consultar nomes dos alunos sem informar códigos
+    Dado que possuo acesso à API de alunos
+    Quando realizo consulta de nomes dos alunos sem informar códigos
+    Então retorna o status 400
+    E a mensagem de códigos dos alunos obrigatórios deve ser exibida
