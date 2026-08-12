@@ -119,35 +119,82 @@ Veja [`.env.example`](./.env.example).
 | `API_KEY`                   | `dev-key-default`                              | Chave usada para autenticar consumidores |
 | `API_KEY_HEADER`            | `X-API-Key`                                    | Header da API Key                        |
 | `DB_POOL_SIZE`              | `5`                                            | Pool size do datasource                  |
-| `SME_SDK_ENABLED`           | `true`                                         | Ativa o runtime do SDK                   |
-| `SME_SERVICE_NAME`          | `unnamed-service`                              | Identidade em logs e traces              |
-| `SME_SERVICE_VERSION`       | `unknown`                                      | Versão publicada na telemetria           |
-| `SME_ENVIRONMENT`           | `dev`                                          | Ambiente em logs e traces                |
-| `SME_LOG_LEVEL`             | `ERROR`                                        | Nível mínimo dos logs                    |
-| `SME_LOG_FORMAT`            | `json`                                         | Formato `json` ou `console`              |
-| `SME_CORRELATION_ID_HEADER` | `X-Request-ID`                                 | Header de correlação HTTP                |
-| `SME_OTEL_ENABLED`          | `false`                                        | Ativa tracing OpenTelemetry              |
-| `SME_LOG_QUEUE`             | vazio                                          | Ativa o provider quando definida         |
 | `PORT_WEB` / `PORT_DEBUGPY` | `8002` / `5679`                                | Portas em dev                            |
+
+**SME Sidecar SDK**
+
+| Variável                          | Padrão                  | Descrição                                      |
+|-----------------------------------|-------------------------|------------------------------------------------|
+| `SME_SDK_ENABLED`                 | `true`                  | Ativa o runtime do SDK                         |
+| `SME_SERVICE_NAME`                | `alunos-ms`             | Nome do serviço nos logs e traces               |
+| `SME_SERVICE_VERSION`             | `0.1.0`                 | Versão publicada na telemetria                  |
+| `SME_ENVIRONMENT`                 | `local`                 | Ambiente de execução                            |
+| `SME_LOG_LEVEL`                   | `INFO`                  | Nível mínimo dos logs                          |
+| `SME_LOG_FORMAT`                  | `json`                  | Formato `json` ou `console`                    |
+| `SME_CORRELATION_ID_HEADER`       | `X-Request-ID`          | Header de correlação                            |
+| `SME_OTEL_ENABLED`                | `false`                 | Ativa tracing OpenTelemetry                   |
+| `SME_OTEL_EXPORTER_OTLP_ENDPOINT` | `http://otel-collector:4317` | URL OTLP gRPC do collector ou Elastic APM |
+| `SME_OTEL_EXPORTER_OTLP_HEADERS`  | —                       | Headers do exporter em `chave=valor`           |
+| `SME_OTEL_EXPORTER_OTLP_INSECURE` | `true`                  | Desabilita TLS no transporte OTLP              |
+| `SME_BROKER_URL`                  | RabbitMQ local          | URL AMQP para transporte opcional de logs      |
+| `SME_LOG_QUEUE`                   | —                       | Fila RabbitMQ que ativa o provider de logs     |
 
 As opções de timeout, retry e circuit breaker também são carregadas pelo
 runtime, mas passam a atuar somente quando o serviço usa os clientes HTTP da
 SDK. Atualmente o MS Alunos não realiza chamadas HTTP de saída.
 
-## Observabilidade e correlação
+## Observabilidade
 
-O runtime do SME Sidecar SDK é inicializado pelo `CoreConfig` antes da
-primeira requisição. O middleware da SDK:
+### Formato dos logs
 
-- reutiliza ou gera o `X-Request-ID`;
-- devolve o identificador na resposta;
-- registra método, caminho, status e duração em log estruturado;
-- continua o trace recebido quando OpenTelemetry está habilitado.
+Os logs são emitidos em JSON estruturado. Cada registro inclui os campos
+de contexto aplicáveis:
 
-O tracing permanece desabilitado no ambiente local de exemplo. Habilite
-`SME_OTEL_ENABLED` somente com um endpoint OTLP acessível pelo container.
-O envio de logs ao RabbitMQ é opcional e só é ativado quando
-`SME_LOG_QUEUE` possui valor; stdout permanece como saída principal.
+| Campo         | Descrição                                               |
+|---------------|---------------------------------------------------------|
+| `timestamp`   | Data e hora do evento                                   |
+| `level`       | Nível do log                                             |
+| `logger`      | Módulo que gerou o log                                  |
+| `event`       | Nome do evento estruturado                              |
+| `service`     | Nome do serviço (`alunos-ms`)                          |
+| `environment` | Ambiente de execução                                  |
+| `request_id`  | Identificador propagado via `X-Request-ID`              |
+| `span_id`     | Identificador da operação atual, quando houver trace   |
+| `trace_id`    | Identificador do trace, quando houver tracing habilitado |
+
+O `ObservabilityMiddleware` do SDK emite o evento
+`http_request_completed` com método, caminho, status e duração da
+requisição, além de reutilizar ou gerar o `X-Request-ID` e devolvê-lo na
+resposta.
+
+### Pipeline de logs
+
+```text
+Aplicação
+   │
+   ├── stdout (sempre)
+   │     JSON estruturado lido pelo runtime do container
+   │
+   └── RabbitMQ (quando SME_LOG_QUEUE está configurada)
+         │
+         └── Consumer (Logstash)
+               │
+               └── Elasticsearch → Kibana (Logs)
+```
+
+Para enviar logs ao Kibana via RabbitMQ, configure `SME_BROKER_URL` e
+`SME_LOG_QUEUE`. O consumer da infraestrutura deve ler essa fila e indexar
+os eventos no Elasticsearch. O `stdout` permanece como saída principal.
+
+### Rastreamento distribuído
+
+Quando `SME_OTEL_ENABLED=true`, o SDK instrumenta o Django e continua o
+contexto `traceparent` recebido do Transition Gateway. Os spans são enviados
+por OTLP ao Elastic APM ou a um OpenTelemetry Collector, permitindo
+correlacionar Gateway e MS Alunos pelo mesmo `trace_id`.
+
+No ambiente local de exemplo, o tracing permanece desabilitado. Habilite-o
+somente quando o endpoint OTLP estiver acessível pelo container.
 
 Não registre API Keys, documentos pessoais, payloads completos ou outros
 dados sensíveis nos logs e spans.
