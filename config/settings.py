@@ -75,11 +75,12 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
-    "apps.core",
+    "apps.core.apps.CoreConfig",
     "apps.alunos",
 ]
 
 MIDDLEWARE = [
+    "sme_sidecar_sdk.integrations.django.ObservabilityMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -137,12 +138,6 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-NOME_APLICACAO = os.environ.get(
-    "NOME_APLICACAO", "SME-IntegracaoEOL-Alunos-Microsservico"
-)
-AMBIENTE_APLICACAO = os.environ.get("AMBIENTE_APLICACAO", "local")
-NIVEL_LOG = os.environ.get("NIVEL_LOG", "INFO")
-
 API_KEY = (
     "test-api-key"
     if MODO_TESTE
@@ -185,24 +180,4 @@ SPECTACULAR_SETTINGS = {
     },
     "SECURITY": [{"ApiKeyAuth": []}],
     "SWAGGER_UI_SETTINGS": {"syntaxHighlight": False},
-}
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "padrao": {
-            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
-        }
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "padrao",
-        }
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": NIVEL_LOG,
-    },
 }
