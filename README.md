@@ -89,6 +89,8 @@ microsserviços (Pedagógico, Programas).
 | A22 | PUT   | `/api/alunos/{codigo_aluno}/responsaveis/{cpf_responsavel}`                                                                                   | Atualiza responsável (busca ativa)                     |
 | A23 | POST  | `/api/alunos/{codigo_aluno}/responsaveis/{cpf_responsavel}`                                                                                   | Cadastra novo responsável                              |
 | A27 | GET   | `/api/alunos/{codigo_aluno}/responsaveis/filiacao`                                                                                           | Filiação / vínculo dos responsáveis do aluno           |
+| A28 | GET   | `/api/alunos/turmas/{codigo_turma}/alunos-ativos/data-aula/{data_aula}`                                                                                           | Lista os alunos de uma turma conforme a data aula.
+| A29 | GET   | `/api/alunos/turmas/{codigo_turma}/data-matricula/{data_matricula}`                                                                                           | Lista os alunos de uma turma conforme data de aula.           |
 
 ### `/api/matriculas` (MatriculaController)
 
