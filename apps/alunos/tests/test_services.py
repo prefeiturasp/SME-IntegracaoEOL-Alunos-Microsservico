@@ -996,13 +996,17 @@ class M03M04AgregacoesTestCase(TestCase):
     def test_m04_retorna_agregado_por_escola(self) -> None:
         """Verifica que M04 retorna lista agregada por escola."""
         seed_matricula_uma_turma_dre_108100()
-        dados = services.obter_total_matriculas_por_turno_dre(dre_codigo="108100")
+        dados = services.obter_total_matriculas_por_turno_dre(
+            dre_codigo="108100"
+        )
         self.assertEqual(dados, RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA)
 
     def test_m04_usa_escola_da_ultima_alocacao_da_turma(self) -> None:
         """Verifica que M04 agrega pela UE da última alocação da turma."""
         seed_matricula_duas_turmas_dre_108100()
-        dados = services.obter_total_matriculas_por_turno_dre(dre_codigo="108100")
+        dados = services.obter_total_matriculas_por_turno_dre(
+            dre_codigo="108100"
+        )
         self.assertEqual(dados, RESULTADO_ESPERADO_M04_DRE_108100)
 
 
