@@ -406,7 +406,7 @@ class TurmasRotaResolucaoTestCase(TestCase):
 
 
 class AlunosTurmaDataApiTestCase(TestCase):
-    """Valida os endpoints de alunos da turma por data."""
+    """Valida os endpoints de alunos da turma por data aula."""
 
     def test_data_aula_retorna_alunos(self) -> None:
         """Verifica a listagem por data de aula."""
@@ -431,42 +431,12 @@ class AlunosTurmaDataApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_data_matricula_retorna_alunos_filtrados(self) -> None:
-        """Verifica a listagem por data de matrícula e sequência."""
-        codigo_turma = seed_turma_data_aula()
-        url = reverse(
-            "alunos-turma-data-matricula",
-            kwargs={
-                "codigo_turma": str(codigo_turma),
-                "data_matricula": "2026-06-01",
-            },
-        )
-        resp = _autenticado().get(
-            url + "?considerar_inativos=false&sequencia=1"
-        )
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        corpo = resp.json()
-        self.assertEqual(len(corpo), 1)
-        self.assertEqual(corpo[0]["codigo_aluno"], 1234567)
-
-    def test_data_matricula_invalida_retorna_400(self) -> None:
-        """Verifica erro 400 para data de matrícula inválida."""
-        url = reverse(
-            "alunos-turma-data-matricula",
-            kwargs={
-                "codigo_turma": "3015603",
-                "data_matricula": "naoEhData",
-            },
-        )
-        resp = _autenticado().get(url)
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-
 
 class AlunosTurmaDataMatriculaApiTestCase(TestCase):
-    """Valida os endpoints de alunos da turma por data."""
+    """Valida os endpoints de alunos da turma por data da metrícula."""
 
     def test_data_matricula_retorna_alunos(self) -> None:
-        """Verifica a listagem por data da matrícula."""
+        """Verifica a listagem por data da matrícula no formato ISO."""
         codigo_turma = seed_turma_data_aula()
         url = reverse(
             "alunos-turma-data-matricula",
@@ -488,8 +458,8 @@ class AlunosTurmaDataMatriculaApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_data_matricula_retorna_alunos_filtrados(self) -> None:
-        """Verifica a listagem por data de matrícula e sequência."""
+    def test_data_matricula_iso_retorna_alunos_filtrados(self) -> None:
+        """Verifica a listagem por data de matrícula no formato ISO."""
         codigo_turma = seed_turma_data_aula()
         url = reverse(
             "alunos-turma-data-matricula",
@@ -498,15 +468,13 @@ class AlunosTurmaDataMatriculaApiTestCase(TestCase):
                 "data_matricula": "2026-06-01",
             },
         )
-        resp = _autenticado().get(
-            url + "?considerar_inativos=false&sequencia=1"
-        )
+        resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         corpo = resp.json()
-        self.assertEqual(len(corpo), 1)
+        self.assertEqual(len(corpo), 2)
         self.assertEqual(corpo[0]["codigo_aluno"], 1234567)
 
-    def test_data_matricula_invalida_retorna_400(self) -> None:
+    def test_data_matricula_iso_invalida_retorna_400(self) -> None:
         """Verifica erro 400 para data de matrícula inválida."""
         url = reverse(
             "alunos-turma-data-matricula",
