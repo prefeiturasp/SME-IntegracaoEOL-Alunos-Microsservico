@@ -4,7 +4,7 @@ from collections.abc import Iterator, Sequence
 from datetime import date, datetime
 from typing import Any
 
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -12,13 +12,13 @@ from apps.alunos.enums import (
     SITUACOES_MATRICULA_VALIDAS,
 )
 from apps.alunos.models import Matricula, MatriculaTurma
-from apps.alunos.repositories import alunos_indexados
 
 
 def _mts_autocomplete_ue(
     codigo_ue: str,
     ano_letivo: int,
     historico: bool,
+    matriculas: QuerySet[Matricula] | None = None,
 ) -> list[dict[str, Any]]:
     """Lista vínculos de turma regular da UE para o autocomplete."""
     qs = MatriculaTurma.objects.filter(
@@ -32,6 +32,10 @@ def _mts_autocomplete_ue(
         qs = qs.filter(
             codigo_situacao_aluno__in=SITUACOES_MATRICULA_VALIDAS,
             codigo_etapa_ensino__isnull=False,
+        )
+    if matriculas is not None:
+        qs = qs.filter(
+            codigo_matricula__in=matriculas.values("codigo_matricula")
         )
     return list(
         qs.values("codigo_matricula", "codigo_turma", "numero_chamada")
@@ -57,30 +61,49 @@ def _alunos_com_turma_programa(codigo_turmas: Sequence[int]) -> set[int]:
     )
 
 
-def _matriculas_autocomplete_idx(
-    codigos_matricula: list[int],
+def _matriculas_autocomplete_qs(
     historico: bool,
     nome_aluno: str | None,
-    codigo_eol: str | None,
-) -> dict[int, dict[str, Any]]:
-    """Indexa matrículas do autocomplete com dados do aluno."""
-    if not codigos_matricula:
-        return {}
-    qs = Matricula.objects.filter(
-        codigo_matricula__in=codigos_matricula,
-        origem_atual=not historico,
-    )
+    codigo_aluno: int | None,
+) -> QuerySet[Matricula]:
+    """Seleciona matrículas pela origem e pelos filtros de aluno.
+
+    Args:
+        historico: Indica a consulta a matrículas históricas.
+        nome_aluno: Trecho do nome, desconsiderando espaços nas extremidades.
+        codigo_aluno: Código do aluno, quando informado.
+
+    Returns:
+        Matrículas que atendem aos filtros, sem avaliar a consulta.
+    """
+    qs = Matricula.objects.filter(origem_atual=not historico)
     if historico:
         qs = qs.filter(
             codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
         )
-    if codigo_eol:
-        try:
-            qs = qs.filter(aluno_id=int(codigo_eol))
-        except (TypeError, ValueError):
-            return {}
+    if codigo_aluno is not None:
+        qs = qs.filter(aluno_id=codigo_aluno)
     if nome_aluno and nome_aluno.strip():
         qs = qs.filter(aluno__nome__icontains=nome_aluno.strip())
+    return qs
+
+
+def _matriculas_autocomplete_idx(
+    codigos_matricula: list[int],
+    matriculas: QuerySet[Matricula],
+) -> dict[int, dict[str, Any]]:
+    """Indexa as matrículas selecionadas com os nomes dos alunos.
+
+    Args:
+        codigos_matricula: Códigos com vínculo elegível de turma.
+        matriculas: Consulta com os filtros de aluno e origem.
+
+    Returns:
+        Dados de identificação indexados pelo código da matrícula.
+    """
+    if not codigos_matricula:
+        return {}
+    qs = matriculas.filter(codigo_matricula__in=codigos_matricula)
     return {
         m["codigo_matricula"]: m
         for m in qs.values(
@@ -142,6 +165,10 @@ def buscar_alunos_autocomplete(
     limite: int = 10,
 ) -> list[dict[str, Any]]:
     """Busca alunos para autocomplete da UE/ano."""
+    try:
+        codigo_aluno = int(codigo_eol) if codigo_eol else None
+    except (TypeError, ValueError):
+        return []
     ano_corrente = timezone.now().year
     if ano_letivo:
         ramos = [eh_historico or ano_letivo != ano_corrente]
@@ -155,12 +182,20 @@ def buscar_alunos_autocomplete(
     saida: list[dict[str, Any]] = []
     vistos: set[tuple[int, int]] = set()
     for historico in ramos:
-        mts = _mts_autocomplete_ue(codigo_ue, ano_letivo, historico)
+        matriculas = _matriculas_autocomplete_qs(
+            historico, nome_aluno, codigo_aluno
+        )
+        # O código permite usar o índice de aluno antes de ler os vínculos.
+        # Não antecipa nome: a busca textual global pode ampliar a varredura.
+        mts = _mts_autocomplete_ue(
+            codigo_ue,
+            ano_letivo,
+            historico,
+            matriculas if codigo_aluno is not None else None,
+        )
         matriculas_idx = _matriculas_autocomplete_idx(
             [mt["codigo_matricula"] for mt in mts],
-            historico,
-            nome_aluno,
-            codigo_eol,
+            matriculas,
         )
         for mt, matricula in _iter_autocomplete_validos(
             mts, matriculas_idx, codigo_turmas, alunos_programa
@@ -240,16 +275,18 @@ def _linhas_autocomplete_ativos(
     limite: int,
 ) -> list[dict[str, Any]]:
     """Agrupa os registros de autocomplete de alunos ativos."""
-    alunos_idx = alunos_indexados([m["aluno_id"] for m in matriculas])
     saida: list[dict[str, Any]] = []
     for m in sorted(
         matriculas,
         key=lambda item: (
-            alunos_idx.get(item["aluno_id"], {}).get("nome", ""),
-            alunos_idx.get(item["aluno_id"], {}).get("nome_social") or "",
+            item["aluno__nome"],
+            item["aluno__nome_social"] or "",
         ),
     ):
-        a = alunos_idx.get(m["aluno_id"], {})
+        a = {
+            "nome": m["aluno__nome"],
+            "nome_social": m["aluno__nome_social"],
+        }
         nome = a.get("nome") or ""
         if nome_l and nome_l not in nome.lower():
             continue
@@ -282,7 +319,13 @@ def buscar_alunos_ativos_autocomplete(
     nome_l = (aluno_nome or "").strip().lower()
     qs = _qs_matriculas_ativas_ue(ue_codigo, referencia, aluno_codigo, nome_l)
     matriculas = list(
-        qs.values("codigo_matricula", "aluno_id", "codigo_ue")[: limite + 500]
+        qs.values(
+            "codigo_matricula",
+            "aluno_id",
+            "codigo_ue",
+            "aluno__nome",
+            "aluno__nome_social",
+        )[: limite + 500]
     )
     if not matriculas:
         return []
