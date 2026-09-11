@@ -8,12 +8,16 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 
 from apps.alunos.api.serializers import AlunoAutocompleteSerializer
-from apps.alunos.models import Matricula, MatriculaTurma
+from apps.alunos.models import Aluno, Matricula, MatriculaTurma
 from apps.alunos.services.autocomplete import (
     buscar_alunos_ativos_autocomplete,
     buscar_alunos_autocomplete,
 )
 from apps.alunos.tests.helpers import seed_matriculas
+
+_NOME_ALFA = "ALUNO FICTICIO ALFA"
+_NOME_BETA = "ALUNO FICTICIO BETA"
+_NOME_SOCIAL_BETA = "NOME SOCIAL FICTICIO BETA"
 
 
 class AutocompleteOtimizacaoTestCase(TestCase):
@@ -21,6 +25,12 @@ class AutocompleteOtimizacaoTestCase(TestCase):
 
     def setUp(self) -> None:
         seed_matriculas()
+        Aluno.objects.filter(pk=1234567).update(
+            nome=_NOME_ALFA, nome_social=None
+        )
+        Aluno.objects.filter(pk=7654321).update(
+            nome=_NOME_BETA, nome_social=_NOME_SOCIAL_BETA
+        )
         clock = patch(
             "django.utils.timezone.now",
             return_value=datetime(2026, 9, 9, tzinfo=UTC),
@@ -31,15 +41,15 @@ class AutocompleteOtimizacaoTestCase(TestCase):
     def test_nome_e_limite_preservam_payload(self) -> None:
         """Retorna os mesmos campos após filtrar pelo nome."""
         dados = buscar_alunos_autocomplete(
-            "100001", 2026, nome_aluno="  joao  ", limite=1
+            "100001", 2026, nome_aluno=f"  {_NOME_BETA.lower()}  ", limite=1
         )
         self.assertEqual(
             AlunoAutocompleteSerializer(dados, many=True).data,
             [
                 {
                     "codigo_aluno": 7654321,
-                    "nome_aluno": "JOAO COSTA ALMEIDA SILVA",
-                    "nome_social_aluno": "JOAO SOCIAL",
+                    "nome_aluno": _NOME_BETA,
+                    "nome_social_aluno": _NOME_SOCIAL_BETA,
                     "codigo_turma": 22222,
                     "numero_aluno_chamada": "7",
                     "turma": None,
@@ -52,7 +62,7 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Exige que código e nome correspondam ao mesmo aluno."""
         self.assertEqual(
             buscar_alunos_autocomplete(
-                "100001", 2026, codigo_eol="1234567", nome_aluno="JOAO"
+                "100001", 2026, codigo_eol="1234567", nome_aluno=_NOME_BETA
             ),
             [],
         )
@@ -89,7 +99,7 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Mantém a leitura inicial restrita aos vínculos da UE."""
         with CaptureQueriesContext(connection) as queries:
             dados = buscar_alunos_autocomplete(
-                "100001", 2026, nome_aluno="JOAO", limite=1
+                "100001", 2026, nome_aluno=_NOME_BETA, limite=1
             )
         self.assertEqual(len(dados), 1)
         self.assertNotIn('"aluno"', queries[0]["sql"])
@@ -165,10 +175,10 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Entrega nomes e turma sem a leitura extra de dados sensíveis."""
         with self.assertNumQueries(2), CaptureQueriesContext(connection) as qs:
             dados = buscar_alunos_ativos_autocomplete(
-                "100001", aluno_nome="JOAO", limite=1
+                "100001", aluno_nome=_NOME_BETA, limite=1
             )
         body = AlunoAutocompleteSerializer(dados, many=True).data
-        self.assertEqual(body[0]["nome_social_aluno"], "JOAO SOCIAL")
+        self.assertEqual(body[0]["nome_social_aluno"], _NOME_SOCIAL_BETA)
         self.assertEqual(body[0]["turma"], "6A")
         self.assertEqual(body[0]["numero_aluno_chamada"], "07")
         for query in qs:
@@ -188,7 +198,9 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         ]:
             with self.subTest(referencia=referencia):
                 dados = buscar_alunos_ativos_autocomplete(
-                    "100001", aluno_nome="JOAO", data_referencia=referencia
+                    "100001",
+                    aluno_nome=_NOME_ALFA,
+                    data_referencia=referencia,
                 )
                 self.assertEqual(len(dados), quantidade)
 
@@ -198,7 +210,9 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         MatriculaTurma.objects.update(ano_letivo_turma=2025)
         self.assertEqual(
             len(
-                buscar_alunos_ativos_autocomplete("100001", aluno_nome="JOAO")
+                buscar_alunos_ativos_autocomplete(
+                    "100001", aluno_nome=_NOME_ALFA
+                )
             ),
             1,
         )
