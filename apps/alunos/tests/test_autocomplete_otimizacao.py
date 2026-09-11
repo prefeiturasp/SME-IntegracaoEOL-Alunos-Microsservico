@@ -31,15 +31,15 @@ class AutocompleteOtimizacaoTestCase(TestCase):
     def test_nome_e_limite_preservam_payload(self) -> None:
         """Retorna os mesmos campos após filtrar pelo nome."""
         dados = buscar_alunos_autocomplete(
-            "100001", 2026, nome_aluno="  maria  ", limite=1
+            "100001", 2026, nome_aluno="  joao  ", limite=1
         )
         self.assertEqual(
             AlunoAutocompleteSerializer(dados, many=True).data,
             [
                 {
                     "codigo_aluno": 7654321,
-                    "nome_aluno": "MARIA OLIVEIRA",
-                    "nome_social_aluno": "MARIA SOCIAL",
+                    "nome_aluno": "JOAO COSTA ALMEIDA SILVA",
+                    "nome_social_aluno": "JOAO SOCIAL",
                     "codigo_turma": 22222,
                     "numero_aluno_chamada": "7",
                     "turma": None,
@@ -52,7 +52,7 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Exige que código e nome correspondam ao mesmo aluno."""
         self.assertEqual(
             buscar_alunos_autocomplete(
-                "100001", 2026, codigo_eol="1234567", nome_aluno="MARIA"
+                "100001", 2026, codigo_eol="1234567", nome_aluno="JOAO"
             ),
             [],
         )
@@ -89,7 +89,7 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Mantém a leitura inicial restrita aos vínculos da UE."""
         with CaptureQueriesContext(connection) as queries:
             dados = buscar_alunos_autocomplete(
-                "100001", 2026, nome_aluno="MARIA", limite=1
+                "100001", 2026, nome_aluno="JOAO", limite=1
             )
         self.assertEqual(len(dados), 1)
         self.assertNotIn('"aluno"', queries[0]["sql"])
@@ -165,10 +165,10 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Entrega nomes e turma sem a leitura extra de dados sensíveis."""
         with self.assertNumQueries(2), CaptureQueriesContext(connection) as qs:
             dados = buscar_alunos_ativos_autocomplete(
-                "100001", aluno_nome="MARIA", limite=1
+                "100001", aluno_nome="JOAO", limite=1
             )
         body = AlunoAutocompleteSerializer(dados, many=True).data
-        self.assertEqual(body[0]["nome_social_aluno"], "MARIA SOCIAL")
+        self.assertEqual(body[0]["nome_social_aluno"], "JOAO SOCIAL")
         self.assertEqual(body[0]["turma"], "6A")
         self.assertEqual(body[0]["numero_aluno_chamada"], "07")
         for query in qs:

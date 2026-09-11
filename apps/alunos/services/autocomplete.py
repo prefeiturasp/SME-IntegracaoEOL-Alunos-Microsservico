@@ -196,8 +196,7 @@ def buscar_alunos_autocomplete(
         matriculas = _matriculas_autocomplete_qs(
             historico, nome_aluno, codigo_aluno
         )
-        # O código permite usar o índice de aluno antes de ler os vínculos.
-        # Não antecipa nome: a busca textual global pode ampliar a varredura.
+     
         mts = _mts_autocomplete_ue(
             codigo_ue,
             ano_letivo,
