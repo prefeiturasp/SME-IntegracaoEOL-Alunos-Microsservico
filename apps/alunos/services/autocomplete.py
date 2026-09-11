@@ -154,6 +154,21 @@ def _iter_autocomplete_validos(
             yield mt, matricula
 
 
+def _origens_autocomplete(ano_letivo: int, eh_historico: bool) -> list[bool]:
+    """Define as origens atual e histórica consultadas.
+
+    Args:
+        ano_letivo: Ano da consulta; zero seleciona ambas as origens.
+        eh_historico: Solicita a origem histórica mesmo no ano corrente.
+
+    Returns:
+        Indicadores de origem histórica, na ordem de consulta.
+    """
+    if not ano_letivo:
+        return [False, True]
+    return [eh_historico or ano_letivo != timezone.now().year]
+
+
 def buscar_alunos_autocomplete(
     codigo_ue: str,
     ano_letivo: int,
@@ -169,11 +184,7 @@ def buscar_alunos_autocomplete(
         codigo_aluno = int(codigo_eol) if codigo_eol else None
     except (TypeError, ValueError):
         return []
-    ano_corrente = timezone.now().year
-    if ano_letivo:
-        ramos = [eh_historico or ano_letivo != ano_corrente]
-    else:
-        ramos = [False, True]
+    ramos = _origens_autocomplete(ano_letivo, eh_historico)
 
     alunos_programa: set[int] = (
         _alunos_com_turma_programa(codigo_turmas) if codigo_turmas else set()
