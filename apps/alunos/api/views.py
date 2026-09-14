@@ -82,9 +82,7 @@ ERRO_LEGADO_ACOMPANHAMENTO_SEM_FILTRO = (
 )
 ERRO_LEGADO_ANO_LETIVO_OBRIGATORIO = "Ano Letivo deve ser informado"
 ERRO_LEGADO_CODIGOS_ALUNOS = "Os códigos dos Alunos são obrigatórios."
-ERRO_LEGADO_CODIGOS_ALUNOS_NOMES = (
-    "Os códigos dos alunos são obrigatórios."
-)
+ERRO_LEGADO_CODIGOS_ALUNOS_NOMES = "Os códigos dos alunos são obrigatórios."
 ERRO_LEGADO_COMPONENTES_CURRICULARES = (
     "Os códigos dos componentes curriculares são obrigatórios."
 )
@@ -799,6 +797,113 @@ class AlunosTurmaView(APIView):
             considerar_inativos=considerar_inativos,
             sequencia=sequencia,
             ano_letivo=ano_letivo if ano_letivo and ano_letivo > 0 else None,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
+
+
+class AlunosTurmaDataView(APIView):
+    """Lista os alunos de uma turma por data referida."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Alunos de uma turma por data referida",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_aula",
+                OpenApiTypes.DATE,
+                OpenApiParameter.PATH,
+                description="Formato: YYYY-MM-DD",
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(
+        self, _request: Request, codigo_turma: str, data_aula: str
+    ) -> Response:
+        """Lista os alunos de uma turma conforme data de aula.
+
+        Args:
+            codigo_turma: Código da turma consultada.
+            data_aula: Data de referência em formato ISO 8601.
+
+        Returns:
+            Alunos distintos na turma conforme data de aula informada.
+        """
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            data_aula_iso = to_datetime(data_aula, "data_aula")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo,
+            data_aula=data_aula_iso,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
+
+
+class AlunosTurmaDataMatriculaView(APIView):
+    """Lista os alunos de uma turma por data da matrícula."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Alunos de uma turma por data da matrícula",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "data_matricula",
+                OpenApiTypes.DATE,
+                OpenApiParameter.PATH,
+                description="Formato: YYYY-MM-DD",
+            ),
+            OpenApiParameter(
+                "considerar_inativos",
+                bool,
+                OpenApiParameter.QUERY,
+            ),
+            OpenApiParameter(
+                "sequencia",
+                int,
+                OpenApiParameter.QUERY,
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(
+        self, request: Request, codigo_turma: str, data_matricula: str
+    ) -> Response:
+        """Lista os alunos de uma turma conforme data da matrícula.
+
+        Args:
+            request: Requisição com o filtros opcionais
+                ``considerar_inativos`` e ``sequencia``
+            codigo_turma: Código da turma consultada.
+            data_matricula: Data da matrícula em formato ISO 8601.
+
+        Returns:
+            Alunos distintos na turma conforme data da matrícula informada.
+        """
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            data_matricula_iso = to_datetime(data_matricula, "data_matricula")
+
+            considerar_inativos = query_bool(
+                request, "considerar_inativos", False
+            )
+            sequencia_raw = request.query_params.get("sequencia")
+            sequencia = (
+                to_int(sequencia_raw, "sequencia") if sequencia_raw else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_alunos_turma(
+            codigo_turma=codigo,
+            data_aula=None,
+            data_matricula=data_matricula_iso,
+            considerar_inativos=considerar_inativos,
+            sequencia=sequencia,
         )
         return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
