@@ -839,6 +839,7 @@ class AlunosTurmaDataView(APIView):
         dados = services.obter_alunos_turma(
             codigo_turma=codigo,
             data_aula=data_aula_iso,
+            considerar_inativos=True,
         )
         return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
