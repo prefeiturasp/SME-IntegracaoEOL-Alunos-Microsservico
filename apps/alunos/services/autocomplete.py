@@ -1,5 +1,6 @@
 """Services de autocomplete de alunos."""
 
+from collections import defaultdict
 from collections.abc import Iterator, Sequence
 from datetime import date, datetime
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
+from apps.alunos.constants import MODALIDADE_POR_ETAPA
 from apps.alunos.enums import (
     SITUACOES_MATRICULA_ATIVAS_TURMA,
     SITUACOES_MATRICULA_VALIDAS,
@@ -196,7 +198,7 @@ def buscar_alunos_autocomplete(
         matriculas = _matriculas_autocomplete_qs(
             historico, nome_aluno, codigo_aluno
         )
-     
+
         mts = _mts_autocomplete_ue(
             codigo_ue,
             ano_letivo,
@@ -237,7 +239,7 @@ def _qs_matriculas_ativas_ue(
     nome_l: str,
 ) -> Any:
     """Monta o queryset de matrículas ativas da UE para autocomplete."""
-    qs = Matricula.objects.filter(codigo_ue=ue_codigo)
+    qs = Matricula.objects.filter(codigo_ue=ue_codigo, origem_atual=True)
     if referencia is not None:
         qs = qs.filter(
             Q(codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS)
@@ -256,11 +258,12 @@ def _qs_matriculas_ativas_ue(
 
 def _mts_ativas_idx(
     codigos_matricula: list[int],
-) -> dict[int, dict[str, Any]]:
-    """Indexa matrículas-turma ativas regulares por matrícula."""
+) -> dict[int, list[dict[str, Any]]]:
+    """Agrupa todos os vínculos atuais elegíveis de cada matrícula."""
     mts = (
         MatriculaTurma.objects.filter(
             codigo_matricula__in=codigos_matricula,
+            origem_atual=True,
             codigo_situacao_aluno__in=SITUACOES_MATRICULA_ATIVAS_TURMA,
             codigo_etapa_ensino__isnull=False,
         )
@@ -275,17 +278,44 @@ def _mts_ativas_idx(
         )
         .order_by("codigo_matricula")
     )
-    return {mt["codigo_matricula"]: mt for mt in mts}
+    indice: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for mt in mts:
+        indice[mt["codigo_matricula"]].append(mt)
+    return dict(indice)
+
+
+def _chave_sugestao_ativa(
+    matricula: dict[str, Any], vinculo: dict[str, Any]
+) -> tuple[Any, ...]:
+    """Identifica sugestões iguais pelos campos apresentados ao consumidor.
+
+    Args:
+        matricula: Identificação e nomes do aluno.
+        vinculo: Turma, chamada e etapa de ensino do vínculo.
+
+    Returns:
+        Valores que distinguem uma sugestão de autocomplete.
+    """
+    return (
+        matricula["aluno_id"],
+        matricula["aluno__nome"],
+        matricula["aluno__nome_social"],
+        vinculo["codigo_turma"],
+        vinculo["numero_chamada"],
+        vinculo["nome_turma"],
+        MODALIDADE_POR_ETAPA.get(vinculo["codigo_etapa_ensino"]),
+    )
 
 
 def _linhas_autocomplete_ativos(
     matriculas: list[dict[str, Any]],
-    mts_idx: dict[int, dict[str, Any]],
+    mts_idx: dict[int, list[dict[str, Any]]],
     nome_l: str,
     limite: int,
 ) -> list[dict[str, Any]]:
     """Agrupa os registros de autocomplete de alunos ativos."""
     saida: list[dict[str, Any]] = []
+    vistos: set[tuple[Any, ...]] = set()
     for m in sorted(
         matriculas,
         key=lambda item: (
@@ -300,16 +330,20 @@ def _linhas_autocomplete_ativos(
         nome = a.get("nome") or ""
         if nome_l and nome_l not in nome.lower():
             continue
-        mt = mts_idx[m["codigo_matricula"]]
-        saida.append(
-            {
-                "matricula": m,
-                "matricula_turma": mt,
-                "aluno": a,
-            }
-        )
-        if len(saida) >= limite:
-            break
+        for mt in mts_idx[m["codigo_matricula"]]:
+            chave = _chave_sugestao_ativa(m, mt)
+            if chave in vistos:
+                continue
+            vistos.add(chave)
+            saida.append(
+                {
+                    "matricula": m,
+                    "matricula_turma": mt,
+                    "aluno": a,
+                }
+            )
+            if len(saida) >= limite:
+                return saida
     return saida
 
 
@@ -320,11 +354,22 @@ def buscar_alunos_ativos_autocomplete(
     data_referencia: datetime | date | None = None,
     limite: int = 10,
 ) -> list[dict[str, Any]]:
-    """Busca alunos ativos para autocomplete."""
+    """Busca alunos ativos para autocomplete.
+
+    Args:
+        ue_codigo: Código da unidade educacional.
+        aluno_nome: Trecho do nome para busca.
+        aluno_codigo: Código do aluno; zero não filtra por código.
+        data_referencia: Data da consulta; se ausente, usa a data local atual.
+        limite: Quantidade máxima de sugestões.
+
+    Returns:
+        Sugestões de alunos com vínculos elegíveis na unidade.
+    """
     referencia = (
         data_referencia.date()
         if isinstance(data_referencia, datetime)
-        else data_referencia
+        else data_referencia or timezone.localdate()
     )
     nome_l = (aluno_nome or "").strip().lower()
     qs = _qs_matriculas_ativas_ue(ue_codigo, referencia, aluno_codigo, nome_l)

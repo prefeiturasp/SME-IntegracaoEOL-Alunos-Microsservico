@@ -349,14 +349,30 @@ class A05A06AutocompleteTestCase(TestCase):
         self.assertEqual(dados[0]["matricula"]["aluno_id"], 7654321)
 
     def test_a06_alunos_ativos(self) -> None:
-        """Verifica o autocomplete restrito a alunos ativos."""
+        """Usa a data local por padrão e respeita a referência explícita."""
         seed_matriculas()
-        dados = services.buscar_alunos_ativos_autocomplete(
-            ue_codigo="100001",
-            aluno_nome="JOAO",
-            limite=10,
+        Matricula.objects.filter(pk=998877).update(
+            codigo_situacao_matricula=4,
+            data_situacao_matricula=date(2026, 6, 4),
         )
-        self.assertEqual(len(dados), 1)
+        with patch(
+            "apps.alunos.services.autocomplete.timezone.localdate",
+            return_value=date(2026, 6, 3),
+        ):
+            for referencia, quantidade in (
+                (None, 1),
+                (date(2026, 6, 3), 1),
+                (date(2026, 6, 4), 0),
+                (datetime(2026, 6, 4, 10, 0), 0),
+            ):
+                with self.subTest(referencia=referencia):
+                    dados = services.buscar_alunos_ativos_autocomplete(
+                        ue_codigo="100001",
+                        aluno_codigo=1234567,
+                        data_referencia=referencia,
+                        limite=10,
+                    )
+                    self.assertEqual(len(dados), quantidade)
 
     def test_a06_alunos_ativos_ignora_turma_programa(self) -> None:
         """Verifica que turmas tipo programa nao entram no autocomplete."""
@@ -419,6 +435,7 @@ class A05A06AutocompleteTestCase(TestCase):
             nome_turma="9B",
             codigo_etapa_ensino=6,
             sequencia=1,
+            origem_atual=True,
         )
 
         dados = services.buscar_alunos_ativos_autocomplete(
@@ -942,12 +959,30 @@ class M01M02E05ConsolidacaoTestCase(TestCase):
     """Valida a consolidação de matrículas por turma."""
 
     def test_m01(self) -> None:
-        """Verifica a consolidação do ano atual por UE."""
+        """Conta matrículas por turma sem incluir origens históricas."""
         seed_matriculas()
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=22222,
+            codigo_situacao_aluno=1,
+            sequencia=2,
+            origem_atual=False,
+        )
         dados = services.obter_matriculas_ano_atual(
             ano_letivo=2026, ue_codigo="100001"
         )
-        self.assertEqual(len(dados), 2)
+        self.assertEqual(
+            dados,
+            [
+                {"codigo_turma": 12345, "quantidade": 1},
+                {"codigo_turma": 22222, "quantidade": 1},
+            ],
+        )
+        Matricula.objects.filter(pk=998877).update(origem_atual=False)
+        self.assertEqual(
+            services.obter_matriculas_ano_atual(2026, "100001"),
+            [{"codigo_turma": 22222, "quantidade": 1}],
+        )
 
     def test_m02_anos_anteriores(self) -> None:
         """Verifica a leitura da consolidação histórica materializada."""
