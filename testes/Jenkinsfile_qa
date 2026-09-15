@@ -52,7 +52,7 @@ pipeline {
                                                 --key somekey \
                                                 --reporter mocha-allure-reporter \
                                                 --reporter-options reportDir=allure-results \
-                                                --ci-build-id SME-CDEP_JENKINS-BUILD-${BUILD_NUMBER} && \
+                                                --ci-build-id SME-IntegracaoEOL-Alunos-Microsservico_JENKINS-BUILD-${BUILD_NUMBER} && \
                                         chown 1001:1001 * -R && \
                                         chmod 777 * -R"
                             '''

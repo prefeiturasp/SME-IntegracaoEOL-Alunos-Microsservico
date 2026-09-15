@@ -14,7 +14,6 @@ from rest_framework.test import APIClient
 
 from apps.alunos.models import (
     DadosAlunoAcompanhamentoEscolar,
-    Matricula,
     MatriculaAnoLetivo,
     MatriculaComponenteCurricularAnoLetivo,
     MatriculaTurma,
@@ -404,6 +403,88 @@ class TurmasRotaResolucaoTestCase(TestCase):
         """Verifica que turmas/<codigo>/ resolve para a rota unificada."""
         url = reverse("alunos-turma", kwargs={"codigo_turma": "30156"})
         self.assertTrue(url.endswith("/turmas/30156/"))
+
+
+class AlunosTurmaDataApiTestCase(TestCase):
+    """Valida os endpoints de alunos da turma por data aula."""
+
+    def test_data_aula_retorna_alunos(self) -> None:
+        """Verifica a listagem por data de aula."""
+        codigo_turma = seed_turma_data_aula()
+        url = reverse(
+            "alunos-turma-data-aula",
+            kwargs={
+                "codigo_turma": str(codigo_turma),
+                "data_aula": "2026-06-01",
+            },
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.json()), 2)
+
+    def test_data_aula_parametros_invalidos_retorna_400(self) -> None:
+        """Verifica erro 400 para código ou data de aula inválidos."""
+        url = reverse(
+            "alunos-turma-data-aula",
+            kwargs={"codigo_turma": "abc", "data_aula": "naoEhData"},
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AlunosTurmaDataMatriculaApiTestCase(TestCase):
+    """Valida os endpoints de alunos da turma por data da metrícula."""
+
+    def test_data_matricula_retorna_alunos(self) -> None:
+        """Verifica a listagem por data da matrícula no formato ISO."""
+        codigo_turma = seed_turma_data_aula()
+        url = reverse(
+            "alunos-turma-data-matricula",
+            kwargs={
+                "codigo_turma": str(codigo_turma),
+                "data_matricula": "2026-06-01",
+            },
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.json()), 2)
+
+    def test_data_matricula_parametros_invalidos_retorna_400(self) -> None:
+        """Verifica erro 400 para código ou data de matrícula inválidos."""
+        url = reverse(
+            "alunos-turma-data-matricula",
+            kwargs={"codigo_turma": "abc", "data_matricula": "naoEhData"},
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_data_matricula_iso_retorna_alunos_filtrados(self) -> None:
+        """Verifica a listagem por data de matrícula no formato ISO."""
+        codigo_turma = seed_turma_data_aula()
+        url = reverse(
+            "alunos-turma-data-matricula",
+            kwargs={
+                "codigo_turma": str(codigo_turma),
+                "data_matricula": "2026-06-01",
+            },
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        corpo = resp.json()
+        self.assertEqual(len(corpo), 2)
+        self.assertEqual(corpo[0]["codigo_aluno"], 1234567)
+
+    def test_data_matricula_iso_invalida_retorna_400(self) -> None:
+        """Verifica erro 400 para data de matrícula inválida."""
+        url = reverse(
+            "alunos-turma-data-matricula",
+            kwargs={
+                "codigo_turma": "3015603",
+                "data_matricula": "naoEhData",
+            },
+        )
+        resp = _autenticado().get(url)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class QuantidadeMatriculasTurmasPeriodoApiTestCase(TestCase):
@@ -971,7 +1052,9 @@ class MatriculasApiTestCase(TestCase):
         )
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA)
+        self.assertEqual(
+            resp.json(), RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA
+        )
 
     def test_m04_agrupa_pela_ue_da_ultima_alocacao(self) -> None:
         """Verifica que M04 usa a UE da última alocação da matrícula."""

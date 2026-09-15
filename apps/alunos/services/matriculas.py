@@ -42,6 +42,7 @@ def _consolidacao_por_turma(
         ano_letivo=ano_letivo,
         codigo_ue=ue_codigo,
         codigo_situacao_matricula=1,  # Apenas matrículas ativas
+        origem_atual=True,
     ).values_list("codigo_matricula", flat=True)
     codigos = list(qs)
     if not codigos:
@@ -51,6 +52,7 @@ def _consolidacao_por_turma(
         MatriculaTurma.objects.filter(
             codigo_matricula__in=codigos,
             codigo_situacao_aluno__in=SITUACOES_MATRICULA_VALIDAS,
+            origem_atual=True,
         )
         .values("codigo_turma")
         .annotate(quantidade=Count("codigo_matricula", distinct=True))

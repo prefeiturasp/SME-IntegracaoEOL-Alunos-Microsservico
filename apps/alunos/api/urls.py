@@ -8,6 +8,8 @@ from apps.alunos.api.views import (
     AlunosAtivosTurmaView,
     AlunosPorCodigosEAnoView,
     AlunosPorCodigosView,
+    AlunosTurmaDataMatriculaView,
+    AlunosTurmaDataView,
     AlunosTurmaView,
     AutocompleteAlunosAtivosView,
     AutocompleteAlunosUeView,
@@ -121,6 +123,16 @@ urlpatterns = [
         "turmas/<str:codigo_turma>/",
         AlunosTurmaView.as_view(),
         name="alunos-turma",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/alunos-ativos/data-aula/<str:data_aula>/",
+        AlunosTurmaDataView.as_view(),
+        name="alunos-turma-data-aula",
+    ),
+    path(
+        "turmas/<str:codigo_turma>/data-matricula/<str:data_matricula>/",
+        AlunosTurmaDataMatriculaView.as_view(),
+        name="alunos-turma-data-matricula",
     ),
     path(
         "<str:codigo_aluno>/matriculas-turmas",

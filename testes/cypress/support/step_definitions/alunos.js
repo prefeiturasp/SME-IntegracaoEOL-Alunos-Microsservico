@@ -7,8 +7,14 @@ Given("que possuo acesso à API de alunos", () => {
   expect(Cypress.env("API_KEY")).to.exist;
 });
 
-// WHEN
+// THEN
+Then("retorna o status {int}", (statusCode) => {
+  cy.get("@response").then((response) => {
+    expect(response.status).to.eq(statusCode);
+  });
+});
 
+// WHEN
 When("realizo consulta de informações completas do aluno", () => {
   cy.apiGet(`/api/v1/alunos/${Cypress.env("CODIGO_ALUNO")}/informacoes`).as(
     "response",
@@ -161,7 +167,7 @@ When("realizo consulta de matrículas", () => {
 
 When("realizo consulta de matrículas de anos anteriores", () => {
   cy.apiGet(
-    `/api/v1/alunos/matriculas/anos-anteriores?ano_letivo=${Cypress.env("ANO_LETIVO") - 1}&ue_codigo=${Cypress.env("CODIGO_UE")}`,
+    `/api/v1/alunos/matriculas/anos-anteriores?ano_letivo=${Cypress.env("ANO_LETIVO")}&ue_codigo=${Cypress.env("CODIGO_UE")}`,
   ).as("response");
 });
 
@@ -219,26 +225,6 @@ When("realizo consulta de nomes dos alunos sem informar códigos", () => {
     codigos_alunos: [],
     ano_letivo: Number(Cypress.env("ANO_LETIVO")),
   }).as("response");
-});
-
-// THEN
-
-Then("retorna o status 200", function () {
-  cy.get("@response").then((response) => {
-    expect(response.status).to.eq(200);
-  });
-});
-
-Then("retorna o status 400", function () {
-  cy.get("@response").then((response) => {
-    expect(response.status).to.eq(400);
-  });
-});
-
-Then("retorna o status 404", function () {
-  cy.get("@response").then((response) => {
-    expect(response.status).to.eq(404);
-  });
 });
 
 // AND
@@ -556,15 +542,10 @@ And("o retorno dos nomes dos alunos deve ser válido", () => {
   });
 });
 
-And(
-  "a mensagem de códigos dos alunos obrigatórios deve ser exibida",
-  () => {
-    cy.get("@response").then((response) => {
-      if (response.status === 400) {
-        expect(response.body).to.eq(
-          "Os códigos dos alunos são obrigatórios.",
-        );
-      }
-    });
-  },
-);
+And("a mensagem de códigos dos alunos obrigatórios deve ser exibida", () => {
+  cy.get("@response").then((response) => {
+    if (response.status === 400) {
+      expect(response.body).to.eq("Os códigos dos alunos são obrigatórios.");
+    }
+  });
+});
