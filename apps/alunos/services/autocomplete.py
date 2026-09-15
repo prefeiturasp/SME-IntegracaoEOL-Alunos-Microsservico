@@ -354,11 +354,22 @@ def buscar_alunos_ativos_autocomplete(
     data_referencia: datetime | date | None = None,
     limite: int = 10,
 ) -> list[dict[str, Any]]:
-    """Busca alunos ativos para autocomplete."""
+    """Busca alunos ativos para autocomplete.
+
+    Args:
+        ue_codigo: Código da unidade educacional.
+        aluno_nome: Trecho do nome para busca.
+        aluno_codigo: Código do aluno; zero não filtra por código.
+        data_referencia: Data da consulta; se ausente, usa a data local atual.
+        limite: Quantidade máxima de sugestões.
+
+    Returns:
+        Sugestões de alunos com vínculos elegíveis na unidade.
+    """
     referencia = (
         data_referencia.date()
         if isinstance(data_referencia, datetime)
-        else data_referencia
+        else data_referencia or timezone.localdate()
     )
     nome_l = (aluno_nome or "").strip().lower()
     qs = _qs_matriculas_ativas_ue(ue_codigo, referencia, aluno_codigo, nome_l)

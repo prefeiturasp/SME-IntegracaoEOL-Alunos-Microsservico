@@ -481,6 +481,10 @@ class AutocompleteAlunosAtivosView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="Autocomplete de alunos ativos por referência",
+        description=(
+            "Sem data_referencia, utiliza a data atual no fuso horário "
+            "America/Sao_Paulo."
+        ),
         parameters=[
             OpenApiParameter("ue_codigo", str, OpenApiParameter.PATH),
             OpenApiParameter("aluno_nome", str, OpenApiParameter.QUERY),
