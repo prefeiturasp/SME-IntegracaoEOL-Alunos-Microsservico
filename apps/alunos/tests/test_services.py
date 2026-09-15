@@ -419,6 +419,7 @@ class A05A06AutocompleteTestCase(TestCase):
             nome_turma="9B",
             codigo_etapa_ensino=6,
             sequencia=1,
+            origem_atual=True,
         )
 
         dados = services.buscar_alunos_ativos_autocomplete(
