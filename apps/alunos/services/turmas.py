@@ -17,9 +17,7 @@ from apps.alunos.models import (
     MatriculaTurma,
     ResponsavelAluno,
 )
-from apps.alunos.repositories import (
-    alunos_indexados,
-)
+from apps.alunos.repositories import alunos_da_ue
 from apps.alunos.services.responsaveis import responsaveis_do_aluno
 
 
@@ -432,101 +430,6 @@ def buscar_turmas_do_aluno_com_historico(
     return dados
 
 
-def _matriculas_turma_da_ue(
-    codigo_ue: str,
-    ano_letivo: int,
-) -> list[dict[str, Any]]:
-    """Lista vínculos de matrícula-turma da UE."""
-    return list(
-        MatriculaTurma.objects.filter(
-            codigo_ue_turma=codigo_ue,
-            ano_letivo_turma=ano_letivo,
-            origem_atual=True,
-        )
-        .values(
-            "codigo_matricula",
-            "codigo_turma",
-            "numero_chamada",
-            "data_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-            "codigo_situacao_aluno",
-            "codigo_tipo_turma",
-            "tipo_turno",
-            "nome_turma",
-            "codigo_etapa_ensino",
-            "codigo_ciclo_ensino",
-            "descricao_etapa_ensino",
-            "descricao_ciclo_ensino",
-            "ano_letivo_turma",
-        )
-        .order_by("codigo_turma", "codigo_matricula", "sequencia")
-    )
-
-
-def _matriculas_idx_da_ue(
-    matriculas_turma: list[dict[str, Any]],
-    codigo_eol_filtro: str,
-) -> dict[int, dict[str, Any]]:
-    """Indexa matrículas da UE pelo código da matrícula."""
-    matriculas = list(
-        Matricula.objects.filter(
-            codigo_matricula__in=[
-                mt["codigo_matricula"] for mt in matriculas_turma
-            ],
-            origem_atual=True,
-        ).values("codigo_matricula", "aluno_id")
-    )
-    if codigo_eol_filtro:
-        matriculas = [
-            m for m in matriculas if codigo_eol_filtro in str(m["aluno_id"])
-        ]
-    return {m["codigo_matricula"]: m for m in matriculas}
-
-
-def _filtrar_matriculas_idx_por_nome(
-    matriculas_idx: dict[int, dict[str, Any]],
-    alunos_idx: dict[int, dict[str, Any]],
-    nome_filtro: str,
-) -> dict[int, dict[str, Any]]:
-    """Filtra matrículas pelos nomes dos alunos."""
-    if not nome_filtro:
-        return matriculas_idx
-    codigos_alunos = {
-        codigo_aluno
-        for codigo_aluno, aluno in alunos_idx.items()
-        if nome_filtro in (aluno.get("nome") or "").lower()
-    }
-    return {
-        codigo_matricula: matricula
-        for codigo_matricula, matricula in matriculas_idx.items()
-        if matricula["aluno_id"] in codigos_alunos
-    }
-
-
-def _linhas_alunos_da_ue(
-    matriculas_turma: list[dict[str, Any]],
-    matriculas_idx: dict[int, dict[str, Any]],
-    alunos_idx: dict[int, dict[str, Any]],
-    ano_letivo: int,
-) -> list[dict[str, Any]]:
-    """Agrupa alunos vinculados à UE."""
-    saida: list[dict[str, Any]] = []
-    for matricula_turma in matriculas_turma:
-        matricula = matriculas_idx.get(matricula_turma["codigo_matricula"])
-        if matricula is None:
-            continue
-        aluno = alunos_idx.get(matricula["aluno_id"], {})
-        saida.append(
-            {
-                "matricula": matricula,
-                "matricula_turma": matricula_turma,
-                "aluno": aluno,
-                "ano_letivo": ano_letivo,
-            }
-        )
-    return saida
-
-
 def buscar_alunos_da_ue(
     codigo_ue: str,
     ano_letivo: int,
@@ -534,27 +437,23 @@ def buscar_alunos_da_ue(
     codigo_eol: str | None = None,
 ) -> list[dict[str, Any]]:
     """Lista alunos vinculados a turmas da UE no ano letivo."""
-    codigo_eol_filtro = codigo_eol.strip() if codigo_eol else ""
+    codigo_filtro = codigo_eol.strip() if codigo_eol else ""
     nome_filtro = nome_aluno.strip().lower() if nome_aluno else ""
-
-    matriculas_turma = _matriculas_turma_da_ue(codigo_ue, ano_letivo)
-    if not matriculas_turma:
-        return []
-
-    matriculas_idx = _matriculas_idx_da_ue(matriculas_turma, codigo_eol_filtro)
-    if not matriculas_idx:
-        return []
-    codigos_alunos = {m["aluno_id"] for m in matriculas_idx.values()}
-    alunos_idx = alunos_indexados(list(codigos_alunos))
-
-    matriculas_idx = _filtrar_matriculas_idx_por_nome(
-        matriculas_idx, alunos_idx, nome_filtro
-    )
-    if not matriculas_idx:
-        return []
-    return _linhas_alunos_da_ue(
-        matriculas_turma, matriculas_idx, alunos_idx, ano_letivo
-    )
+    dados = alunos_da_ue(codigo_ue, ano_letivo)
+    if not codigo_filtro and not nome_filtro:
+        return dados
+    return [
+        linha
+        for linha in dados
+        if (
+            not codigo_filtro
+            or codigo_filtro in str(linha["matricula"]["aluno_id"])
+        )
+        and (
+            not nome_filtro
+            or nome_filtro in (linha["aluno"].get("nome") or "").lower()
+        )
+    ]
 
 
 def obter_alunos_por_codigos_e_ano(

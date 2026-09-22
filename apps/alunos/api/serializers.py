@@ -1,6 +1,8 @@
 """Serializers do domínio Alunos."""
 
+from collections.abc import Callable
 from datetime import date, datetime
+from functools import cached_property
 from typing import Any, cast
 
 from rest_framework import serializers
@@ -524,10 +526,38 @@ class AlunoDaUeSerializer(serializers.Serializer):
     desc_ciclo_ensino = serializers.CharField(allow_null=True)
     data_atualizacao_tabela = serializers.DateTimeField(allow_null=True)
 
+    @cached_property
+    def _conversores(self) -> tuple[tuple[str, Callable[[Any], Any]], ...]:
+        """Retorna os conversores dos campos de aluno da UE."""
+        return tuple(
+            (nome, campo.to_representation)
+            for nome, campo in self.fields.items()
+        )
+
+    @cached_property
+    def _datas_padrao(self) -> dict[str, Any]:
+        """Retorna as datas padrão de atualização no formato dos campos."""
+        return {
+            nome: self.fields[nome].to_representation(DATA_DEFAULT_LEGADO)
+            for nome in (
+                "data_atualizacao_contato",
+                "data_atualizacao_tabela",
+            )
+        }
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         """Serializa linha composta retornada pelo service."""
         if isinstance(instance, dict) and "matricula" in instance:
             instance = _aluno_da_ue_representation(instance)
+            instance.update(self._datas_padrao)
+            return {
+                nome: (
+                    converter(valor)
+                    if (valor := instance.get(nome)) is not None
+                    else None
+                )
+                for nome, converter in self._conversores
+            }
         return cast(dict[str, Any], super().to_representation(instance))
 
 
@@ -743,10 +773,26 @@ class QuantidadeMatriculadosContratoSerializer(serializers.Serializer):
     dre_codigo = serializers.CharField(allow_null=True)
     ue_codigo = serializers.CharField(allow_null=True)
 
+    @cached_property
+    def _conversores(self) -> tuple[tuple[str, Callable[[Any], Any]], ...]:
+        """Retorna os conversores dos campos de quantidade."""
+        return tuple(
+            (nome, campo.to_representation)
+            for nome, campo in self.fields.items()
+        )
+
     def to_representation(self, instance: Any) -> dict[str, Any]:
         """Serializa linha crua retornada pelo service."""
         if isinstance(instance, dict) and "codigo_dre" in instance:
             instance = _quantidade_contrato_representation(instance)
+            return {
+                nome: (
+                    converter(instance[nome])
+                    if instance[nome] is not None
+                    else None
+                )
+                for nome, converter in self._conversores
+            }
         return cast(dict[str, Any], super().to_representation(instance))
 
 
