@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>apps.core.authentication &#8212; SME-IntegracaoEOL Alunos</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2346ddef"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/translations.js?v=71a39b36"></script>
+    <link rel="index" title="Índice" href="../../../genindex.html" />
+    <link rel="search" title="Buscar" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Código-fonte para apps.core.authentication</h1><div class="highlight"><pre>
+<span></span><span class="sd">"""Autenticação por API Key."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">django.conf</span><span class="w"> </span><span class="kn">import</span> <span class="n">settings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">exceptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework.authentication</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseAuthentication</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework.permissions</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsAuthenticated</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework.request</span><span class="w"> </span><span class="kn">import</span> <span class="n">Request</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_ApiAuth</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Pseudo-usuário para autenticação via API Key."""</span>
+
+    <span class="n">is_authenticated</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">is_active</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">is_staff</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">is_anonymous</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">"api-user"</span>
+
+
+<div class="viewcode-block" id="ApiKeyAuthentication">
+<a class="viewcode-back" href="../../../api.html#apps.core.authentication.ApiKeyAuthentication">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ApiKeyAuthentication</span><span class="p">(</span><span class="n">BaseAuthentication</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Valida requisições via API Key."""</span>
+
+<div class="viewcode-block" id="ApiKeyAuthentication.authenticate">
+<a class="viewcode-back" href="../../../api.html#apps.core.authentication.ApiKeyAuthentication.authenticate">[documentos]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">authenticate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">_ApiAuth</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Autentica a requisição pelo header de API Key.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            request: Requisição recebida pela view.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Par com o pseudo-usuário autenticado e credencial vazia, ou</span>
+<span class="sd">            ``None`` quando o header não foi enviado.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            PermissionDenied: Se a API Key recebida não for igual à</span>
+<span class="sd">                configurada.</span>
+<span class="sd">        """</span>
+        <span class="n">header_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="s2">"API_KEY_HEADER"</span><span class="p">,</span> <span class="s2">"x-api-key"</span><span class="p">)</span>
+        <span class="n">api_key</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="s2">"API_KEY"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+        <span class="n">meta_key</span> <span class="o">=</span> <span class="s2">"HTTP_"</span> <span class="o">+</span> <span class="n">header_name</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-"</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span>
+        <span class="n">key_fornecida</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">META</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">meta_key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">key_fornecida</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">key_fornecida</span> <span class="o">!=</span> <span class="n">api_key</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">PermissionDenied</span><span class="p">(</span><span class="s2">"API Key inválida."</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">_ApiAuth</span><span class="p">(),</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ApiKeyAuthentication.authenticate_header">
+<a class="viewcode-back" href="../../../api.html#apps.core.authentication.ApiKeyAuthentication.authenticate_header">[documentos]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">authenticate_header</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retorna o header de autenticação esperado."""</span>
+        <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">settings</span><span class="p">,</span> <span class="s2">"API_KEY_HEADER"</span><span class="p">,</span> <span class="s2">"x-api-key"</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="n">ApiKeyPermission</span> <span class="o">=</span> <span class="n">IsAuthenticated</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">SME-IntegracaoEOL-Alunos-Microsservico</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Ir" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navegação</h3>
+<p class="caption" role="heading"><span class="caption-text">Referência de código</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api.html">Referência de código</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Código do módulo</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
