@@ -16,6 +16,7 @@ from apps.alunos.models import (
     ResponsavelAlunoTurma,
 )
 from apps.alunos.queries import (
+    SQL_A04_ALUNOS_DA_UE,
     SQL_A15_QUANTIDADE_POR_ANO_E_CC,
     SQL_A16_QUANTIDADE,
     SQL_A18_ACOMPANHAMENTO,
@@ -34,6 +35,51 @@ def _exec_query_rows(sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
 def _usa_sql_postgresql() -> bool:
     """Indica se a conexão atual aceita as queries otimizadas de Postgres."""
     return connection.vendor == "postgresql"
+
+
+def alunos_da_ue(codigo_ue: str, ano_letivo: int) -> list[dict[str, Any]]:
+    """Lista vínculos atuais de alunos nas turmas da UE e ano informados.
+
+    Preserva cada vínculo e inclui matrículas cujo aluno não foi encontrado.
+
+    Args:
+        codigo_ue: Código da unidade da turma.
+        ano_letivo: Ano letivo da turma.
+
+    Returns:
+        Matrícula, vínculo e dados do aluno, ordenados por turma,
+        matrícula e sequência.
+    """
+    linhas = _exec_query_rows(
+        SQL_A04_ALUNOS_DA_UE, {"ue": codigo_ue, "ano": ano_letivo}
+    )
+    fuso = connection.timezone if connection.vendor == "sqlite" else None
+    saida: list[dict[str, Any]] = []
+    for linha in linhas:
+        matricula = {
+            "codigo_matricula": linha["codigo_matricula"],
+            "aluno_id": linha.pop("aluno_id"),
+        }
+        aluno = {
+            "codigo_aluno": linha.pop("aluno_codigo"),
+            "nome": linha.pop("aluno_nome"),
+            "nome_social": linha.pop("aluno_nome_social"),
+            "data_nascimento": linha.pop("aluno_data_nascimento"),
+        }
+        data_hora = linha["data_situacao_aluno_data_hora"]
+        if fuso and data_hora is not None and timezone.is_naive(data_hora):
+            linha["data_situacao_aluno_data_hora"] = timezone.make_aware(
+                data_hora, fuso
+            )
+        saida.append(
+            {
+                "matricula": matricula,
+                "matricula_turma": linha,
+                "aluno": aluno if aluno["codigo_aluno"] is not None else {},
+                "ano_letivo": ano_letivo,
+            }
+        )
+    return saida
 
 
 def alunos_indexados(
