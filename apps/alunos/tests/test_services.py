@@ -2155,12 +2155,33 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         )
 
     def test_sem_n_mais_um(self) -> None:
-        """Verifica que a consulta usa um número fixo de queries."""
+        """Verifica que a consulta usa um número fixo de queries.
+
+        Reduzido de 5 para 2: as consultas de MatriculaTurma+Matricula e de
+        aluno+responsável+primeira-alocação foram unidas via subqueries
+        correlacionadas (``Subquery``/``OuterRef``), cada par virando uma
+        única ida ao banco.
+        """
         codigo_turma = seed_turma_data_aula()
-        with self.assertNumQueries(5):
+        with self.assertNumQueries(2):
             services.obter_alunos_turma(
                 codigo_turma=codigo_turma,
                 data_aula=datetime(2026, 6, 1, tzinfo=UTC),
+            )
+
+    def test_sem_n_mais_um_com_codigo_aluno(self) -> None:
+        """Verifica a contagem de queries no caminho filtrado por aluno.
+
+        Com ``codigo_aluno`` informado, o filtro é empurrado para dentro da
+        primeira consulta (restringe à matrícula do aluno em vez de trazer
+        a turma inteira); a contagem de queries continua em 2.
+        """
+        codigo_turma = seed_turma_data_aula()
+        with self.assertNumQueries(2):
+            services.obter_alunos_turma(
+                codigo_turma=codigo_turma,
+                data_aula=None,
+                codigo_aluno=7654321,
             )
 
     def test_responsaveis_por_aluno_vazio(self) -> None:
