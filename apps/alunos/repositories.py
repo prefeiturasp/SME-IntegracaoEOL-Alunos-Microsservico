@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from django.db import connection
-from django.db.models import Count, F
+from django.db.models import Count, F, Min, OuterRef, Subquery
 from django.utils import timezone
 
 from apps.alunos.enums import SITUACOES_MATRICULA_VALIDAS
@@ -178,6 +178,178 @@ def matricula_turma_por_matricula(
     ):
         saida.setdefault(mt["codigo_matricula"], mt)
     return saida
+
+
+def matriculas_turma_com_matricula(
+    filtros: dict[str, Any],
+    codigo_aluno: int | None = None,
+) -> list[dict[str, Any]]:
+    """Lista matrícula-turma já combinada com os campos da matrícula.
+
+    Substitui o par ``MatriculaTurma`` + ``Matricula`` (duas consultas
+    separadas, combinadas em Python) por uma única consulta com subqueries
+    correlacionadas, reduzindo de 2 para 1 o número de idas ao banco.
+
+    Args:
+        filtros: Filtros aplicados à ``MatriculaTurma`` (sempre inclui
+            ``codigo_turma``; opcionalmente
+            ``data_situacao_aluno_data_hora__lte``, ``sequencia`` e
+            ``ano_letivo_turma``).
+        codigo_aluno: Quando informado, restringe a matrícula desse aluno já
+            na consulta SQL, em vez de trazer a turma inteira para filtrar
+            em Python.
+
+    Returns:
+        Uma linha por matrícula-turma com os campos de ``Matricula``
+        embutidos; linhas sem matrícula correspondente são descartadas
+        (equivalente a um INNER JOIN).
+    """
+    qs = MatriculaTurma.objects.filter(**filtros)
+    if codigo_aluno is not None:
+        qs = qs.filter(
+            codigo_matricula__in=Matricula.objects.filter(
+                aluno_id=codigo_aluno
+            ).values("codigo_matricula")
+        )
+
+    matricula_sq = Matricula.objects.filter(
+        codigo_matricula=OuterRef("codigo_matricula")
+    )
+    rows = qs.annotate(
+        aluno_id=Subquery(matricula_sq.values("aluno_id")[:1]),
+        codigo_ue=Subquery(matricula_sq.values("codigo_ue")[:1]),
+        codigo_dre=Subquery(matricula_sq.values("codigo_dre")[:1]),
+        ano_letivo=Subquery(matricula_sq.values("ano_letivo")[:1]),
+        data_situacao_matricula_data_hora=Subquery(
+            matricula_sq.values("data_situacao_matricula_data_hora")[:1]
+        ),
+    ).values(
+        "codigo_matricula",
+        "codigo_turma",
+        "numero_chamada",
+        "sequencia",
+        "codigo_situacao_aluno",
+        "data_situacao_aluno_data_hora",
+        "aluno_id",
+        "codigo_ue",
+        "codigo_dre",
+        "ano_letivo",
+        "data_situacao_matricula_data_hora",
+    )
+    return [r for r in rows if r["aluno_id"] is not None]
+
+
+def detalhes_alunos_por_matricula(
+    codigos_matricula: Sequence[int],
+) -> tuple[
+    dict[int, dict[str, Any]],
+    dict[int, dict[str, Any]],
+    dict[int, Any],
+]:
+    """Busca aluno, responsável prioritário e primeira alocação em 1 query.
+
+    Substitui as três consultas independentes (dados do aluno, responsável
+    vigente prioritário e primeira alocação por matrícula) por uma única
+    consulta dirigida pela matrícula, com subqueries correlacionadas.
+
+    Args:
+        codigos_matricula: Códigos de matrícula das linhas finais da turma.
+
+    Returns:
+        Tupla com (alunos por código de aluno, responsável prioritário por
+        código de aluno, data da primeira alocação por código de matrícula).
+    """
+    if not codigos_matricula:
+        return {}, {}, {}
+
+    aluno_sq = Aluno.objects.filter(codigo_aluno=OuterRef("aluno_id"))
+    responsavel_sq = ResponsavelAluno.objects.filter(
+        aluno_id=OuterRef("aluno_id"),
+        data_fim_vinculo__isnull=True,
+    ).order_by("tipo_responsavel", "codigo_responsavel")
+    primeira_sq = (
+        MatriculaTurma.objects.filter(
+            codigo_matricula=OuterRef("codigo_matricula")
+        )
+        .values("codigo_matricula")
+        .annotate(primeira=Min("data_situacao_aluno_data_hora"))
+        .values("primeira")
+    )
+
+    rows = list(
+        Matricula.objects.filter(codigo_matricula__in=codigos_matricula)
+        .annotate(
+            aluno_nome=Subquery(aluno_sq.values("nome")[:1]),
+            aluno_nome_social=Subquery(aluno_sq.values("nome_social")[:1]),
+            aluno_data_nascimento=Subquery(
+                aluno_sq.values("data_nascimento")[:1]
+            ),
+            aluno_possui_deficiencia=Subquery(
+                aluno_sq.values("possui_deficiencia")[:1]
+            ),
+            aluno_data_atualizacao_contato=Subquery(
+                aluno_sq.values("data_atualizacao_contato")[:1]
+            ),
+            responsavel_nome=Subquery(responsavel_sq.values("nome")[:1]),
+            responsavel_tipo=Subquery(
+                responsavel_sq.values("tipo_responsavel")[:1]
+            ),
+            responsavel_ddd_celular=Subquery(
+                responsavel_sq.values("ddd_celular")[:1]
+            ),
+            responsavel_numero_celular=Subquery(
+                responsavel_sq.values("numero_celular")[:1]
+            ),
+            primeira_alocacao=Subquery(primeira_sq),
+        )
+        .values(
+            "codigo_matricula",
+            "aluno_id",
+            "aluno_nome",
+            "aluno_nome_social",
+            "aluno_data_nascimento",
+            "aluno_possui_deficiencia",
+            "aluno_data_atualizacao_contato",
+            "responsavel_nome",
+            "responsavel_tipo",
+            "responsavel_ddd_celular",
+            "responsavel_numero_celular",
+            "primeira_alocacao",
+        )
+    )
+
+    alunos_idx: dict[int, dict[str, Any]] = {}
+    responsaveis_idx: dict[int, dict[str, Any]] = {}
+    primeiras_alocacoes: dict[int, Any] = {}
+    for row in rows:
+        aluno_id = row["aluno_id"]
+        if row["aluno_nome"] is not None:
+            alunos_idx.setdefault(
+                aluno_id,
+                {
+                    "nome": row["aluno_nome"],
+                    "nome_social": row["aluno_nome_social"],
+                    "data_nascimento": row["aluno_data_nascimento"],
+                    "possui_deficiencia": row["aluno_possui_deficiencia"],
+                    "data_atualizacao_contato": row[
+                        "aluno_data_atualizacao_contato"
+                    ],
+                },
+            )
+        if row["responsavel_nome"] is not None:
+            responsaveis_idx.setdefault(
+                aluno_id,
+                {
+                    "nome": row["responsavel_nome"],
+                    "tipo_responsavel": row["responsavel_tipo"],
+                    "ddd_celular": row["responsavel_ddd_celular"],
+                    "numero_celular": row["responsavel_numero_celular"],
+                },
+            )
+        primeiras_alocacoes[row["codigo_matricula"]] = row[
+            "primeira_alocacao"
+        ]
+    return alunos_idx, responsaveis_idx, primeiras_alocacoes
 
 
 def quantidade_matriculados_por_ano_e_cc(
