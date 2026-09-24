@@ -369,21 +369,6 @@ def _quantidade_cc_contrato_representation(
     }
 
 
-def _quantidade_contrato_representation(
-    instance: dict[str, Any],
-) -> dict[str, Any]:
-    """Representa quantidade de matriculados no contrato legado."""
-    return {
-        "quantidade": instance["quantidade"],
-        "ordem": instance["ordem"],
-        "modalidade": instance["modalidade"],
-        "ano": instance["ano"],
-        "turma": instance["turma"],
-        "dre_codigo": instance["codigo_dre"],
-        "ue_codigo": instance["codigo_ue"],
-    }
-
-
 def _consolidacao_matricula_representation(
     instance: dict[str, Any],
 ) -> dict[str, Any]:
@@ -774,24 +759,26 @@ class QuantidadeMatriculadosContratoSerializer(serializers.Serializer):
     ue_codigo = serializers.CharField(allow_null=True)
 
     @cached_property
-    def _conversores(self) -> tuple[tuple[str, Callable[[Any], Any]], ...]:
+    def _conversores(
+        self,
+    ) -> tuple[tuple[str, str, Callable[[Any], Any]], ...]:
         """Retorna os conversores dos campos de quantidade."""
+        origens = {"dre_codigo": "codigo_dre", "ue_codigo": "codigo_ue"}
         return tuple(
-            (nome, campo.to_representation)
+            (nome, origens.get(nome, nome), campo.to_representation)
             for nome, campo in self.fields.items()
         )
 
     def to_representation(self, instance: Any) -> dict[str, Any]:
         """Serializa linha crua retornada pelo service."""
         if isinstance(instance, dict) and "codigo_dre" in instance:
-            instance = _quantidade_contrato_representation(instance)
             return {
                 nome: (
-                    converter(instance[nome])
-                    if instance[nome] is not None
+                    converter(instance[origem])
+                    if instance[origem] is not None
                     else None
                 )
-                for nome, converter in self._conversores
+                for nome, origem, converter in self._conversores
             }
         return cast(dict[str, Any], super().to_representation(instance))
 
