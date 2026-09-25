@@ -923,6 +923,13 @@ class QuantidadeMatriculasTurmasPeriodoView(APIView):
         summary="Quantidade de matrículas-turma por período",
         request=None,
         responses={200: dict},
+        deprecated=True,
+        description=(
+            "DEPRECIADO - Use ``../matriculas-turmas-periodo/quantidade`` "
+            "para buscar a quantidade de matrículas-turma por período "
+            "utilizando o parâmetro ``data_fim`` no formato "
+            "ISO 8601 (YYYY-MM-DD)."
+        ),
     )
     def post(self, request: Request) -> Response:
         """Conta as alocações válidas das turmas até a data informada.
