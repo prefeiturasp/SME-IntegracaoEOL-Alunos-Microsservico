@@ -37,6 +37,7 @@ from apps.alunos.api.views import (
     QuantidadeMatriculadosContratoView,
     QuantidadeMatriculadosPorAnoCCView,
     QuantidadeMatriculadosView,
+    QuantidadeMatriculasTurmasPeriodoDataISOView,
     QuantidadeMatriculasTurmasPeriodoView,
     ResponsaveisDreUeTurmaView,
     ResponsavelAlunoView,
@@ -108,6 +109,11 @@ urlpatterns = [
         "matriculas-turmas/quantidade",
         QuantidadeMatriculasTurmasPeriodoView.as_view(),
         name="quantidade-matriculas-turmas-periodo",
+    ),
+    path(
+        "matriculas-turmas-periodo/quantidade",
+        QuantidadeMatriculasTurmasPeriodoDataISOView.as_view(),
+        name="quantidade-matriculas-turmas-periodo-data-iso",
     ),
     path(
         "turmas/<str:codigo_turma>/acompanhamento-escolar",
