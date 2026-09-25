@@ -950,6 +950,60 @@ class QuantidadeMatriculasTurmasPeriodoView(APIView):
         )
         return Response({"quantidade": quantidade})
 
+    @extend_schema(
+        tags=_TAG_MATRICULA,
+        summary=(
+            "Quantidade de matrículas-turma por período utilizando data no "
+            "formato ISO 8601 (YYYY-MM-DD)"
+        ),
+        request=None,
+        parameters=[
+            OpenApiParameter(
+                "codigos_turmas",
+                OpenApiTypes.INT,
+                OpenApiParameter.QUERY,
+                many=True,
+                description="Lista de códigos de turmas",
+                required=True,
+            ),
+            OpenApiParameter(
+                "data_fim",
+                OpenApiTypes.DATE,
+                OpenApiParameter.QUERY,
+                description="Data final do período (Formato: YYYY-MM-DD)",
+                required=True,
+            ),
+        ],
+        responses={200: dict},
+    )
+    def get(self, request: Request) -> Response:
+        """Conta as alocações válidas das turmas até a data informada.
+
+        Args:
+            request: Requisição com ``codigos_turmas`` (lista de códigos de
+            turmas) e ``data_fim`` data final do período (formato: YYYY-MM-DD)
+            no query params.
+
+        Returns:
+            Dicionário com a quantidade de alocações no período.
+
+        Raises:
+            ValueError: Quando algum dos parâmetros são inválidos.
+        """
+        data_fim = request.query_params.get("data_fim", "")
+        try:
+            codigos_turmas = query_int_list(request, "codigos_turmas")
+            data_fim_iso = to_datetime(data_fim, "data_fim")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+        if not codigos_turmas:
+            return _erro_400("O parâmetro codigos_turmas é obrigatório.")
+        quantidade = services.contar_matriculas_turmas_periodo(
+            codigos_turmas=codigos_turmas,
+            data_fim=data_fim_iso,
+        )
+        return Response({"quantidade": quantidade})
+
 
 class AcompanhamentoEscolarTurmaView(APIView):
     """Lista alunos e responsáveis vigentes de uma turma de acompanhamento."""
