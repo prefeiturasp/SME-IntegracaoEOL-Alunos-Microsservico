@@ -925,7 +925,7 @@ class QuantidadeMatriculasTurmasPeriodoView(APIView):
         responses={200: dict},
         deprecated=True,
         description=(
-            "DEPRECIADO - Use ``../matriculas-turmas-periodo/quantidade`` "
+            "DEPRECIADO — Use ``../matriculas-turmas-periodo/quantidade`` "
             "para buscar a quantidade de matrículas-turma por período "
             "utilizando o parâmetro ``data_fim`` no formato "
             "ISO 8601 (YYYY-MM-DD)."
