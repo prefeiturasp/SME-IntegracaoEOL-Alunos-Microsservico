@@ -1,5 +1,25 @@
 """Queries SQL do domínio Alunos (réplicas do contrato legado)."""
 
+SQL_A04_ALUNOS_DA_UE = """
+SELECT mt.codigo_matricula, mt.codigo_turma, mt.numero_chamada,
+       mt.data_situacao_aluno, mt.data_situacao_aluno_data_hora,
+       mt.codigo_situacao_aluno, mt.codigo_tipo_turma, mt.tipo_turno,
+       mt.nome_turma, mt.codigo_etapa_ensino, mt.codigo_ciclo_ensino,
+       mt.descricao_etapa_ensino, mt.descricao_ciclo_ensino,
+       mt.ano_letivo_turma, m.codigo_aluno AS aluno_id,
+       a.codigo_aluno AS aluno_codigo, a.nome AS aluno_nome,
+       a.nome_social AS aluno_nome_social,
+       a.data_nascimento AS aluno_data_nascimento
+FROM matricula_turma mt
+JOIN matricula m ON m.codigo_matricula = mt.codigo_matricula
+                AND m.origem_atual = TRUE
+LEFT JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
+WHERE mt.codigo_ue_turma = %(ue)s
+  AND mt.ano_letivo_turma = %(ano)s
+  AND mt.origem_atual = TRUE
+ORDER BY mt.codigo_turma, mt.codigo_matricula, mt.sequencia
+"""
+
 SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
     SELECT
         mt.codigo_turma AS "codigo_turma",
