@@ -6,6 +6,7 @@ from typing import Any
 from django.db.models import Min
 from django.utils import timezone
 
+from apps.alunos import repositories
 from apps.alunos.constants import codigo_raca
 from apps.alunos.enums import (
     SITUACOES_MATRICULA_ATIVAS_TURMA,
@@ -710,39 +711,10 @@ def obter_alunos_turma(
     if ano_letivo is not None:
         filtros["ano_letivo_turma"] = ano_letivo
 
-    mts = list(
-        MatriculaTurma.objects.filter(**filtros).values(
-            "codigo_matricula",
-            "codigo_turma",
-            "numero_chamada",
-            "sequencia",
-            "codigo_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-        )
-    )
-    if not mts:
+    rows = repositories.matriculas_turma_com_matricula(filtros, codigo_aluno)
+    if not rows:
         return []
 
-    matriculas_idx = {
-        m["codigo_matricula"]: m
-        for m in Matricula.objects.filter(
-            codigo_matricula__in=[mt["codigo_matricula"] for mt in mts],
-        ).values(
-            "codigo_matricula",
-            "aluno_id",
-            "codigo_ue",
-            "codigo_dre",
-            "ano_letivo",
-            "data_situacao_matricula_data_hora",
-        )
-    }
-    rows = [
-        {**matriculas_idx[mt["codigo_matricula"]], **mt}
-        for mt in mts
-        if mt["codigo_matricula"] in matriculas_idx
-    ]
-    if codigo_aluno is not None:
-        rows = [r for r in rows if r["aluno_id"] == codigo_aluno]
     if data_matricula is not None:
         limite = data_matricula.date()
         rows = [r for r in rows if _atende_condicao_data_matricula(r, limite)]
@@ -762,11 +734,10 @@ def obter_alunos_turma(
             for r in finais
             if r["codigo_situacao_aluno"] != SituacaoMatricula.VINCULO_INDEVIDO
         ]
-    codigos_alunos = [r["aluno_id"] for r in finais]
-    alunos_idx = alunos_indexados(codigos_alunos)
-    responsaveis_idx = responsaveis_por_aluno(codigos_alunos)
-    primeiras_alocacoes = _primeira_alocacao_por_matricula(
-        [r["codigo_matricula"] for r in finais]
+    alunos_idx, responsaveis_idx, primeiras_alocacoes = (
+        repositories.detalhes_alunos_por_matricula(
+            [r["codigo_matricula"] for r in finais]
+        )
     )
     if data_matricula is not None:
         finais.sort(
