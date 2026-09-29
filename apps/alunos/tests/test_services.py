@@ -2232,6 +2232,133 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
         self.assertEqual(resultado, {})
 
 
+class ObterAlunosTurmaConsideraInativosTestCase(TestCase):
+    """Valida a versão dedicada de obter_alunos_turma para considera-inativos.
+
+    Roda sempre contra SQLite (``MODO_TESTE`` força esse backend em
+    ``manage.py test``), então exercita o caminho de fallback — o mesmo
+    dedup e as mesmas 2 consultas de ``obter_alunos_turma``. O caminho
+    Postgres (``repositories.turma_considera_inativos_sql``, 1 consulta
+    com CTE/ROW_NUMBER/LATERAL) não é exercitado por este teste; precisa de
+    validação manual contra Postgres real antes de ir pra produção.
+    """
+
+    def test_considera_inativos_true_traz_todos(self) -> None:
+        """Com considerar_inativos=True, não filtra por situação."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14, sequencia=1
+        )
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            sequencia=1,
+        )
+        self.assertEqual(
+            {d["linha"]["aluno_id"] for d in dados}, {1234567, 7654321}
+        )
+
+    def test_considera_inativos_false_filtra_situacao(self) -> None:
+        """Com considerar_inativos=False, restringe às situações ativas."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14, sequencia=1
+        )
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=False,
+            sequencia=1,
+        )
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [1234567])
+
+    def test_codigo_aluno_restringe_resultado(self) -> None:
+        """Com codigo_aluno informado, restringe o resultado a esse aluno."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            codigo_aluno=7654321,
+        )
+        self.assertEqual([d["linha"]["aluno_id"] for d in dados], [7654321])
+
+    def test_codigo_aluno_ausente_na_turma_retorna_vazio(self) -> None:
+        """Aluno fora da turma retorna lista vazia."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            codigo_aluno=999999,
+        )
+        self.assertEqual(dados, [])
+
+    def test_ordena_por_numero_chamada_quando_sequencia_1(self) -> None:
+        """Com sequencia=1, ordena pelo número de chamada crescente."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            sequencia=1,
+        )
+        self.assertEqual(
+            [d["linha"]["aluno_id"] for d in dados], [7654321, 1234567]
+        )
+
+    def test_responsavel_e_primeira_alocacao_presentes(self) -> None:
+        """Reproduz o mesmo shape de saída de obter_alunos_turma."""
+        codigo_turma = seed_turma_data_aula()
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            codigo_aluno=1234567,
+        )
+        self.assertEqual(
+            dados[0]["responsavel"]["nome"], "Responsavel Data Aula"
+        )
+        self.assertIsNotNone(dados[0]["primeira_alocacao"])
+
+    def test_paridade_com_obter_alunos_turma(self) -> None:
+        """A saída bate com obter_alunos_turma para o mesmo input."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        esperado = services.obter_alunos_turma(
+            codigo_turma=codigo_turma,
+            data_aula=None,
+            considerar_inativos=True,
+            sequencia=1,
+        )
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo_turma,
+            considerar_inativos=True,
+            sequencia=1,
+        )
+        self.assertEqual(dados, esperado)
+
+    def test_sem_n_mais_um(self) -> None:
+        """Verifica que a consulta usa um número fixo de queries (fallback)."""
+        codigo_turma = seed_turma_data_aula()
+        with self.assertNumQueries(2):
+            services.obter_alunos_turma_considera_inativos(
+                codigo_turma=codigo_turma,
+                considerar_inativos=True,
+                sequencia=1,
+            )
+
+    def test_sem_n_mais_um_com_codigo_aluno(self) -> None:
+        """Verifica a contagem de queries no caminho filtrado por aluno."""
+        codigo_turma = seed_turma_data_aula()
+        with self.assertNumQueries(2):
+            services.obter_alunos_turma_considera_inativos(
+                codigo_turma=codigo_turma,
+                considerar_inativos=True,
+                codigo_aluno=7654321,
+            )
+
+
 class MapeamentosInternosTestCase(TestCase):
     """Valida os mapeamentos puros de modalidade e raça/cor."""
 

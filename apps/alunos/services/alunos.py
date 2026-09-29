@@ -758,6 +758,89 @@ def obter_alunos_turma(
     ]
 
 
+def obter_alunos_turma_considera_inativos(
+    codigo_turma: int,
+    considerar_inativos: bool,
+    codigo_aluno: int | None = None,
+    sequencia: int | None = None,
+) -> list[dict[str, Any]]:
+    """Lista alunos de uma turma para o filtro considera-inativos.
+
+    Args:
+        codigo_turma: Código EOL da turma.
+        considerar_inativos: Quando ``False``, restringe às situações
+            ``SITUACOES_MATRICULA_ATIVAS_TURMA``.
+        codigo_aluno: Quando informado, restringe ao aluno correspondente.
+        sequencia: Quando informado (a chamada com a turma inteira usa
+            ``sequencia=1``), restringe matrícula-turma àquela sequência e
+            ordena o resultado por número de chamada crescente — mesma
+            regra de ``obter_alunos_turma``.
+
+    Returns:
+        Alunos distintos na turma conforme os filtros informados.
+    """
+    if repositories.usa_sql_postgresql():
+        resultado = repositories.turma_considera_inativos_sql(
+            codigo_turma, considerar_inativos, codigo_aluno, sequencia
+        )
+    else:
+        resultado = _obter_alunos_turma_considera_inativos_fallback(
+            codigo_turma, considerar_inativos, codigo_aluno, sequencia
+        )
+
+    if sequencia == 1:
+        resultado.sort(
+            key=lambda item: (
+                numero_chamada_int(item["linha"]["numero_chamada"]) is None,
+                numero_chamada_int(item["linha"]["numero_chamada"]) or 0,
+            )
+        )
+    return resultado
+
+
+def _obter_alunos_turma_considera_inativos_fallback(
+    codigo_turma: int,
+    considerar_inativos: bool,
+    codigo_aluno: int | None,
+    sequencia: int | None,
+) -> list[dict[str, Any]]:
+    """Fallback não-Postgres de ``obter_alunos_turma_considera_inativos``.
+
+    Reaproveita as mesmas 2 consultas e o mesmo dedup de
+    ``obter_alunos_turma``, sem a ordenação por chamada (aplicada de forma
+    uniforme pela função chamadora, nos dois caminhos).
+    """
+    filtros: dict[str, Any] = {"codigo_turma": codigo_turma}
+    if sequencia is not None:
+        filtros["sequencia"] = sequencia
+
+    rows = repositories.matriculas_turma_com_matricula(filtros, codigo_aluno)
+    if not rows:
+        return []
+
+    finais = _dedup_alunos_ativos_turma(rows)
+    if not considerar_inativos:
+        finais = [
+            r
+            for r in finais
+            if r["codigo_situacao_aluno"] in SITUACOES_MATRICULA_ATIVAS_TURMA
+        ]
+    if not finais:
+        return []
+
+    alunos_idx, responsaveis_idx, primeiras_alocacoes = (
+        repositories.detalhes_alunos_por_matricula(
+            [r["codigo_matricula"] for r in finais]
+        )
+    )
+    return [
+        _linha_aluno_matricula_turma(
+            r, alunos_idx, responsaveis_idx, primeiras_alocacoes
+        )
+        for r in finais
+    ]
+
+
 def obter_necessidades_especiais_por_aluno(
     codigo_aluno: int,
 ) -> list[dict[str, Any]]:
