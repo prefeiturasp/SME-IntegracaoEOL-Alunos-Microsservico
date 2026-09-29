@@ -95,6 +95,66 @@ SQL_A18_ACOMPANHAMENTO = """
       ))
 """
 
+SQL_A20_TURMA_CONSIDERA_INATIVOS = """
+    WITH candidatos AS (
+        SELECT
+            mt.codigo_matricula, mt.codigo_turma, mt.numero_chamada,
+            mt.sequencia, mt.data_situacao_aluno_data_hora,
+            mt.codigo_situacao_aluno,
+            m.codigo_aluno AS aluno_id, m.codigo_ue, m.codigo_dre,
+            m.ano_letivo,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.codigo_aluno
+                ORDER BY mt.data_situacao_aluno_data_hora DESC NULLS LAST,
+                         mt.numero_chamada DESC NULLS LAST
+            ) AS rn
+        FROM matricula_turma mt
+        JOIN matricula m ON m.codigo_matricula = mt.codigo_matricula
+        WHERE mt.codigo_turma = %(codigo_turma)s::bigint
+          AND (%(sequencia)s::int IS NULL
+               OR mt.sequencia = %(sequencia)s::int)
+          AND (%(codigo_aluno)s::bigint IS NULL
+               OR m.codigo_aluno = %(codigo_aluno)s::bigint)
+    ),
+    finais AS (
+        SELECT *
+        FROM candidatos
+        WHERE rn = 1
+          AND (
+                %(considerar_inativos)s::bool IS TRUE
+                OR codigo_situacao_aluno = ANY(%(situacoes_ativas)s)
+              )
+    )
+    SELECT
+        f.codigo_matricula, f.codigo_turma, f.numero_chamada, f.sequencia,
+        f.data_situacao_aluno_data_hora, f.codigo_situacao_aluno,
+        f.aluno_id, f.codigo_ue, f.codigo_dre, f.ano_letivo,
+        a.nome AS aluno_nome, a.nome_social AS aluno_nome_social,
+        a.data_nascimento AS aluno_data_nascimento,
+        a.possui_deficiencia AS aluno_possui_deficiencia,
+        a.data_atualizacao_contato AS aluno_data_atualizacao_contato,
+        r.nome AS responsavel_nome, r.tipo_responsavel AS responsavel_tipo,
+        r.ddd_celular AS responsavel_ddd_celular,
+        r.numero_celular AS responsavel_numero_celular,
+        pa.primeira AS primeira_alocacao
+    FROM finais f
+    LEFT JOIN aluno a ON a.codigo_aluno = f.aluno_id
+    LEFT JOIN LATERAL (
+        SELECT nome, tipo_responsavel, ddd_celular, numero_celular
+        FROM responsavel_aluno
+        WHERE codigo_aluno = f.aluno_id
+          AND data_fim_vinculo IS NULL
+        ORDER BY tipo_responsavel, codigo_responsavel
+        LIMIT 1
+    ) r ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT MIN(data_situacao_aluno_data_hora) AS primeira
+        FROM matricula_turma
+        WHERE codigo_matricula = f.codigo_matricula
+    ) pa ON TRUE
+    ORDER BY f.codigo_matricula
+"""
+
 SQL_A19_RESPONSAVEIS = """
     SELECT DISTINCT
         r.codigo_dre AS "codigo_dre",

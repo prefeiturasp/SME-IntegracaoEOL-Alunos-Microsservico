@@ -807,6 +807,62 @@ class AlunosTurmaView(APIView):
         return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
 
 
+class AlunosTurmaConsideraInativosView(APIView):
+    """Lista alunos de uma turma filtrando por inativos."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Alunos de uma turma (considera-inativos)",
+        parameters=[
+            OpenApiParameter("codigo_turma", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "considerar_inativos",
+                bool,
+                OpenApiParameter.QUERY,
+                required=True,
+            ),
+            OpenApiParameter(
+                "codigo_aluno", str, OpenApiParameter.QUERY, required=False
+            ),
+        ],
+        responses={200: AlunoAtivoDataAulaSerializer(many=True)},
+    )
+    def get(self, request: Request, codigo_turma: str) -> Response:
+        """Lista alunos da turma conforme filtro de inativos.
+
+        Args:
+            request: Requisição com o filtro obrigatório
+                ``considerar_inativos`` e o opcional ``codigo_aluno``.
+            codigo_turma: Código da turma consultada.
+
+        Returns:
+            Alunos distintos na turma conforme os filtros informados.
+        """
+        if "considerar_inativos" not in request.query_params:
+            return _erro_400("considerar_inativos é obrigatório.")
+        try:
+            codigo = to_int(codigo_turma, "codigo_turma")
+            considerar_inativos = query_bool(
+                request, "considerar_inativos", False
+            )
+            codigo_aluno_raw = request.query_params.get("codigo_aluno")
+            codigo_aluno = (
+                to_int(codigo_aluno_raw, "codigo_aluno")
+                if codigo_aluno_raw
+                else None
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        dados = services.obter_alunos_turma_considera_inativos(
+            codigo_turma=codigo,
+            considerar_inativos=considerar_inativos,
+            codigo_aluno=codigo_aluno,
+            sequencia=None if codigo_aluno else 1,
+        )
+        return Response(AlunoAtivoDataAulaSerializer(dados, many=True).data)
+
+
 class AlunosTurmaDataView(APIView):
     """Lista os alunos de uma turma por data referida."""
 

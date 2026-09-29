@@ -7,7 +7,10 @@ from django.db import connection
 from django.db.models import Count, F, Min, OuterRef, Subquery
 from django.utils import timezone
 
-from apps.alunos.enums import SITUACOES_MATRICULA_VALIDAS
+from apps.alunos.enums import (
+    SITUACOES_MATRICULA_ATIVAS_TURMA,
+    SITUACOES_MATRICULA_VALIDAS,
+)
 from apps.alunos.models import (
     Aluno,
     Matricula,
@@ -21,6 +24,7 @@ from apps.alunos.queries import (
     SQL_A16_QUANTIDADE,
     SQL_A18_ACOMPANHAMENTO,
     SQL_A19_RESPONSAVEIS,
+    SQL_A20_TURMA_CONSIDERA_INATIVOS,
 )
 
 
@@ -35,6 +39,11 @@ def _exec_query_rows(sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
 def _usa_sql_postgresql() -> bool:
     """Indica se a conexão atual aceita as queries otimizadas de Postgres."""
     return connection.vendor == "postgresql"
+
+
+def usa_sql_postgresql() -> bool:
+    """Indica se a conexão atual aceita as queries otimizadas de Postgres."""
+    return _usa_sql_postgresql()
 
 
 def alunos_da_ue(codigo_ue: str, ano_letivo: int) -> list[dict[str, Any]]:
@@ -350,6 +359,79 @@ def detalhes_alunos_por_matricula(
             "primeira_alocacao"
         ]
     return alunos_idx, responsaveis_idx, primeiras_alocacoes
+
+
+def turma_considera_inativos_sql(
+    codigo_turma: int,
+    considerar_inativos: bool,
+    codigo_aluno: int | None = None,
+    sequencia: int | None = None,
+) -> list[dict[str, Any]]:
+    """Alunos de uma turma (considera-inativos) em 1 única consulta.
+
+    Args:
+        codigo_turma: Código EOL da turma.
+        considerar_inativos: Quando ``False``, restringe às situações
+            ``SITUACOES_MATRICULA_ATIVAS_TURMA`` já na consulta.
+        codigo_aluno: Quando informado, restringe a matrícula desse aluno.
+        sequencia: Quando informado, restringe matrícula-turma àquela
+            sequência.
+
+    Returns:
+        Uma linha por aluno distinto, já com aluno/responsável
+        prioritário/primeira alocação resolvidos.
+    """
+    linhas = _exec_query_rows(
+        SQL_A20_TURMA_CONSIDERA_INATIVOS,
+        {
+            "codigo_turma": codigo_turma,
+            "sequencia": sequencia,
+            "codigo_aluno": codigo_aluno,
+            "considerar_inativos": considerar_inativos,
+            "situacoes_ativas": list(SITUACOES_MATRICULA_ATIVAS_TURMA),
+        },
+    )
+    saida: list[dict[str, Any]] = []
+    for row in linhas:
+        saida.append(
+            {
+                "linha": {
+                    "aluno_id": row["aluno_id"],
+                    "codigo_matricula": row["codigo_matricula"],
+                    "codigo_turma": row["codigo_turma"],
+                    "numero_chamada": row["numero_chamada"],
+                    "sequencia": row["sequencia"],
+                    "codigo_situacao_aluno": row["codigo_situacao_aluno"],
+                    "data_situacao_aluno_data_hora": row[
+                        "data_situacao_aluno_data_hora"
+                    ],
+                    "codigo_ue": row["codigo_ue"],
+                    "codigo_dre": row["codigo_dre"],
+                    "ano_letivo": row["ano_letivo"],
+                },
+                "aluno": {
+                    "nome": row["aluno_nome"],
+                    "nome_social": row["aluno_nome_social"],
+                    "data_nascimento": row["aluno_data_nascimento"],
+                    "possui_deficiencia": row["aluno_possui_deficiencia"],
+                    "data_atualizacao_contato": row[
+                        "aluno_data_atualizacao_contato"
+                    ],
+                },
+                "responsavel": (
+                    {
+                        "nome": row["responsavel_nome"],
+                        "tipo_responsavel": row["responsavel_tipo"],
+                        "ddd_celular": row["responsavel_ddd_celular"],
+                        "numero_celular": row["responsavel_numero_celular"],
+                    }
+                    if row["responsavel_nome"] is not None
+                    else {}
+                ),
+                "primeira_alocacao": row["primeira_alocacao"],
+            }
+        )
+    return saida
 
 
 def quantidade_matriculados_por_ano_e_cc(

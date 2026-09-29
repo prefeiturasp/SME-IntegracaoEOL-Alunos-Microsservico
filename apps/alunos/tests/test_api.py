@@ -383,6 +383,104 @@ class AlunosTurmaApiTestCase(TestCase):
         self.assertEqual(resp.json(), [])
 
 
+class AlunosTurmaConsideraInativosApiTestCase(TestCase):
+    """Valida o endpoint dedicado de alunos de turma por inativos"""
+
+    def _path(self, codigo_turma: str) -> str:
+        return cast(
+            str,
+            reverse(
+                "alunos-turma-considera-inativos-dedicada",
+                kwargs={"codigo_turma": codigo_turma},
+            ),
+        )
+
+    def _url(self, codigo_turma: str, **params: str) -> str:
+        query = {"considerar_inativos": "true", **params}
+        return f"{self._path(codigo_turma)}?{urlencode(query)}"
+
+    def test_retorna_alunos_em_snake_case(self) -> None:
+        """Verifica 200, dedup por aluno e contrato em snake_case."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/json")
+        body = resp.json()
+        self.assertEqual(len(body), 2)
+        joao = {item["codigo_aluno"]: item for item in body}[1234567]
+        self.assertEqual(joao["nome_aluno"], "JOAO DA SILVA")
+        self.assertEqual(joao["celular_responsavel"], "11988887777")
+
+    def test_ordena_por_numero_chamada_sem_precisar_de_sequencia(self) -> None:
+        """A rota dedicada já fixa sequencia=1 quando não há codigo_aluno."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            sequencia=1
+        )
+        resp = _autenticado().get(self._url(str(codigo_turma)))
+        self.assertEqual(resp.status_code, 200)
+        chamadas = [item["numero_aluno_chamada"] for item in resp.json()]
+        self.assertEqual(chamadas, ["07", "12"])
+
+    def test_sem_api_key_retorna_401(self) -> None:
+        """Verifica que requisição sem API key retorna 401."""
+        resp = APIClient().get(self._url("3015603"))
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_codigo_turma_invalido_retorna_400(self) -> None:
+        """Verifica que codigo_turma não numérico retorna 400."""
+        resp = _autenticado().get(self._url("abc"))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_sem_considerar_inativos_retorna_400(self) -> None:
+        """Verifica que considerar_inativos é obrigatório."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(self._path(str(codigo_turma)))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_considerar_inativos_false_restringe_situacoes(self) -> None:
+        """Verifica que considerar_inativos falso exclui fora do conjunto."""
+        codigo_turma = seed_turma_data_aula()
+        MatriculaTurma.objects.filter(codigo_matricula=700002).update(
+            codigo_situacao_aluno=14, sequencia=1
+        )
+        resp = _autenticado().get(
+            self._path(str(codigo_turma)), {"considerar_inativos": "false"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigo_aluno"], 1234567)
+
+    def test_filtra_por_codigo_aluno(self) -> None:
+        """Verifica que codigo_aluno restringe o resultado ao aluno."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), codigo_aluno="7654321")
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(len(body), 1)
+        self.assertEqual(body[0]["codigo_aluno"], 7654321)
+
+    def test_codigo_aluno_invalido_retorna_400(self) -> None:
+        """Verifica que codigo_aluno não numérico retorna 400."""
+        codigo_turma = seed_turma_data_aula()
+        resp = _autenticado().get(
+            self._url(str(codigo_turma), codigo_aluno="abc")
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_turma_vazia_retorna_lista_vazia(self) -> None:
+        """Verifica que turma sem alunos retorna 200 com lista vazia."""
+        resp = _autenticado().get(self._url("999999"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), [])
+
+
 class TurmasRotaResolucaoTestCase(TestCase):
     """Garante que as rotas de turma não colidem entre si."""
 

@@ -13,6 +13,7 @@ from apps.alunos.services.alunos import (
     obter_alunos_ativos_por_periodo_e_turma,
     obter_alunos_ativos_por_turma,
     obter_alunos_turma,
+    obter_alunos_turma_considera_inativos,
     obter_informacoes_aluno,
     obter_informacoes_alunos_da_turma,
     obter_matriculas_turmas_aluno,
