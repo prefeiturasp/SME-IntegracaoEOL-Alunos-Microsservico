@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 from typing import Any
 
-from django.db.models import F
+from django.db.models import Exists, F, OuterRef
 
 from apps.alunos import repositories
 from apps.alunos.constants import MODALIDADES_CONTRATO, TIPOS_ESCOLA_INFANTIL
@@ -81,20 +81,6 @@ def obter_quantidade_matriculados_cc_contrato(
     )
 
 
-def _pares_ue_turma_por_codigos(
-    codigos_turma: Sequence[int],
-) -> set[tuple[str, str]]:
-    """Resolve códigos de turma em pares (UE, nome da turma)."""
-    return {
-        (mt["codigo_ue_turma"], mt["nome_turma"])
-        for mt in MatriculaTurma.objects.filter(
-            codigo_turma__in=list(codigos_turma),
-            origem_atual=True,
-        ).values("codigo_ue_turma", "nome_turma")
-        if mt["codigo_ue_turma"] and mt["nome_turma"]
-    }
-
-
 def obter_quantidade_matriculados_contrato(
     ano_letivo: int,
     dre_codigo: str | None = None,
@@ -118,22 +104,27 @@ def obter_quantidade_matriculados_contrato(
         if codigo_modalidade == 1:
             qs = qs.filter(tipo_escola__in=TIPOS_ESCOLA_INFANTIL)
 
-    pares_turma = _pares_ue_turma_por_codigos(turma) if turma else None
+    if turma:
+        pares_turma = (
+            MatriculaTurma.objects.filter(
+                codigo_turma__in=list(turma),
+                origem_atual=True,
+                codigo_ue_turma=OuterRef("codigo_ue"),
+                nome_turma=OuterRef("turma"),
+            )
+            .exclude(codigo_ue_turma="")
+            .exclude(nome_turma="")
+        )
+        qs = qs.filter(Exists(pares_turma))
 
-    saida: list[dict[str, Any]] = []
-    for r in qs.values(
-        "quantidade",
-        "ordem",
-        "modalidade",
-        "ano",
-        "turma",
-        "codigo_dre",
-        "codigo_ue",
-    ):
-        if (
-            pares_turma is not None
-            and (r["codigo_ue"], r["turma"]) not in pares_turma
-        ):
-            continue
-        saida.append(r)
-    return saida
+    return list(
+        qs.values(
+            "quantidade",
+            "ordem",
+            "modalidade",
+            "ano",
+            "turma",
+            "codigo_dre",
+            "codigo_ue",
+        )
+    )

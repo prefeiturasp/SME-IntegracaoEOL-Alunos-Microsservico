@@ -189,6 +189,87 @@ class AlunoDaUeRepresentationTest(SimpleTestCase):
 class ListagensQueriesTest(TestCase):
     """Mantém leituras em lote e a seleção dos vínculos."""
 
+    def test_quantidade_filtra_pares_sem_multiplicar_linhas(self) -> None:
+        """Seleciona no banco a mesma UE e turma, sem duplicar agregados."""
+        seed_matriculas()
+        for ue, nome in (
+            ("100001", "5A"),
+            ("100001", "6A"),
+            ("100002", "5A"),
+            ("100001", "5a"),
+            ("100001", "5A "),
+        ):
+            MatriculaAnoLetivo.objects.create(
+                codigo_dre="001",
+                codigo_ue=ue,
+                tipo_escola=1,
+                ano_letivo=2026,
+                codigo_modalidade=5,
+                modalidade="EF",
+                ano="5",
+                turma=nome,
+                quantidade=28,
+                ordem=None,
+            )
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=12345,
+            sequencia=2,
+            codigo_ue_turma="100001",
+            nome_turma="5A",
+            origem_atual=True,
+        )
+        esperado = [
+            linha
+            for linha in obter_quantidade_matriculados_contrato(2026)
+            if (linha["codigo_ue"], linha["turma"]) == ("100001", "5A")
+        ]
+        with self.assertNumQueries(1):
+            resultado = obter_quantidade_matriculados_contrato(
+                2026, turma=[12345, 12345]
+            )
+        self.assertEqual(resultado, esperado)
+        self.assertEqual(len(resultado), 1)
+
+    def test_quantidade_ignora_turmas_sem_par_atual_valido(self) -> None:
+        """Exclui origens históricas, pares vazios e códigos inexistentes."""
+        for numero, (ue, nome, origem) in enumerate(
+            (
+                ("", "5A", True),
+                ("100001", "", True),
+                (None, "5A", True),
+                ("100001", None, True),
+                ("100001", "5A", False),
+                ("100001", "5A", None),
+            ),
+            start=1,
+        ):
+            MatriculaTurma.objects.create(
+                codigo_matricula=numero,
+                codigo_turma=12345,
+                sequencia=1,
+                codigo_ue_turma=ue,
+                nome_turma=nome,
+                origem_atual=origem,
+            )
+            MatriculaAnoLetivo.objects.create(
+                codigo_dre="001",
+                codigo_ue=ue or "",
+                tipo_escola=1,
+                ano_letivo=2026,
+                codigo_modalidade=5,
+                modalidade="EF",
+                ano="5",
+                turma=nome,
+                quantidade=28,
+            )
+        for turmas in ([12345], [99999]):
+            with self.subTest(turmas=turmas), self.assertNumQueries(1):
+                self.assertEqual(
+                    obter_quantidade_matriculados_contrato(2026, turma=turmas),
+                    [],
+                )
+
     def test_ue_preserva_aluno_ausente_e_tipo_da_data(self) -> None:
         """Não descarta matrícula sem aluno nem perde o fuso da data."""
         seed_matriculas()
