@@ -369,8 +369,6 @@ def turma_considera_inativos_sql(
 ) -> list[dict[str, Any]]:
     """Alunos de uma turma (considera-inativos) em 1 única consulta.
 
-    Só é chamada quando ``_usa_sql_postgresql()`` é ``True``.
-
     Args:
         codigo_turma: Código EOL da turma.
         considerar_inativos: Quando ``False``, restringe às situações

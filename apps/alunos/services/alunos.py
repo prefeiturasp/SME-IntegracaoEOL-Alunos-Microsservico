@@ -764,7 +764,7 @@ def obter_alunos_turma_considera_inativos(
     codigo_aluno: int | None = None,
     sequencia: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Lista alunos de uma turma para o filtro considera-inativos.
+    """Lista alunos de uma turma filtrando por inativos.
 
     Args:
         codigo_turma: Código EOL da turma.
@@ -804,12 +804,7 @@ def _obter_alunos_turma_considera_inativos_fallback(
     codigo_aluno: int | None,
     sequencia: int | None,
 ) -> list[dict[str, Any]]:
-    """Fallback não-Postgres de ``obter_alunos_turma_considera_inativos``.
-
-    Reaproveita as mesmas 2 consultas e o mesmo dedup de
-    ``obter_alunos_turma``, sem a ordenação por chamada (aplicada de forma
-    uniforme pela função chamadora, nos dois caminhos).
-    """
+    """Lista alunos de uma turma filtrando por inativos (fallback)."""
     filtros: dict[str, Any] = {"codigo_turma": codigo_turma}
     if sequencia is not None:
         filtros["sequencia"] = sequencia

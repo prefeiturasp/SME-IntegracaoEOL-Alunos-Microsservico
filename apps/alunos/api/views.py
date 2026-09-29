@@ -806,7 +806,7 @@ class AlunosTurmaView(APIView):
 
 
 class AlunosTurmaConsideraInativosView(APIView):
-    """Lista alunos de uma turma para o filtro considera-inativos."""
+    """Lista alunos de uma turma filtrando por inativos."""
 
     @extend_schema(
         tags=_TAG_ALUNO,
@@ -826,7 +826,7 @@ class AlunosTurmaConsideraInativosView(APIView):
         responses={200: AlunoAtivoDataAulaSerializer(many=True)},
     )
     def get(self, request: Request, codigo_turma: str) -> Response:
-        """Lista alunos da turma conforme ``considerar_inativos``.
+        """Lista alunos da turma conforme filtro de inativos.
 
         Args:
             request: Requisição com o filtro obrigatório

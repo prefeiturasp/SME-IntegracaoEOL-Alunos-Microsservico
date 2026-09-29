@@ -384,7 +384,7 @@ class AlunosTurmaApiTestCase(TestCase):
 
 
 class AlunosTurmaConsideraInativosApiTestCase(TestCase):
-    """Valida o endpoint dedicado de alunos de turma para considera-inativos."""
+    """Valida o endpoint dedicado de alunos de turma por inativos"""
 
     def _path(self, codigo_turma: str) -> str:
         return cast(

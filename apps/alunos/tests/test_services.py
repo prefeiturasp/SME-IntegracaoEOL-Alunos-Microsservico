@@ -2233,15 +2233,7 @@ class AlunosAtivosDataAulaTicksServiceTestCase(TestCase):
 
 
 class ObterAlunosTurmaConsideraInativosTestCase(TestCase):
-    """Valida a versão dedicada de obter_alunos_turma para considera-inativos.
-
-    Roda sempre contra SQLite (``MODO_TESTE`` força esse backend em
-    ``manage.py test``), então exercita o caminho de fallback — o mesmo
-    dedup e as mesmas 2 consultas de ``obter_alunos_turma``. O caminho
-    Postgres (``repositories.turma_considera_inativos_sql``, 1 consulta
-    com CTE/ROW_NUMBER/LATERAL) não é exercitado por este teste; precisa de
-    validação manual contra Postgres real antes de ir pra produção.
-    """
+    """Valida a versão dedicada de obter_alunos_turma para considera-inativos."""
 
     def test_considera_inativos_true_traz_todos(self) -> None:
         """Com considerar_inativos=True, não filtra por situação."""
