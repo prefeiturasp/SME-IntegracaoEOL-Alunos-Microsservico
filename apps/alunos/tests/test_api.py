@@ -621,6 +621,42 @@ class QuantidadeMatriculasTurmasPeriodoApiTestCase(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
 
+class QuantidadeMatriculasTurmasPeriodoDataISOApiTestCase(TestCase):
+    """Valida o endpoint POST de quantidade de matrículas-turma."""
+
+    def _url(self) -> str:
+        return reverse("quantidade-matriculas-turmas-periodo-data-iso")
+
+    def test_conta_alocacoes_no_periodo_data_formato_iso(self) -> None:
+        """Verifica a contagem de alocações válidas até a data."""
+        codigo_turma = seed_turma_data_aula()
+        data_fim = date(2026, 12, 31).isoformat()
+        resp = _autenticado().post(
+            self._url(),
+            data={"codigos_turmas": [codigo_turma], "data_fim": data_fim},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("quantidade", resp.json())
+
+    def test_retorna_400_quando_codigos_turmas_ausente(self) -> None:
+        """Verifica erro 400 quando a lista de turmas está ausente."""
+        data_fim = date(2026, 12, 31).isoformat()
+        resp = _autenticado().post(
+            self._url(), data={"data_fim": data_fim}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retorna_400_quando_data_fim_invalida(self) -> None:
+        """Verifica erro 400 quando a data de fim é inválida."""
+        resp = _autenticado().post(
+            self._url(),
+            data={"codigos_turmas": [1], "data_fim": "0"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class AcompanhamentoEscolarTurmaApiTestCase(TestCase):
     """Valida o endpoint de acompanhamento escolar da turma."""
 

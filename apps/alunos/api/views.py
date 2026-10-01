@@ -39,6 +39,8 @@ from apps.alunos.api.serializers import (
     QuantidadeMatriculadosCCSerializer,
     QuantidadeMatriculadosContratoSerializer,
     QuantidadeMatriculadosSerializer,
+    QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer,
+    QuantidadeMatriculasTurmasPeriodoDataISOSerializer,
     ResponsavelTurmaSerializer,
     TotalAlunosAtivosPeriodoSerializer,
     TurmaDoAlunoSerializer,
@@ -977,6 +979,13 @@ class QuantidadeMatriculasTurmasPeriodoView(APIView):
         summary="Quantidade de matrículas-turma por período",
         request=None,
         responses={200: dict},
+        deprecated=True,
+        description=(
+            "DEPRECIADO — Use ``../matriculas-turmas-periodo/quantidade`` "
+            "para buscar a quantidade de matrículas-turma por período "
+            "utilizando o parâmetro ``data_fim`` no formato "
+            "ISO 8601 (YYYY-MM-DD)."
+        ),
     )
     def post(self, request: Request) -> Response:
         """Conta as alocações válidas das turmas até a data informada.
@@ -1003,6 +1012,49 @@ class QuantidadeMatriculasTurmasPeriodoView(APIView):
         quantidade = services.contar_matriculas_turmas_periodo(
             codigos_turmas=codigos,
             data_fim=ticks_to_datetime(ticks),
+        )
+        return Response({"quantidade": quantidade})
+
+
+class QuantidadeMatriculasTurmasPeriodoDataISOView(APIView):
+    """Conta alocações válidas em turmas cuja matrícula começou até a data."""
+
+    @extend_schema(
+        tags=_TAG_MATRICULA,
+        summary=(
+            "Quantidade de matrículas-turma por período utilizando data no "
+            "formato ISO 8601 (YYYY-MM-DD)"
+        ),
+        request=QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer,
+        responses={200: QuantidadeMatriculasTurmasPeriodoDataISOSerializer()},
+    )
+    def post(self, request: Request) -> Response:
+        """Conta as alocações válidas das turmas até a data informada.
+
+        Args:
+            request: Requisição com ``codigos_turmas`` (lista) e ``data_fim``
+                (formato ISO 8601: YYYY-MM-DD) no corpo.
+
+        Returns:
+            Dicionário com a quantidade de alocações no período.
+
+        Raises:
+            ValueError: Quando algum dos parâmetros são inválidos.
+        """
+        codigos_turmas = request.data.get("codigos_turmas")
+        data_fim = request.data.get("data_fim", "")
+        if not isinstance(codigos_turmas, list):
+            return _erro_400("codigos_turmas deve ser uma lista.")
+        try:
+            codigos = [to_int(c, "codigos_turmas") for c in codigos_turmas]
+            data_fim_iso = to_datetime(data_fim, "data_fim")
+        except ValueError as exc:
+            return _erro_400(str(exc))
+        if not codigos_turmas:
+            return _erro_400("O parâmetro codigos_turmas é obrigatório.")
+        quantidade = services.contar_matriculas_turmas_periodo(
+            codigos_turmas=codigos,
+            data_fim=data_fim_iso,
         )
         return Response({"quantidade": quantidade})
 

@@ -38,9 +38,7 @@ def _turma_do_aluno_representation(instance: dict[str, Any]) -> dict[str, Any]:
         "nome_aluno": aluno.get("nome", ""),
         "nome_social_aluno": aluno.get("nome_social"),
         "codigo_situacao_matricula": codigo_situacao,
-        "situacao_matricula": SituacaoMatricula.get_descricao(
-            codigo_situacao
-        ),
+        "situacao_matricula": SituacaoMatricula.get_descricao(codigo_situacao),
         "data_situacao": data_situacao,
         "data_nascimento": aluno.get("data_nascimento"),
         "documento_cpf": None if historico else aluno.get("cpf"),
@@ -58,18 +56,19 @@ def _turma_do_aluno_representation(instance: dict[str, Any]) -> dict[str, Any]:
         ),
         "numero_aluno_chamada": matricula_turma.get("numero_chamada"),
         "codigo_turma": matricula_turma.get("codigo_turma") or 0,
-        "data_atualizacao_contato": responsavel.get(
-            "data_atualizacao_tabela"
-        ),
+        "data_atualizacao_contato": responsavel.get("data_atualizacao_tabela"),
         "nome_responsavel": responsavel.get("nome"),
         "tipo_responsavel": responsavel.get("tipo_responsavel"),
         "ddd_celular": responsavel.get("ddd_celular"),
         "numero_celular": responsavel.get("numero_celular"),
         "codigo_escola": matricula["codigo_ue"],
         "codigo_tipo_turma": matricula_turma.get("codigo_tipo_turma"),
-        "data_atualizacao_tabela": DATA_DEFAULT_LEGADO
-        if historico
-        else matricula_turma.get("data_atualizacao_tabela") or data_situacao,
+        "data_atualizacao_tabela": (
+            DATA_DEFAULT_LEGADO
+            if historico
+            else matricula_turma.get("data_atualizacao_tabela")
+            or data_situacao
+        ),
     }
 
 
@@ -87,9 +86,7 @@ def _aluno_da_ue_representation(instance: dict[str, Any]) -> dict[str, Any]:
         "nome_aluno": aluno.get("nome", ""),
         "nome_social_aluno": aluno.get("nome_social"),
         "codigo_situacao_matricula": codigo_situacao or 0,
-        "situacao_matricula": SituacaoMatricula.get_descricao(
-            codigo_situacao
-        ),
+        "situacao_matricula": SituacaoMatricula.get_descricao(codigo_situacao),
         "data_situacao": (
             matricula_turma.get("data_situacao_aluno_data_hora")
             or matricula_turma.get("data_situacao_aluno")
@@ -144,9 +141,7 @@ def _aluno_ativo_turma_representation(
         "nome_social_aluno": aluno.get("nome_social"),
         "data_nascimento": aluno.get("data_nascimento"),
         "codigo_situacao_matricula": codigo_situacao,
-        "situacao_matricula": SituacaoMatricula.get_descricao(
-            codigo_situacao
-        ),
+        "situacao_matricula": SituacaoMatricula.get_descricao(codigo_situacao),
         "data_situacao": linha["data_situacao_aluno_data_hora"],
         "numero_aluno_chamada": linha["numero_chamada"],
         "possui_deficiencia": aluno.get("possui_deficiencia", False),
@@ -391,7 +386,9 @@ def _matricula_escola_aluno_representation(
         or matricula["data_situacao_matricula"]
     )
     # Converte datetime.date para datetime.datetime se necessário
-    if isinstance(data_situacao, date) and not isinstance(data_situacao, datetime):
+    if isinstance(data_situacao, date) and not isinstance(
+        data_situacao, datetime
+    ):
         data_situacao = datetime.combine(data_situacao, datetime.min.time())
     return {
         "codigo_aluno": matricula["aluno_id"],
@@ -988,9 +985,15 @@ class MatriculaEscolaAlunoSerializer(serializers.Serializer):
             instance = _matricula_escola_aluno_representation(instance)
         data = cast(dict[str, Any], super().to_representation(instance))
         # Formatar data_situacao sem timezone, igual ao legado
-        if data.get("data_situacao") and isinstance(data["data_situacao"], str):
+        if data.get("data_situacao") and isinstance(
+            data["data_situacao"], str
+        ):
             # Remove timezone se presente
-            data["data_situacao"] = data["data_situacao"].replace("-03:00", "").replace("+00:00", "")
+            data["data_situacao"] = (
+                data["data_situacao"]
+                .replace("-03:00", "")
+                .replace("+00:00", "")
+            )
             # Remove zeros extras dos microssegundos para ficar igual ao legado (.187 ao invés de .183000)
             if "." in data["data_situacao"]:
                 partes = data["data_situacao"].split(".")
@@ -1103,3 +1106,23 @@ class NomeAlunoSerializer(serializers.Serializer):
     codigo_aluno = serializers.IntegerField()
     codigo_turma = serializers.IntegerField()
     codigo_situacao_matricula = serializers.IntegerField()
+
+
+class QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer(
+    serializers.Serializer
+):
+    """Serializa dados para consulta de quantidade de matrículas-turma."""
+
+    codigos_turmas = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=True,
+    )
+    data_fim = serializers.DateField(required=True)
+
+
+class QuantidadeMatriculasTurmasPeriodoDataISOSerializer(
+    serializers.Serializer
+):
+    """Serializa quantidade de matrículas-turma."""
+
+    quantidade = serializers.IntegerField()
