@@ -2157,6 +2157,20 @@ object the first time, the query is executed.</p>
 <p>Serializa nomes e dados de matrícula-turma dos alunos.</p>
 </dd></dl>
 
+<dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.serializers.</span></span><span class="sig-name descname"><span class="pre">QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/serializers.html#QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">Serializer</span></code></p>
+<p>Serializa dados para consulta de quantidade de matrículas-turma.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISOSerializer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.serializers.</span></span><span class="sig-name descname"><span class="pre">QuantidadeMatriculasTurmasPeriodoDataISOSerializer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/serializers.html#QuantidadeMatriculasTurmasPeriodoDataISOSerializer"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISOSerializer" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">Serializer</span></code></p>
+<p>Serializa quantidade de matrículas-turma.</p>
+</dd></dl>
+
 <p id="module-apps.alunos.api.views">Views do domínio Alunos.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="apps.alunos.api.views.BuscaTurmasDoAlunoView">
@@ -2558,6 +2572,40 @@ não há alunos.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.views.AlunosTurmaConsideraInativosView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">AlunosTurmaConsideraInativosView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#AlunosTurmaConsideraInativosView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.AlunosTurmaConsideraInativosView" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
+<p>Lista alunos de uma turma filtrando por inativos.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="apps.alunos.api.views.AlunosTurmaConsideraInativosView.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_turma</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#AlunosTurmaConsideraInativosView.get"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.AlunosTurmaConsideraInativosView.get" title="Link para esta definição">¶</a></dt>
+<dd><p>Lista alunos da turma conforme filtro de inativos.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> – Requisição com o filtro obrigatório
+<code class="docutils literal notranslate"><span class="pre">considerar_inativos</span></code> e o opcional <code class="docutils literal notranslate"><span class="pre">codigo_aluno</span></code>.</p></li>
+<li><p><strong>codigo_turma</strong> – Código da turma consultada.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Retorna<span class="colon">:</span></dt>
+<dd class="field-even"><p>Alunos distintos na turma conforme os filtros informados.</p>
+</dd>
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<em>Request</em>)</p></li>
+<li><p><strong>codigo_turma</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="apps.alunos.api.views.AlunosTurmaDataView">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">AlunosTurmaDataView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#AlunosTurmaDataView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.AlunosTurmaDataView" title="Link para esta definição">¶</a></dt>
 <dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
@@ -2649,6 +2697,37 @@ não há alunos.</p>
 </dd>
 <dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Response</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.views.QuantidadeMatriculasTurmasPeriodoDataISOView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">QuantidadeMatriculasTurmasPeriodoDataISOView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#QuantidadeMatriculasTurmasPeriodoDataISOView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.QuantidadeMatriculasTurmasPeriodoDataISOView" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
+<p>Conta alocações válidas em turmas cuja matrícula começou até a data.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="apps.alunos.api.views.QuantidadeMatriculasTurmasPeriodoDataISOView.post">
+<span class="sig-name descname"><span class="pre">post</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#QuantidadeMatriculasTurmasPeriodoDataISOView.post"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.QuantidadeMatriculasTurmasPeriodoDataISOView.post" title="Link para esta definição">¶</a></dt>
+<dd><p>Conta as alocações válidas das turmas até a data informada.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>request</strong> – Requisição com <code class="docutils literal notranslate"><span class="pre">codigos_turmas</span></code> (lista) e <code class="docutils literal notranslate"><span class="pre">data_fim</span></code>
+(formato ISO 8601: YYYY-MM-DD) no corpo.</p>
+</dd>
+<dt class="field-even">Retorna<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dicionário com a quantidade de alocações no período.</p>
+</dd>
+<dt class="field-odd">Levanta<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – Quando algum dos parâmetros são inválidos.</p>
+</dd>
+<dt class="field-even">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>request</strong> (<em>Request</em>)</p>
+</dd>
+<dt class="field-odd">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Response</em></p>
 </dd>
 </dl>
 </dd></dl>

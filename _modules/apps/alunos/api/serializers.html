@@ -35,7 +35,9 @@
   <h1>Código-fonte para apps.alunos.api.serializers</h1><div class="highlight"><pre>
 <span></span><span class="sd">"""Serializers do domínio Alunos."""</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">date</span><span class="p">,</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">cached_property</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">serializers</span>
@@ -71,9 +73,7 @@
         <span class="s2">"nome_aluno"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
         <span class="s2">"nome_social_aluno"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome_social"</span><span class="p">),</span>
         <span class="s2">"codigo_situacao_matricula"</span><span class="p">:</span> <span class="n">codigo_situacao</span><span class="p">,</span>
-        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span>
-            <span class="n">codigo_situacao</span>
-        <span class="p">),</span>
+        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span><span class="n">codigo_situacao</span><span class="p">),</span>
         <span class="s2">"data_situacao"</span><span class="p">:</span> <span class="n">data_situacao</span><span class="p">,</span>
         <span class="s2">"data_nascimento"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_nascimento"</span><span class="p">),</span>
         <span class="s2">"documento_cpf"</span><span class="p">:</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">historico</span> <span class="k">else</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"cpf"</span><span class="p">),</span>
@@ -91,18 +91,19 @@
         <span class="p">),</span>
         <span class="s2">"numero_aluno_chamada"</span><span class="p">:</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_chamada"</span><span class="p">),</span>
         <span class="s2">"codigo_turma"</span><span class="p">:</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"codigo_turma"</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="s2">"data_atualizacao_contato"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-            <span class="s2">"data_atualizacao_tabela"</span>
-        <span class="p">),</span>
+        <span class="s2">"data_atualizacao_contato"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_atualizacao_tabela"</span><span class="p">),</span>
         <span class="s2">"nome_responsavel"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome"</span><span class="p">),</span>
         <span class="s2">"tipo_responsavel"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tipo_responsavel"</span><span class="p">),</span>
         <span class="s2">"ddd_celular"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_celular"</span><span class="p">),</span>
         <span class="s2">"numero_celular"</span><span class="p">:</span> <span class="n">responsavel</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_celular"</span><span class="p">),</span>
         <span class="s2">"codigo_escola"</span><span class="p">:</span> <span class="n">matricula</span><span class="p">[</span><span class="s2">"codigo_ue"</span><span class="p">],</span>
         <span class="s2">"codigo_tipo_turma"</span><span class="p">:</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"codigo_tipo_turma"</span><span class="p">),</span>
-        <span class="s2">"data_atualizacao_tabela"</span><span class="p">:</span> <span class="n">DATA_DEFAULT_LEGADO</span>
-        <span class="k">if</span> <span class="n">historico</span>
-        <span class="k">else</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_atualizacao_tabela"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">data_situacao</span><span class="p">,</span>
+        <span class="s2">"data_atualizacao_tabela"</span><span class="p">:</span> <span class="p">(</span>
+            <span class="n">DATA_DEFAULT_LEGADO</span>
+            <span class="k">if</span> <span class="n">historico</span>
+            <span class="k">else</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_atualizacao_tabela"</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">data_situacao</span>
+        <span class="p">),</span>
     <span class="p">}</span>
 
 
@@ -120,9 +121,7 @@
         <span class="s2">"nome_aluno"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
         <span class="s2">"nome_social_aluno"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome_social"</span><span class="p">),</span>
         <span class="s2">"codigo_situacao_matricula"</span><span class="p">:</span> <span class="n">codigo_situacao</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
-        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span>
-            <span class="n">codigo_situacao</span>
-        <span class="p">),</span>
+        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span><span class="n">codigo_situacao</span><span class="p">),</span>
         <span class="s2">"data_situacao"</span><span class="p">:</span> <span class="p">(</span>
             <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_situacao_aluno_data_hora"</span><span class="p">)</span>
             <span class="ow">or</span> <span class="n">matricula_turma</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_situacao_aluno"</span><span class="p">)</span>
@@ -177,9 +176,7 @@
         <span class="s2">"nome_social_aluno"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome_social"</span><span class="p">),</span>
         <span class="s2">"data_nascimento"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_nascimento"</span><span class="p">),</span>
         <span class="s2">"codigo_situacao_matricula"</span><span class="p">:</span> <span class="n">codigo_situacao</span><span class="p">,</span>
-        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span>
-            <span class="n">codigo_situacao</span>
-        <span class="p">),</span>
+        <span class="s2">"situacao_matricula"</span><span class="p">:</span> <span class="n">SituacaoMatricula</span><span class="o">.</span><span class="n">get_descricao</span><span class="p">(</span><span class="n">codigo_situacao</span><span class="p">),</span>
         <span class="s2">"data_situacao"</span><span class="p">:</span> <span class="n">linha</span><span class="p">[</span><span class="s2">"data_situacao_aluno_data_hora"</span><span class="p">],</span>
         <span class="s2">"numero_aluno_chamada"</span><span class="p">:</span> <span class="n">linha</span><span class="p">[</span><span class="s2">"numero_chamada"</span><span class="p">],</span>
         <span class="s2">"possui_deficiencia"</span><span class="p">:</span> <span class="n">aluno</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"possui_deficiencia"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
@@ -402,21 +399,6 @@
     <span class="p">}</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_quantidade_contrato_representation</span><span class="p">(</span>
-    <span class="n">instance</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">"""Representa quantidade de matriculados no contrato legado."""</span>
-    <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">"quantidade"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"quantidade"</span><span class="p">],</span>
-        <span class="s2">"ordem"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"ordem"</span><span class="p">],</span>
-        <span class="s2">"modalidade"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"modalidade"</span><span class="p">],</span>
-        <span class="s2">"ano"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"ano"</span><span class="p">],</span>
-        <span class="s2">"turma"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"turma"</span><span class="p">],</span>
-        <span class="s2">"dre_codigo"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"codigo_dre"</span><span class="p">],</span>
-        <span class="s2">"ue_codigo"</span><span class="p">:</span> <span class="n">instance</span><span class="p">[</span><span class="s2">"codigo_ue"</span><span class="p">],</span>
-    <span class="p">}</span>
-
-
 <span class="k">def</span><span class="w"> </span><span class="nf">_consolidacao_matricula_representation</span><span class="p">(</span>
     <span class="n">instance</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
@@ -439,7 +421,9 @@
         <span class="ow">or</span> <span class="n">matricula</span><span class="p">[</span><span class="s2">"data_situacao_matricula"</span><span class="p">]</span>
     <span class="p">)</span>
     <span class="c1"># Converte datetime.date para datetime.datetime se necessário</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_situacao</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_situacao</span><span class="p">,</span> <span class="n">datetime</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data_situacao</span><span class="p">,</span> <span class="n">date</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">data_situacao</span><span class="p">,</span> <span class="n">datetime</span>
+    <span class="p">):</span>
         <span class="n">data_situacao</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">combine</span><span class="p">(</span><span class="n">data_situacao</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">min</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s2">"codigo_aluno"</span><span class="p">:</span> <span class="n">matricula</span><span class="p">[</span><span class="s2">"aluno_id"</span><span class="p">],</span>
@@ -570,12 +554,40 @@
     <span class="n">desc_ciclo_ensino</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">data_atualizacao_tabela</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_conversores</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Retorna os conversores dos campos de aluno da UE."""</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">nome</span><span class="p">,</span> <span class="n">campo</span><span class="o">.</span><span class="n">to_representation</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">nome</span><span class="p">,</span> <span class="n">campo</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_datas_padrao</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Retorna as datas padrão de atualização no formato dos campos."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="n">nome</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">[</span><span class="n">nome</span><span class="p">]</span><span class="o">.</span><span class="n">to_representation</span><span class="p">(</span><span class="n">DATA_DEFAULT_LEGADO</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">nome</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="s2">"data_atualizacao_contato"</span><span class="p">,</span>
+                <span class="s2">"data_atualizacao_tabela"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">}</span>
+
 <div class="viewcode-block" id="AlunoDaUeSerializer.to_representation">
 <a class="viewcode-back" href="../../../../api.html#apps.alunos.api.serializers.AlunoDaUeSerializer.to_representation">[documentos]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">instance</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""Serializa linha composta retornada pelo service."""</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"matricula"</span> <span class="ow">in</span> <span class="n">instance</span><span class="p">:</span>
             <span class="n">instance</span> <span class="o">=</span> <span class="n">_aluno_da_ue_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_datas_padrao</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="n">nome</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="n">converter</span><span class="p">(</span><span class="n">valor</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="n">valor</span> <span class="o">:=</span> <span class="n">instance</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nome</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">nome</span><span class="p">,</span> <span class="n">converter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conversores</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">))</span></div>
 </div>
 
@@ -849,12 +861,30 @@
     <span class="n">dre_codigo</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">ue_codigo</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="nd">@cached_property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_conversores</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]],</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Retorna os conversores dos campos de quantidade."""</span>
+        <span class="n">origens</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"dre_codigo"</span><span class="p">:</span> <span class="s2">"codigo_dre"</span><span class="p">,</span> <span class="s2">"ue_codigo"</span><span class="p">:</span> <span class="s2">"codigo_ue"</span><span class="p">}</span>
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">nome</span><span class="p">,</span> <span class="n">origens</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">nome</span><span class="p">,</span> <span class="n">nome</span><span class="p">),</span> <span class="n">campo</span><span class="o">.</span><span class="n">to_representation</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">nome</span><span class="p">,</span> <span class="n">campo</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">)</span>
+
 <div class="viewcode-block" id="QuantidadeMatriculadosContratoSerializer.to_representation">
 <a class="viewcode-back" href="../../../../api.html#apps.alunos.api.serializers.QuantidadeMatriculadosContratoSerializer.to_representation">[documentos]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">to_representation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">instance</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""Serializa linha crua retornada pelo service."""</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">instance</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"codigo_dre"</span> <span class="ow">in</span> <span class="n">instance</span><span class="p">:</span>
-            <span class="n">instance</span> <span class="o">=</span> <span class="n">_quantidade_contrato_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="n">nome</span><span class="p">:</span> <span class="p">(</span>
+                    <span class="n">converter</span><span class="p">(</span><span class="n">instance</span><span class="p">[</span><span class="n">origem</span><span class="p">])</span>
+                    <span class="k">if</span> <span class="n">instance</span><span class="p">[</span><span class="n">origem</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                    <span class="k">else</span> <span class="kc">None</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">nome</span><span class="p">,</span> <span class="n">origem</span><span class="p">,</span> <span class="n">converter</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_conversores</span>
+            <span class="p">}</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">))</span></div>
 </div>
 
@@ -1111,9 +1141,15 @@
             <span class="n">instance</span> <span class="o">=</span> <span class="n">_matricula_escola_aluno_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_representation</span><span class="p">(</span><span class="n">instance</span><span class="p">))</span>
         <span class="c1"># Formatar data_situacao sem timezone, igual ao legado</span>
-        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_situacao"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_situacao"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">],</span> <span class="nb">str</span>
+        <span class="p">):</span>
             <span class="c1"># Remove timezone se presente</span>
-            <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-03:00"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"+00:00"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]</span>
+                <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"-03:00"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"+00:00"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="p">)</span>
             <span class="c1"># Remove zeros extras dos microssegundos para ficar igual ao legado (.187 ao invés de .183000)</span>
             <span class="k">if</span> <span class="s2">"."</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]:</span>
                 <span class="n">partes</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">"data_situacao"</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span>
@@ -1242,6 +1278,32 @@
     <span class="n">codigo_aluno</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">()</span>
     <span class="n">codigo_turma</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">()</span>
     <span class="n">codigo_situacao_matricula</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer</span><span class="p">(</span>
+    <span class="n">serializers</span><span class="o">.</span><span class="n">Serializer</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Serializa dados para consulta de quantidade de matrículas-turma."""</span>
+
+    <span class="n">codigos_turmas</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">ListField</span><span class="p">(</span>
+        <span class="n">child</span><span class="o">=</span><span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">(),</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">data_fim</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">DateField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="QuantidadeMatriculasTurmasPeriodoDataISOSerializer">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.serializers.QuantidadeMatriculasTurmasPeriodoDataISOSerializer">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantidadeMatriculasTurmasPeriodoDataISOSerializer</span><span class="p">(</span>
+    <span class="n">serializers</span><span class="o">.</span><span class="n">Serializer</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Serializa quantidade de matrículas-turma."""</span>
+
+    <span class="n">quantidade</span> <span class="o">=</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">()</span></div>
 
 </pre></div>
 
