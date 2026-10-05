@@ -1,0 +1,508 @@
+"""Helpers compartilhados pelos testes do app alunos."""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+from typing import cast
+
+from apps.alunos.models import (
+    Aluno,
+    DadosAlunoAcompanhamentoEscolar,
+    Matricula,
+    MatriculaAnoAnterior,
+    MatriculaTurma,
+    NecessidadeEspecialAluno,
+    ResponsavelAluno,
+    ResponsavelAlunoTurma,
+    TipoNecessidadeEspecial,
+)
+
+DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL = "Ensino Fundamental"
+DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR = "Ciclo Interdisciplinar"
+
+
+def agora() -> datetime:
+    """Retorna um datetime fixo para os testes."""
+    return datetime(2026, 4, 1, tzinfo=UTC)
+
+
+def seed_alunos() -> dict[int, Aluno]:
+    """Cria dois alunos de teste indexados por código."""
+    a1 = Aluno.objects.create(
+        codigo_aluno=1234567,
+        nome="JOAO DA SILVA",
+        nome_social=None,
+        nome_mae="MARIA DA SILVA",
+        sexo="M",
+        cpf=None,
+        nacionalidade="Brasileira",
+        nis="123456789",
+        raca_cor="NAO INFORMADO",
+        data_nascimento=date(2012, 5, 15),
+        data_atualizacao_contato=datetime(2026, 1, 15, 14, 46, 50, tzinfo=UTC),
+        possui_deficiencia=False,
+    )
+    a2 = Aluno.objects.create(
+        codigo_aluno=7654321,
+        nome="MARIA OLIVEIRA",
+        nome_social="MARIA SOCIAL",
+        nome_mae="ANA OLIVEIRA",
+        sexo="F",
+        nacionalidade="Brasileira",
+        raca_cor="NAO INFORMADO",
+        data_nascimento=date(2014, 3, 10),
+        possui_deficiencia=False,
+    )
+    return {a.codigo_aluno: a for a in (a1, a2)}
+
+
+def seed_matriculas(origem_atual: bool = True) -> list[Matricula]:
+    """Cria alunos, matrículas e vínculos de turma para os testes."""
+    seed_alunos()
+    m1 = Matricula.objects.create(
+        codigo_matricula=998877,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
+        origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    m2 = Matricula.objects.create(
+        codigo_matricula=998878,
+        aluno_id=7654321,
+        codigo_ue="100001",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=origem_atual,
+        origem_historica=not origem_atual,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=998877,
+        codigo_turma=12345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=2,
+        nome_turma="5A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=1,
+        origem_atual=origem_atual,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=998878,
+        codigo_turma=22222,
+        numero_chamada="07",
+        data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=3,
+        nome_turma="6A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=3,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino="Ciclo Autoral",
+        sequencia=1,
+        origem_atual=origem_atual,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=1234567,
+        nome="JOAO DA SILVA",
+        nome_social=None,
+        codigo_ue="100001",
+        codigo_turma=12345,
+        turma="5A",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+    )
+    DadosAlunoAcompanhamentoEscolar.objects.create(
+        codigo_aluno=7654321,
+        nome="MARIA OLIVEIRA",
+        nome_social="MARIA SOCIAL",
+        codigo_ue="100001",
+        codigo_turma=22222,
+        turma="6A",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=3,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino="Ciclo Autoral",
+    )
+    return [m1, m2]
+
+
+def seed_responsaveis() -> ResponsavelAluno:
+    """Cria um responsável vinculado ao aluno 1234567 para os testes."""
+    ResponsavelAlunoTurma.objects.create(
+        codigo_responsavel=5501,
+        codigo_matricula=998877,
+        ano_letivo=2026,
+        codigo_dre="108",
+        dre="DRE TESTE",
+        codigo_ue="100001",
+        ue="UE TESTE",
+        codigo_turma=12345,
+        turma="5A",
+        cpf_responsavel=12345678901,
+        codigo_aluno=1234567,
+        codigo_tipo_escola=1,
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        serie_resumida="5",
+        codigo_modalidade_turma=5,
+    )
+    return cast(
+        ResponsavelAluno,
+        ResponsavelAluno.objects.create(
+            codigo_responsavel=5501,
+            aluno_id=1234567,
+            tipo_responsavel=1,
+            nome="Responsavel Exemplo",
+            cpf="12345678901",
+            ddd_celular="11",
+            numero_celular="977778888",
+            ddd_telefone_fixo="11",
+            nr_telefone_fixo="33334444",
+            ddd_telefone_comercial="11",
+            nr_telefone_comercial="55556666",
+            email="contato.exemplo@sme.com.br",
+            data_nascimento=date(1980, 5, 20),
+            nome_mae="Mae do Responsavel",
+            autoriza_sms="S",
+            numero_rg="000000037112360",
+            digito_rg="4   ",
+            uf_rg="SP",
+            cpf_confere="S",
+            tipo_turno_celular=1,
+            endereco_id=123,
+            numero_endereco="100",
+            complemento="AP 1",
+            bairro="Centro",
+            logradouro="Rua das Flores",
+            cep=1310200,
+            nome_municipio="SAO PAULO",
+            sigla_uf="SP",
+            tipo_logradouro="Rua",
+            data_atualizacao_tabela=date(2026, 1, 10),
+        ),
+    )
+
+
+def seed_matriculas_ano_anterior() -> MatriculaAnoAnterior:
+    """Cria uma consolidação histórica de matrícula para os testes."""
+    return cast(
+        MatriculaAnoAnterior,
+        MatriculaAnoAnterior.objects.create(
+            ano_letivo=2025,
+            codigo_ue="100001",
+            codigo_turma=54321,
+            quantidade=27,
+        ),
+    )
+
+
+def seed_turma_data_aula() -> int:
+    """Cria dados de turma para o endpoint de alunos ativos por data de aula.
+
+    Monta dois alunos com matrículas na mesma turma, com
+    ``data_situacao_matricula_data_hora`` preenchida, número de chamada e
+    sequência, mais um responsável vinculado ao primeiro aluno.
+
+    Returns:
+        Código da turma criada.
+    """
+    seed_alunos()
+    codigo_turma = 3015603
+    Matricula.objects.create(
+        codigo_matricula=700001,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108800",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        data_situacao_matricula_data_hora=datetime(
+            2026, 2, 1, 8, 30, tzinfo=UTC
+        ),
+    )
+    Matricula.objects.create(
+        codigo_matricula=700002,
+        aluno_id=7654321,
+        codigo_ue="100001",
+        codigo_dre="108800",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        data_situacao_matricula_data_hora=datetime(
+            2026, 2, 1, 9, 0, tzinfo=UTC
+        ),
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=700001,
+        codigo_turma=codigo_turma,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 10),
+        data_situacao_aluno_data_hora=datetime(2026, 2, 10, 14, 0, tzinfo=UTC),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
+        sequencia=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=700002,
+        codigo_turma=codigo_turma,
+        numero_chamada="07",
+        data_situacao_aluno=date(2026, 2, 1),
+        data_situacao_aluno_data_hora=datetime(2026, 2, 1, 9, 0, tzinfo=UTC),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        nome_turma="5A",
+        codigo_etapa_ensino=5,
+        sequencia=2,
+    )
+    ResponsavelAluno.objects.create(
+        codigo_responsavel=6601,
+        aluno_id=1234567,
+        tipo_responsavel=1,
+        nome="Responsavel Data Aula",
+        ddd_celular="11",
+        numero_celular="988887777",
+        data_atualizacao_tabela=datetime(2026, 1, 20, 10, 0, tzinfo=UTC),
+    )
+    return codigo_turma
+
+
+def seed_necessidades(
+    codigo_aluno: int = 1234567,
+) -> NecessidadeEspecialAluno:
+    """Cria um tipo e um vínculo de necessidade especial."""
+    tipo = TipoNecessidadeEspecial.objects.create(
+        codigo_necessidade_especial=1,
+        descricao="Deficiência Visual",
+        codigo_estado=1,
+        ativo=True,
+    )
+    return cast(
+        NecessidadeEspecialAluno,
+        NecessidadeEspecialAluno.objects.create(
+            codigo_necessidade_especial_aluno=10001,
+            aluno_id=codigo_aluno,
+            necessidade_especial=tipo,
+            data_inicio=date(2025, 1, 1),
+        ),
+    )
+
+
+def criar_matricula_simples(
+    codigo_matricula: int,
+    aluno_id: int,
+    codigo_ue: str,
+    **kwargs: object,
+) -> Matricula:
+    """Cria uma matrícula com campos mínimos obrigatórios.
+
+    Args:
+        codigo_matricula: Código único da matrícula.
+        aluno_id: Código do aluno.
+        codigo_ue: Código da unidade educacional.
+        **kwargs: Campos opcionais da matrícula.
+
+    Returns:
+        Matrícula criada.
+    """
+    defaults = {
+        "codigo_dre": "108800",
+        "ano_letivo": 2026,
+        "codigo_situacao_matricula": 1,
+        "situacao_matricula": "Ativo",
+        "data_situacao_matricula": date(2026, 3, 15),
+    }
+    defaults.update(kwargs)
+    return Matricula.objects.create(
+        codigo_matricula=codigo_matricula,
+        aluno_id=aluno_id,
+        codigo_ue=codigo_ue,
+        **defaults,
+    )
+
+
+def seed_matriculas_com_responsaveis(
+    origem_atual: bool = True,
+) -> tuple[list[Matricula], ResponsavelAluno]:
+    """Cria matrículas e responsáveis juntos.
+
+    Args:
+        origem_atual: Define se as matrículas são da origem atual.
+
+    Returns:
+        Tupla com (lista de matrículas, responsável).
+    """
+    matriculas = seed_matriculas(origem_atual=origem_atual)
+    responsavel = seed_responsaveis()
+    return matriculas, responsavel
+
+
+def seed_matricula_duas_turmas_dre_108100() -> None:
+    """Cria matrícula com duas alocações de turma para teste M04.
+
+    Cria matrícula 999002 do aluno 1234567 com duas turmas:
+    - Turma 42345: tipo_turno=6 (Integral), sequencia=1, UE 100001
+    - Turma 52345: tipo_turno=3 (Tarde), sequencia=2, UE 100002
+
+    O resultado esperado para M04 (DRE 108100) é:
+    [{"totalMatriculas": 1, "codigoEolEscola": "100002",
+      "turnos": [{"turno": "Tarde", "tipoTurno": 3, "quantidade": 1}]}]
+    """
+    seed_alunos()
+    Matricula.objects.create(
+        codigo_matricula=999002,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108100",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=True,
+        origem_historica=False,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999002,
+        codigo_turma=42345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 10),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=6,
+        nome_turma="5A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=1,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999002,
+        codigo_turma=52345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 20),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=3,
+        nome_turma="5B",
+        codigo_ue_turma="100002",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=2,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+
+
+# Estrutura JSON esperada para teste M04 com dados de seed_matricula_duas_turmas_dre_108100
+RESULTADO_ESPERADO_M04_DRE_108100 = [
+    {
+        "totalMatriculas": 1,
+        "codigoEolEscola": "100002",
+        "turnos": [
+            {
+                "turno": "Tarde",
+                "tipoTurno": 3,
+                "quantidade": 1,
+            }
+        ],
+    }
+]
+
+
+def seed_matricula_uma_turma_dre_108100() -> None:
+    """Cria matrícula com uma única turma para teste M04.
+
+    Cria matrícula 999001 do aluno 1234567 com uma turma:
+    - Turma 32345: tipo_turno=6 (Integral), UE 100001
+
+    O resultado esperado para M04 (DRE 108100) é:
+    [{"totalMatriculas": 1, "codigoEolEscola": "100001",
+      "turnos": [{"turno": "Integral", "tipoTurno": 6, "quantidade": 1}]}]
+    """
+    seed_alunos()
+    Matricula.objects.create(
+        codigo_matricula=999001,
+        aluno_id=1234567,
+        codigo_ue="100001",
+        codigo_dre="108100",
+        ano_letivo=2026,
+        codigo_situacao_matricula=1,
+        situacao_matricula="Ativo",
+        data_situacao_matricula=date(2026, 2, 1),
+        origem_atual=True,
+        origem_historica=False,
+        codigo_serie_ensino=100,
+        codigo_tipo_escola=1,
+    )
+    MatriculaTurma.objects.create(
+        codigo_matricula=999001,
+        codigo_turma=32345,
+        numero_chamada="12",
+        data_situacao_aluno=date(2026, 2, 1),
+        codigo_situacao_aluno=1,
+        codigo_tipo_turma=1,
+        tipo_turno=6,
+        nome_turma="5A",
+        codigo_ue_turma="100001",
+        codigo_etapa_ensino=5,
+        codigo_ciclo_ensino=2,
+        descricao_etapa_ensino=DESCRICAO_ETAPA_ENSINO_FUNDAMENTAL,
+        descricao_ciclo_ensino=DESCRICAO_CICLO_ENSINO_INTERDISCIPLINAR,
+        sequencia=1,
+        origem_atual=True,
+        ano_letivo_turma=2026,
+        serie_resumida="5",
+    )
+
+
+# Estrutura JSON esperada para teste M04 com dados de seed_matricula_uma_turma_dre_108100
+RESULTADO_ESPERADO_M04_DRE_108100_UMA_TURMA = [
+    {
+        "totalMatriculas": 1,
+        "codigoEolEscola": "100001",
+        "turnos": [
+            {
+                "turno": "Integral",
+                "tipoTurno": 6,
+                "quantidade": 1,
+            }
+        ],
+    }
+]

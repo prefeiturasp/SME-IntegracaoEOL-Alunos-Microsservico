@@ -1,0 +1,182 @@
+"""Queries SQL do domínio Alunos (réplicas do contrato legado)."""
+
+SQL_A04_ALUNOS_DA_UE = """
+SELECT mt.codigo_matricula, mt.codigo_turma, mt.numero_chamada,
+       mt.data_situacao_aluno, mt.data_situacao_aluno_data_hora,
+       mt.codigo_situacao_aluno, mt.codigo_tipo_turma, mt.tipo_turno,
+       mt.nome_turma, mt.codigo_etapa_ensino, mt.codigo_ciclo_ensino,
+       mt.descricao_etapa_ensino, mt.descricao_ciclo_ensino,
+       mt.ano_letivo_turma, m.codigo_aluno AS aluno_id,
+       a.codigo_aluno AS aluno_codigo, a.nome AS aluno_nome,
+       a.nome_social AS aluno_nome_social,
+       a.data_nascimento AS aluno_data_nascimento
+FROM matricula_turma mt
+JOIN matricula m ON m.codigo_matricula = mt.codigo_matricula
+                AND m.origem_atual = TRUE
+LEFT JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
+WHERE mt.codigo_ue_turma = %(ue)s
+  AND mt.ano_letivo_turma = %(ano)s
+  AND mt.origem_atual = TRUE
+ORDER BY mt.codigo_turma, mt.codigo_matricula, mt.sequencia
+"""
+
+SQL_A15_QUANTIDADE_POR_ANO_E_CC = """
+    SELECT
+        mt.codigo_turma AS "codigo_turma",
+        COUNT(*) AS quantidade,
+        ROW_NUMBER() OVER (ORDER BY mt.codigo_turma) AS ordem
+    FROM matricula m
+    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
+    WHERE m.ano_letivo = %(ano)s
+      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
+    GROUP BY mt.codigo_turma
+    ORDER BY mt.codigo_turma
+"""
+
+SQL_A16_QUANTIDADE = """
+    SELECT
+        COUNT(*) AS quantidade,
+        ROW_NUMBER() OVER (ORDER BY m.codigo_ue, mt.codigo_turma) AS ordem,
+        mt.codigo_turma AS "codigo_turma",
+        m.codigo_ue AS "ue_codigo"
+    FROM matricula m
+    JOIN matricula_turma mt ON mt.codigo_matricula = m.codigo_matricula
+    WHERE m.ano_letivo = %(ano)s
+      AND m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(ue)s::text IS NULL OR m.codigo_ue = %(ue)s)
+    GROUP BY m.codigo_ue, mt.codigo_turma
+    ORDER BY m.codigo_ue, mt.codigo_turma
+"""
+
+SQL_A18_ACOMPANHAMENTO = """
+    SELECT
+        m.codigo_aluno AS "codigo_eol",
+        r.nome AS "nome_responsavel",
+        r.cpf AS "cpf_responsavel",
+        a.nome AS "nome",
+        a.nome_social AS "nome_social",
+        m.codigo_ue AS "codigo_escola",
+        r.tipo_responsavel AS "tipo_responsavel",
+        COALESCE(mt.codigo_turma, 0) AS "codigo_turma",
+        m.situacao_matricula AS "situacao_matricula",
+        a.data_nascimento AS "data_nascimento",
+        m.data_situacao_matricula AS "data_situacao_matricula",
+        m.ano_letivo AS "ano_letivo"
+    FROM matricula m
+    JOIN aluno a ON a.codigo_aluno = m.codigo_aluno
+    LEFT JOIN LATERAL (
+        SELECT codigo_turma
+        FROM matricula_turma
+        WHERE codigo_matricula = m.codigo_matricula
+        LIMIT 1
+    ) mt ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT nome, cpf, tipo_responsavel
+        FROM responsavel_aluno
+        WHERE codigo_aluno = a.codigo_aluno
+          AND data_fim_vinculo IS NULL
+        ORDER BY tipo_responsavel DESC NULLS FIRST
+        LIMIT 1
+    ) r ON TRUE
+    WHERE m.codigo_situacao_matricula = ANY(%(situacoes)s)
+      AND (%(codigo_aluno)s::bigint IS NULL
+           OR m.codigo_aluno = %(codigo_aluno)s::bigint)
+      AND (%(codigo_ue)s::text IS NULL OR m.codigo_ue = %(codigo_ue)s)
+      AND (%(ano_letivo)s::int IS NULL
+           OR m.ano_letivo = %(ano_letivo)s::int)
+      AND (%(turma_codigo)s::bigint IS NULL
+           OR mt.codigo_turma = %(turma_codigo)s::bigint)
+      AND (%(cpf)s::text IS NULL OR EXISTS (
+          SELECT 1 FROM responsavel_aluno r2
+          WHERE r2.codigo_aluno = m.codigo_aluno
+            AND r2.cpf = %(cpf)s
+            AND r2.data_fim_vinculo IS NULL
+      ))
+"""
+
+SQL_A20_TURMA_CONSIDERA_INATIVOS = """
+    WITH candidatos AS (
+        SELECT
+            mt.codigo_matricula, mt.codigo_turma, mt.numero_chamada,
+            mt.sequencia, mt.data_situacao_aluno_data_hora,
+            mt.codigo_situacao_aluno,
+            m.codigo_aluno AS aluno_id, m.codigo_ue, m.codigo_dre,
+            m.ano_letivo,
+            ROW_NUMBER() OVER (
+                PARTITION BY m.codigo_aluno
+                ORDER BY mt.data_situacao_aluno_data_hora DESC NULLS LAST,
+                         mt.numero_chamada DESC NULLS LAST
+            ) AS rn
+        FROM matricula_turma mt
+        JOIN matricula m ON m.codigo_matricula = mt.codigo_matricula
+        WHERE mt.codigo_turma = %(codigo_turma)s::bigint
+          AND (%(sequencia)s::int IS NULL
+               OR mt.sequencia = %(sequencia)s::int)
+          AND (%(codigo_aluno)s::bigint IS NULL
+               OR m.codigo_aluno = %(codigo_aluno)s::bigint)
+    ),
+    finais AS (
+        SELECT *
+        FROM candidatos
+        WHERE rn = 1
+          AND (
+                %(considerar_inativos)s::bool IS TRUE
+                OR codigo_situacao_aluno = ANY(%(situacoes_ativas)s)
+              )
+    )
+    SELECT
+        f.codigo_matricula, f.codigo_turma, f.numero_chamada, f.sequencia,
+        f.data_situacao_aluno_data_hora, f.codigo_situacao_aluno,
+        f.aluno_id, f.codigo_ue, f.codigo_dre, f.ano_letivo,
+        a.nome AS aluno_nome, a.nome_social AS aluno_nome_social,
+        a.data_nascimento AS aluno_data_nascimento,
+        a.possui_deficiencia AS aluno_possui_deficiencia,
+        a.data_atualizacao_contato AS aluno_data_atualizacao_contato,
+        r.nome AS responsavel_nome, r.tipo_responsavel AS responsavel_tipo,
+        r.ddd_celular AS responsavel_ddd_celular,
+        r.numero_celular AS responsavel_numero_celular,
+        pa.primeira AS primeira_alocacao
+    FROM finais f
+    LEFT JOIN aluno a ON a.codigo_aluno = f.aluno_id
+    LEFT JOIN LATERAL (
+        SELECT nome, tipo_responsavel, ddd_celular, numero_celular
+        FROM responsavel_aluno
+        WHERE codigo_aluno = f.aluno_id
+          AND data_fim_vinculo IS NULL
+        ORDER BY tipo_responsavel, codigo_responsavel
+        LIMIT 1
+    ) r ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT MIN(data_situacao_aluno_data_hora) AS primeira
+        FROM matricula_turma
+        WHERE codigo_matricula = f.codigo_matricula
+    ) pa ON TRUE
+    ORDER BY f.codigo_matricula
+"""
+
+SQL_A19_RESPONSAVEIS = """
+    SELECT DISTINCT
+        r.codigo_dre AS "codigo_dre",
+        r.dre AS "dre",
+        r.codigo_ue AS "codigo_ue",
+        r.ue AS "ue",
+        r.codigo_turma AS "codigo_turma",
+        r.turma AS "turma",
+        r.cpf_responsavel AS "cpf_responsavel",
+        r.codigo_aluno AS "codigo_aluno",
+        r.codigo_tipo_escola AS "codigo_tipo_escola",
+        r.codigo_etapa_ensino AS "codigo_etapa_ensino",
+        r.codigo_ciclo_ensino AS "codigo_ciclo_ensino",
+        r.serie_resumida AS "serie_resumida",
+        r.codigo_modalidade_turma AS "codigo_modalidade_turma",
+        FALSE AS "tem_app_instalado"
+    FROM responsavel_aluno_turma r
+    WHERE r.ano_letivo = %(ano_letivo)s::int
+      AND (%(codigo_dre)s::text IS NULL
+           OR r.codigo_dre = %(codigo_dre)s)
+      AND (%(codigo_ue)s::text IS NULL
+           OR r.codigo_ue = %(codigo_ue)s)
+    ORDER BY r.codigo_dre, r.codigo_ue, r.codigo_turma,
+             r.codigo_aluno, r.cpf_responsavel
+"""
