@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SME-IntegracaoEOL-Alunos-Microsservico"
-version = "0.1.0"
+version = "1.0.0"
 description = "Microsserviço de leitura/escrita do domínio Alunos — SGP EOL"
 readme = "README.md"
 requires-python = ">=3.12"
