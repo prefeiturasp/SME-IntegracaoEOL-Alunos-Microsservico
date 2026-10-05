@@ -1,12 +1,13 @@
 """Rotas principais do SME-IntegracaoEOL-Alunos."""
 
-from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
+from apps.core.health import HealthView
+
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("api/v1/alunos/health/", HealthView.as_view(), name="health"),
     path(
         "alunos/api/v1/schema/",
         SpectacularAPIView.as_view(
