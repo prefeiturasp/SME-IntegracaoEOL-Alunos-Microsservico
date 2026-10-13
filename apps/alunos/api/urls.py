@@ -18,6 +18,7 @@ from apps.alunos.api.views import (
     BuscaTurmasDoAlunoComHistoricoView,
     BuscaTurmasDoAlunoPorSituacaoMatriculaView,
     BuscaTurmasDoAlunoView,
+    BuscaTurmasSrmRegularDoAlunoView,
     CodigosTurmasRegularesAlunoView,
     DadosAcompanhamentoEscolarContratoView,
     DadosAcompanhamentoEscolarView,
@@ -59,6 +60,11 @@ urlpatterns = [
         "<str:codigo_aluno>/turmas/",
         BuscaTurmasDoAlunoView.as_view(),
         name="busca-turmas-do-aluno",
+    ),
+    path(
+        "<str:codigo_aluno>/turmas-srm-regular/",
+        BuscaTurmasSrmRegularDoAlunoView.as_view(),
+        name="busca-turmas-srm-regular-do-aluno",
     ),
     path(
         "<str:codigo_aluno>/turmas/anos_letivos/<str:ano_letivo>/"

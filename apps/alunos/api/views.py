@@ -164,6 +164,58 @@ class BuscaTurmasDoAlunoView(APIView):
         return Response(TurmaDoAlunoSerializer(dados, many=True).data)
 
 
+class BuscaTurmasSrmRegularDoAlunoView(APIView):
+    """Lista as turmas do aluno elegíveis para SRM/regular."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Turmas regulares e de programa SRM do aluno",
+        parameters=[
+            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+            OpenApiParameter(
+                "codigos_turma_programa",
+                int,
+                OpenApiParameter.QUERY,
+                many=True,
+                required=False,
+            ),
+        ],
+        responses={200: TurmaDoAlunoSerializer(many=True)},
+    )
+    def get(self, request: Request, codigo_aluno: str) -> Response:
+        """Retorna turmas regulares e de programa SRM do aluno.
+
+        Args:
+            request: Requisição com ``codigos_turma_programa`` (lista das
+                turmas de programa SRM do aluno).
+            codigo_aluno: Código EOL do aluno.
+
+        Returns:
+            Turmas elegíveis, ou ausência de conteúdo quando não há turmas.
+        """
+        try:
+            codigo = to_int(codigo_aluno, "codigo_aluno")
+            codigos_programa = query_int_list(
+                request, "codigos_turma_programa"
+            )
+        except ValueError as exc:
+            return _erro_400(str(exc))
+
+        if codigo <= 0:
+            return _erro_400(CODIGO_ALUNO_OBRIGATORIO)
+
+        dados = services.buscar_turmas_srm_regular_do_aluno(
+            codigo_aluno=codigo,
+            codigos_turma_programa=codigos_programa,
+        )
+        if not dados:
+            return Response(
+                {"detail": ALUNO_SEM_TURMA},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(TurmaDoAlunoSerializer(dados, many=True).data)
+
+
 class BuscaTurmasDoAlunoPorSituacaoMatriculaView(APIView):
     """Lista as turmas do aluno com filtro de situação de matrícula."""
 
