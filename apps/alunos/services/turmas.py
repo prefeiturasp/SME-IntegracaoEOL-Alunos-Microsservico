@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any, cast
 
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -15,28 +15,44 @@ from apps.alunos.models import (
     Aluno,
     Matricula,
     MatriculaTurma,
-    ResponsavelAluno,
 )
 from apps.alunos.repositories import alunos_da_ue
 from apps.alunos.services.responsaveis import responsaveis_do_aluno
+
+TIPO_TURMA_REGULAR = 1
+TIPO_TURMA_PROGRAMA = 3
 
 
 def _turmas_mais_recentes_por_matricula(
     codigos_matricula: Sequence[int],
     historico: bool = False,
+    codigos_turma_programa: Sequence[int] | None = None,
 ) -> dict[int, list[dict[str, Any]]]:
-    """Agrupa os vínculos de turma por matrícula."""
+    """Agrupa os vínculos de turma por matrícula.
+
+    Quando o código do tipo da turma é informado, mantém apenas turmas
+    regulares e as turmas de programa contidas nessa lista.
+    """
     if not codigos_matricula:
         return {}
+
+    qs = MatriculaTurma.objects.filter(
+        codigo_matricula__in=codigos_matricula,
+        origem_atual=not historico,
+    )
+    if codigos_turma_programa is not None:
+        qs = qs.filter(
+            Q(codigo_tipo_turma=TIPO_TURMA_REGULAR)
+            | Q(
+                codigo_tipo_turma=TIPO_TURMA_PROGRAMA,
+                codigo_turma__in=list(codigos_turma_programa),
+            )
+        )
 
     saida: dict[int, list[dict[str, Any]]] = {}
     turmas_processadas: set[tuple[int, int]] = set()
     for mt in (
-        MatriculaTurma.objects.filter(
-            codigo_matricula__in=codigos_matricula,
-            origem_atual=not historico,
-        )
-        .values(
+        qs.values(
             "codigo_matricula",
             "codigo_turma",
             "numero_chamada",
@@ -161,23 +177,6 @@ def _aluno_basico(codigo_aluno: int) -> dict[str, Any]:
     )
 
 
-def _responsavel_prioritario_do_aluno(codigo_aluno: int) -> dict[str, Any]:
-    """Retorna o responsável prioritário do aluno."""
-    return (
-        ResponsavelAluno.objects.filter(aluno_id=codigo_aluno)
-        .order_by("tipo_responsavel")
-        .values(
-            "nome",
-            "tipo_responsavel",
-            "ddd_celular",
-            "numero_celular",
-            "data_atualizacao_tabela",
-        )
-        .first()
-        or {}
-    )
-
-
 def _turma_do_aluno_deve_ser_incluida(
     codigo_situacao: int,
     matricula_turma: dict[str, Any],
@@ -187,7 +186,10 @@ def _turma_do_aluno_deve_ser_incluida(
     """Verifica se a turma atende aos filtros informados."""
     if filtrar_situacao and codigo_situacao not in SITUACOES_MATRICULA_VALIDAS:
         return False
-    return not (tipo_turma and matricula_turma.get("codigo_tipo_turma") == 3)
+    return not (
+        tipo_turma
+        and matricula_turma.get("codigo_tipo_turma") == TIPO_TURMA_PROGRAMA
+    )
 
 
 def _linhas_turmas_do_aluno(
@@ -234,6 +236,7 @@ def _consultar_turmas_do_aluno(
     historico: bool = False,
     filtrar_situacao: bool = True,
     tipo_turma: bool = True,
+    codigos_turma_programa: Sequence[int] | None = None,
 ) -> list[dict[str, Any]]:
     """Consulta turmas e matrículas do aluno."""
     matriculas = _matriculas_do_aluno(codigo_aluno, ano_letivo, historico)
@@ -241,11 +244,12 @@ def _consultar_turmas_do_aluno(
         return []
 
     aluno = _aluno_basico(codigo_aluno)
-    responsavel = _responsavel_prioritario_do_aluno(codigo_aluno)
-    responsaveis = responsaveis_do_aluno(codigo_aluno) or [responsavel]
+    # Sem responsável vinculado, a turma sai com uma linha de responsável vazio.
+    responsaveis = responsaveis_do_aluno(codigo_aluno) or [{}]
     turmas_por_matricula = _turmas_mais_recentes_por_matricula(
         [m["codigo_matricula"] for m in matriculas],
         historico=historico,
+        codigos_turma_programa=codigos_turma_programa,
     )
     return _linhas_turmas_do_aluno(
         matriculas,
@@ -268,6 +272,23 @@ def buscar_turmas_do_aluno(
         codigo_aluno=codigo_aluno,
         tipo_turma=tipo_turma,
         filtrar_situacao=filtrar_situacao,
+    )
+
+
+def buscar_turmas_srm_regular_do_aluno(
+    codigo_aluno: int,
+    codigos_turma_programa: Sequence[int],
+) -> list[dict[str, Any]]:
+    """Lista as turmas elegíveis para SRM/regular do aluno no ano corrente.
+
+    São elegíveis as turmas regulares e as turmas de programa cujo código
+    esteja em código do tipo da turma. Não filtra por situação.
+    """
+    return _consultar_turmas_do_aluno(
+        codigo_aluno=codigo_aluno,
+        tipo_turma=False,
+        filtrar_situacao=False,
+        codigos_turma_programa=codigos_turma_programa,
     )
 
 

@@ -98,6 +98,72 @@ class A01TurmasDoAlunoTestCase(TestCase):
         self.assertEqual(resp.status_code, 404)
 
 
+class A01TurmasSrmRegularDoAlunoTestCase(TestCase):
+    """Valida o endpoint de turmas regulares e de programa SRM do aluno."""
+
+    def _criar_turmas_programa(self) -> None:
+        for codigo_turma in (9100001, 9100002):
+            MatriculaTurma.objects.create(
+                codigo_matricula=998877,
+                codigo_turma=codigo_turma,
+                numero_chamada="1",
+                data_situacao_aluno=date(2026, 2, 10),
+                codigo_situacao_aluno=1,
+                codigo_tipo_turma=3,
+                sequencia=1,
+                origem_atual=True,
+                ano_letivo_turma=2026,
+            )
+
+    def _get(self, query: str = "") -> object:
+        url = reverse(
+            "busca-turmas-srm-regular-do-aluno",
+            kwargs={"codigo_aluno": "1234567"},
+        )
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            return _autenticado().get(f"{url}{query}")
+
+    def test_sem_codigos_retorna_so_regulares(self) -> None:
+        """Verifica que turmas de programa fora da lista são descartadas."""
+        seed_matriculas_com_responsaveis()
+        self._criar_turmas_programa()
+        resp = self._get()
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            [t["codigo_turma"] for t in resp.json()], [12345]
+        )
+
+    def test_inclui_programa_informado(self) -> None:
+        """Verifica que só a turma de programa informada é incluída."""
+        seed_matriculas_com_responsaveis()
+        self._criar_turmas_programa()
+        resp = self._get("?codigos_turma_programa=9100001")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            sorted(t["codigo_turma"] for t in resp.json()),
+            [12345, 9100001],
+        )
+
+    def test_aluno_invalido_400(self) -> None:
+        """Verifica que codigo_aluno não numérico retorna 400."""
+        url = reverse(
+            "busca-turmas-srm-regular-do-aluno",
+            kwargs={"codigo_aluno": "abc"},
+        )
+        self.assertEqual(_autenticado().get(url).status_code, 400)
+
+    def test_aluno_inexistente_404(self) -> None:
+        """Verifica que aluno sem matrículas retorna 404."""
+        url = reverse(
+            "busca-turmas-srm-regular-do-aluno",
+            kwargs={"codigo_aluno": "9999999"},
+        )
+        self.assertEqual(_autenticado().get(url).status_code, 404)
+
+
 class A04A05A06AutocompleteApiTestCase(TestCase):
     """Valida os endpoints de listagem e autocomplete por UE."""
 
