@@ -55,6 +55,7 @@ from apps.alunos.services.turmas import (
     buscar_turmas_do_aluno,
     buscar_turmas_do_aluno_com_historico,
     buscar_turmas_do_aluno_por_situacao_matricula,
+    buscar_turmas_srm_regular_do_aluno,
     obter_alunos_por_codigos,
     obter_alunos_por_codigos_e_ano,
     obter_codigos_turmas_regulares_aluno,
