@@ -205,6 +205,64 @@
 
 
 
+<div class="viewcode-block" id="BuscaTurmasSrmRegularDoAlunoView">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BuscaTurmasSrmRegularDoAlunoView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Lista as turmas do aluno elegíveis para SRM/regular."""</span>
+
+<div class="viewcode-block" id="BuscaTurmasSrmRegularDoAlunoView.get">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView.get">[documentos]</a>
+    <span class="nd">@extend_schema</span><span class="p">(</span>
+        <span class="n">tags</span><span class="o">=</span><span class="n">_TAG_ALUNO</span><span class="p">,</span>
+        <span class="n">summary</span><span class="o">=</span><span class="s2">"Turmas regulares e de programa SRM do aluno"</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"codigo_aluno"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
+            <span class="n">OpenApiParameter</span><span class="p">(</span>
+                <span class="s2">"codigos_turma_programa"</span><span class="p">,</span>
+                <span class="nb">int</span><span class="p">,</span>
+                <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">,</span>
+                <span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">TurmaDoAlunoSerializer</span><span class="p">(</span><span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">)},</span>
+    <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retorna turmas regulares e de programa SRM do aluno.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            request: Requisição com ``codigos_turma_programa`` (lista das</span>
+<span class="sd">                turmas de programa SRM do aluno).</span>
+<span class="sd">            codigo_aluno: Código EOL do aluno.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Turmas elegíveis, ou ausência de conteúdo quando não há turmas.</span>
+<span class="sd">        """</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">codigo</span> <span class="o">=</span> <span class="n">to_int</span><span class="p">(</span><span class="n">codigo_aluno</span><span class="p">,</span> <span class="s2">"codigo_aluno"</span><span class="p">)</span>
+            <span class="n">codigos_programa</span> <span class="o">=</span> <span class="n">query_int_list</span><span class="p">(</span>
+                <span class="n">request</span><span class="p">,</span> <span class="s2">"codigos_turma_programa"</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">codigo</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="n">CODIGO_ALUNO_OBRIGATORIO</span><span class="p">)</span>
+
+        <span class="n">dados</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">buscar_turmas_srm_regular_do_aluno</span><span class="p">(</span>
+            <span class="n">codigo_aluno</span><span class="o">=</span><span class="n">codigo</span><span class="p">,</span>
+            <span class="n">codigos_turma_programa</span><span class="o">=</span><span class="n">codigos_programa</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dados</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">"detail"</span><span class="p">:</span> <span class="n">ALUNO_SEM_TURMA</span><span class="p">},</span>
+                <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="o">.</span><span class="n">HTTP_404_NOT_FOUND</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">TurmaDoAlunoSerializer</span><span class="p">(</span><span class="n">dados</span><span class="p">,</span> <span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">data</span><span class="p">)</span></div>
+</div>
+
+
+
 <div class="viewcode-block" id="BuscaTurmasDoAlunoPorSituacaoMatriculaView">
 <a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.BuscaTurmasDoAlunoPorSituacaoMatriculaView">[documentos]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">BuscaTurmasDoAlunoPorSituacaoMatriculaView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>

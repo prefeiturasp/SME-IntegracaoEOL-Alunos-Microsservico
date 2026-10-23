@@ -2207,6 +2207,40 @@ object the first time, the query is executed.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">BuscaTurmasSrmRegularDoAlunoView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#BuscaTurmasSrmRegularDoAlunoView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
+<p>Lista as turmas do aluno elegíveis para SRM/regular.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView.get">
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#BuscaTurmasSrmRegularDoAlunoView.get"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.BuscaTurmasSrmRegularDoAlunoView.get" title="Link para esta definição">¶</a></dt>
+<dd><p>Retorna turmas regulares e de programa SRM do aluno.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> – Requisição com <code class="docutils literal notranslate"><span class="pre">codigos_turma_programa</span></code> (lista das
+turmas de programa SRM do aluno).</p></li>
+<li><p><strong>codigo_aluno</strong> – Código EOL do aluno.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Retorna<span class="colon">:</span></dt>
+<dd class="field-even"><p>Turmas elegíveis, ou ausência de conteúdo quando não há turmas.</p>
+</dd>
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<em>Request</em>)</p></li>
+<li><p><strong>codigo_aluno</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="apps.alunos.api.views.BuscaTurmasDoAlunoPorSituacaoMatriculaView">
 <em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">BuscaTurmasDoAlunoPorSituacaoMatriculaView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#BuscaTurmasDoAlunoPorSituacaoMatriculaView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.BuscaTurmasDoAlunoPorSituacaoMatriculaView" title="Link para esta definição">¶</a></dt>
 <dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
