@@ -1013,25 +1013,46 @@ class AtualizarResponsavelBuscaAtivaRequestSerializer(serializers.Serializer):
         required=False, allow_blank=True, allow_null=True
     )
     email = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=200,
     )
     ddd_celular = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=4,
     )
     numero_celular = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=20,
     )
     ddd_residencial = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=4,
     )
     numero_residencial = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=20,
     )
     ddd_comercial = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=4,
     )
     numero_comercial = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=20,
     )
 
 
@@ -1043,7 +1064,10 @@ class AtualizarResponsavelRequestSerializer(serializers.Serializer):
         required=False, allow_blank=True, allow_null=True
     )
     email = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=200,
     )
     nome = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
@@ -1058,13 +1082,22 @@ class AtualizarResponsavelRequestSerializer(serializers.Serializer):
         required=False, allow_null=True
     )
     nome_mae = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=200,
     )
     ddd_celular = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=4,
     )
     numero_celular = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        max_length=20,
     )
     codigo_aluno = serializers.CharField(
         required=False, allow_blank=True, allow_null=True

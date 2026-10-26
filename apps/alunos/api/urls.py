@@ -43,6 +43,8 @@ from apps.alunos.api.views import (
     QuantidadeMatriculasTurmasPeriodoView,
     ResponsaveisDreUeTurmaView,
     ResponsavelAlunoView,
+    ResponsavelContatosView,
+    ResponsavelDadosCadastraisView,
     TodosAlunosTurmaView,
     TotalAlunosAtivosPorPeriodoView,
     TotalMatriculasPorTurnoDreView,
@@ -236,6 +238,17 @@ urlpatterns = [
         "<str:codigo_aluno>/responsaveis/filiacao",
         FiliacaoAlunoView.as_view(),
         name="filiacao-aluno",
+    ),
+    path(
+        "<str:codigo_aluno>/responsaveis/<str:cpf_responsavel>/contatos",
+        ResponsavelContatosView.as_view(),
+        name="responsavel-aluno-contatos",
+    ),
+    path(
+        "<str:codigo_aluno>/responsaveis/<str:cpf_responsavel>/"
+        "dados-cadastrais",
+        ResponsavelDadosCadastraisView.as_view(),
+        name="responsavel-aluno-dados-cadastrais",
     ),
     path(
         "<str:codigo_aluno>/responsaveis/<str:cpf_responsavel>",
