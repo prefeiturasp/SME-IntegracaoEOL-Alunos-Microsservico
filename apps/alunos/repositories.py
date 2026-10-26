@@ -360,7 +360,6 @@ def detalhes_alunos_por_matricula(
         ]
     return alunos_idx, responsaveis_idx, primeiras_alocacoes
 
-
 def turma_considera_inativos_sql(
     codigo_turma: int,
     considerar_inativos: bool,
