@@ -46,60 +46,7 @@ class TurmasLotesPerformanceTest(TestCase):
     def setUpTestData(cls) -> None:
         """Cria vínculos sintéticos com origens e contatos distintos."""
         for codigo in range(101, 107):
-            Aluno.objects.create(
-                codigo_aluno=codigo,
-                nome=f"ALUNO SINTETICO {codigo}",
-                nome_social="SOCIAL" if codigo == 101 else None,
-                data_nascimento=date(2015, 1, 2),
-                cpf="00000000000" if codigo == 101 else None,
-            )
-            Matricula.objects.create(
-                codigo_matricula=codigo,
-                aluno_id=codigo,
-                codigo_ue="000001",
-                ano_letivo=2026,
-                codigo_situacao_matricula=1,
-                situacao_matricula="Ativo",
-                data_situacao_matricula=date(2026, 2, 1),
-                origem_atual=True,
-            )
-            if codigo != 103:
-                for sequencia in (1, 2):
-                    MatriculaTurma.objects.create(
-                        codigo_matricula=codigo,
-                        codigo_turma=1000 + codigo,
-                        sequencia=sequencia,
-                        codigo_situacao_aluno=2 if codigo == 104 else 1,
-                        codigo_tipo_turma=1,
-                        numero_chamada="0" if sequencia == 1 else None,
-                        data_situacao_aluno=date(2026, 2, sequencia),
-                        data_atualizacao_tabela=datetime(
-                            2026, 2, sequencia, tzinfo=UTC
-                        ),
-                        origem_atual=True,
-                    )
-            Matricula.objects.create(
-                codigo_matricula=1000 + codigo,
-                aluno_id=codigo,
-                codigo_ue="000002",
-                ano_letivo=2025,
-                codigo_situacao_matricula=14,
-                situacao_matricula="Remanejado Saída",
-                data_situacao_matricula=date(2025, 3, 1),
-                data_situacao_matricula_historica=datetime(
-                    2025, 2, 1, tzinfo=UTC
-                ),
-                origem_atual=False,
-                origem_historica=True,
-            )
-            MatriculaTurma.objects.create(
-                codigo_matricula=1000 + codigo,
-                codigo_turma=2000 + codigo,
-                sequencia=1,
-                codigo_situacao_aluno=14,
-                codigo_tipo_turma=3,
-                origem_atual=False,
-            )
+            cls._criar_vinculos_do_aluno(codigo)
         for numero in (3, 1, 2):
             ResponsavelAluno.objects.create(
                 codigo_responsavel=numero,
@@ -127,6 +74,62 @@ class TurmasLotesPerformanceTest(TestCase):
             sequencia=1,
             codigo_situacao_aluno=1,
             codigo_tipo_turma=1,
+            origem_atual=False,
+        )
+
+    @staticmethod
+    def _criar_vinculos_do_aluno(codigo: int) -> None:
+        """Cria o aluno e seus vínculos atuais e históricos."""
+        Aluno.objects.create(
+            codigo_aluno=codigo,
+            nome=f"ALUNO SINTETICO {codigo}",
+            nome_social="SOCIAL" if codigo == 101 else None,
+            data_nascimento=date(2015, 1, 2),
+            cpf="00000000000" if codigo == 101 else None,
+        )
+        Matricula.objects.create(
+            codigo_matricula=codigo,
+            aluno_id=codigo,
+            codigo_ue="000001",
+            ano_letivo=2026,
+            codigo_situacao_matricula=1,
+            situacao_matricula="Ativo",
+            data_situacao_matricula=date(2026, 2, 1),
+            origem_atual=True,
+        )
+        if codigo != 103:
+            for sequencia in (1, 2):
+                MatriculaTurma.objects.create(
+                    codigo_matricula=codigo,
+                    codigo_turma=1000 + codigo,
+                    sequencia=sequencia,
+                    codigo_situacao_aluno=2 if codigo == 104 else 1,
+                    codigo_tipo_turma=1,
+                    numero_chamada="0" if sequencia == 1 else None,
+                    data_situacao_aluno=date(2026, 2, sequencia),
+                    data_atualizacao_tabela=datetime(
+                        2026, 2, sequencia, tzinfo=UTC
+                    ),
+                    origem_atual=True,
+                )
+        Matricula.objects.create(
+            codigo_matricula=1000 + codigo,
+            aluno_id=codigo,
+            codigo_ue="000002",
+            ano_letivo=2025,
+            codigo_situacao_matricula=14,
+            situacao_matricula="Remanejado Saída",
+            data_situacao_matricula=date(2025, 3, 1),
+            data_situacao_matricula_historica=datetime(2025, 2, 1, tzinfo=UTC),
+            origem_atual=False,
+            origem_historica=True,
+        )
+        MatriculaTurma.objects.create(
+            codigo_matricula=1000 + codigo,
+            codigo_turma=2000 + codigo,
+            sequencia=1,
+            codigo_situacao_aluno=14,
+            codigo_tipo_turma=3,
             origem_atual=False,
         )
 
