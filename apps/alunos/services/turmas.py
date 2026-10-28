@@ -55,8 +55,6 @@ def _consultar_grupos_ordenados(
         return []
     if len(consultas) == 1:
         return list(consultas[0])
-    # Ordenar todos os alunos juntos muda a posição dos empates no PostgreSQL.
-    # Numera cada resultado individual antes de combinar os grupos.
     grupos = [
         consulta.annotate(
             _ordem_grupo=Value(numero),
@@ -269,15 +267,11 @@ def _linhas_turmas_do_aluno(
     filtrar_situacao: bool,
     tipo_turma: bool,
     historico: bool = False,
-    *,
-    incluir_sem_turma: bool = False,
 ) -> list[dict[str, Any]]:
     """Agrupa as linhas de turma do aluno conforme os filtros informados."""
     saida: list[dict[str, Any]] = []
     for matricula in matriculas:
         turmas = turmas_por_matricula.get(matricula["codigo_matricula"], [])
-        if incluir_sem_turma:
-            turmas = turmas or [{}]
         for matricula_turma in turmas:
             codigo_situacao = _codigo_situacao_turma(
                 matricula, matricula_turma
@@ -327,7 +321,6 @@ def _consultar_turmas_do_aluno(
             [codigo_aluno]
         ).get(codigo_aluno) or [{}]
     aluno = cadastro["aluno"]
-    # Sem responsável, mantém uma linha de contato vazio.
     responsaveis = cadastro["responsaveis"]
     turmas_por_matricula = _turmas_mais_recentes_por_matricula(
         [m["codigo_matricula"] for m in matriculas],
@@ -572,6 +565,47 @@ def obter_alunos_por_codigos_e_ano(
     )
 
 
+def _turmas_das_matriculas_em_lote(
+    matriculas_por_aluno: dict[int, list[dict[str, Any]]],
+    todas_as_origens: bool,
+    historico: bool,
+) -> dict[int, list[dict[str, Any]]]:
+    """Consulta os vínculos de turma em blocos de matrículas."""
+    matriculas = [
+        m["codigo_matricula"]
+        for grupo in matriculas_por_aluno.values()
+        for m in grupo
+    ]
+    aluno_por_matricula = {
+        m["codigo_matricula"]: codigo
+        for codigo, grupo in matriculas_por_aluno.items()
+        for m in grupo
+    }
+    turmas: dict[int, list[dict[str, Any]]] = {}
+    for posicao in range(0, len(matriculas), TAMANHO_LOTE):
+        bloco_matriculas = matriculas[posicao : posicao + TAMANHO_LOTE]
+        grupos_matriculas: dict[int, list[int]] = {}
+        for codigo_matricula in bloco_matriculas:
+            grupos_matriculas.setdefault(
+                aluno_por_matricula[codigo_matricula], []
+            ).append(codigo_matricula)
+        grupos_turmas = list(grupos_matriculas.values())
+        turmas.update(
+            _todas_turmas_por_matricula(
+                bloco_matriculas, grupos_matriculas=grupos_turmas
+            )
+            if todas_as_origens
+            else _turmas_mais_recentes_por_matricula(
+                bloco_matriculas,
+                historico,
+                grupos_matriculas=grupos_turmas,
+            )
+        )
+    if todas_as_origens:
+        return {codigo: turmas.get(codigo) or [{}] for codigo in matriculas}
+    return turmas
+
+
 def _consultar_turmas_em_lote(
     codigos_aluno: Sequence[int], ano_letivo: int | None, historico: bool
 ) -> list[dict[str, Any]]:
@@ -608,36 +642,9 @@ def _consultar_turmas_em_lote(
         codigos = list(matriculas_por_aluno)
         alunos = alunos_indexados(codigos, campos=CAMPOS_ALUNO_TURMA)
         responsaveis = responsaveis_turmas_indexados(codigos)
-        matriculas = [
-            m["codigo_matricula"]
-            for grupo in matriculas_por_aluno.values()
-            for m in grupo
-        ]
-        aluno_por_matricula = {
-            m["codigo_matricula"]: codigo
-            for codigo, grupo in matriculas_por_aluno.items()
-            for m in grupo
-        }
-        turmas: dict[int, list[dict[str, Any]]] = {}
-        for posicao in range(0, len(matriculas), TAMANHO_LOTE):
-            bloco_matriculas = matriculas[posicao : posicao + TAMANHO_LOTE]
-            grupos_matriculas: dict[int, list[int]] = {}
-            for codigo_matricula in bloco_matriculas:
-                grupos_matriculas.setdefault(
-                    aluno_por_matricula[codigo_matricula], []
-                ).append(codigo_matricula)
-            grupos_turmas = list(grupos_matriculas.values())
-            turmas.update(
-                _todas_turmas_por_matricula(
-                    bloco_matriculas, grupos_matriculas=grupos_turmas
-                )
-                if ano_letivo is None
-                else _turmas_mais_recentes_por_matricula(
-                    bloco_matriculas,
-                    historico,
-                    grupos_matriculas=grupos_turmas,
-                )
-            )
+        turmas = _turmas_das_matriculas_em_lote(
+            matriculas_por_aluno, ano_letivo is None, historico
+        )
         for codigo, grupo in matriculas_por_aluno.items():
             linhas_por_aluno[codigo] = _linhas_turmas_do_aluno(
                 grupo,
@@ -647,7 +654,6 @@ def _consultar_turmas_em_lote(
                 False,
                 False,
                 historico,
-                incluir_sem_turma=ano_letivo is None,
             )
     return [
         linha
