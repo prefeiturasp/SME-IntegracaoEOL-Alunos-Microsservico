@@ -32,6 +32,70 @@ from apps.alunos.tests.helpers import (
 class TurmasDoAlunoTestCase(TestCase):
     """Valida a busca de turmas do aluno."""
 
+    def test_turmas_retornam_apenas_responsaveis_vigentes(self) -> None:
+        """Exclui vínculos encerrados mesmo com data de fim futura."""
+        seed_matriculas_com_responsaveis()
+        for codigo, fim in (
+            (5502, None),
+            (5503, date(2025, 12, 31)),
+            (5504, date(2099, 12, 31)),
+        ):
+            ResponsavelAluno.objects.create(
+                codigo_responsavel=codigo,
+                aluno_id=1234567,
+                nome=f"Responsavel {codigo}",
+                data_fim_vinculo=fim,
+            )
+
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 6, 1, tzinfo=UTC),
+        ):
+            resultados = [
+                services.buscar_turmas_do_aluno(1234567),
+                services.buscar_turmas_do_aluno_com_historico(
+                    1234567, 2026, False
+                ),
+                services.buscar_turmas_do_aluno_por_situacao_matricula(
+                    1234567, 2026
+                ),
+                services.obter_alunos_por_codigos_e_ano([1234567], 2026),
+                services.obter_alunos_por_codigos([1234567]),
+            ]
+        for indice, dados in enumerate(resultados):
+            with self.subTest(consulta=indice):
+                self.assertEqual(
+                    [d["responsavel"]["codigo_responsavel"] for d in dados],
+                    [5501, 5502],
+                )
+
+    def test_turmas_historicas_preservam_turma_sem_responsavel(self) -> None:
+        """Mantém a turma sem responsável quando só há vínculos encerrados."""
+        seed_matriculas_com_responsaveis(origem_atual=False)
+        ResponsavelAluno.objects.filter(aluno_id=1234567).update(
+            data_fim_vinculo=date(2026, 1, 1)
+        )
+        with patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2027, 6, 1, tzinfo=UTC),
+        ):
+            resultados = [
+                services.buscar_turmas_do_aluno_com_historico(
+                    1234567, 2026, True
+                ),
+                services.buscar_turmas_do_aluno_por_situacao_matricula(
+                    1234567, 2026
+                ),
+                services.obter_alunos_por_codigos_e_ano([1234567], 2026),
+            ]
+        for indice, dados in enumerate(resultados):
+            with self.subTest(consulta=indice):
+                self.assertEqual(len(dados), 1)
+                self.assertEqual(dados[0]["responsavel"], {})
+                self.assertEqual(
+                    dados[0]["matricula_turma"]["codigo_turma"], 12345
+                )
+
     def test_a01_retorna_lista(self) -> None:
         """Verifica os campos retornados para o aluno no ano corrente."""
         seed_matriculas_com_responsaveis()

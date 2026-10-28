@@ -43,9 +43,12 @@ def colunas_responsavel_aluno() -> set[str]:
 
 
 def responsaveis_do_aluno(codigo_aluno: int) -> list[dict[str, Any]]:
-    """Lista responsáveis de um aluno."""
+    """Lista responsáveis vigentes, inclusive para turmas históricas."""
     return list(
-        ResponsavelAluno.objects.filter(aluno_id=codigo_aluno)
+        ResponsavelAluno.objects.filter(
+            aluno_id=codigo_aluno,
+            data_fim_vinculo__isnull=True,
+        )
         .order_by("codigo_responsavel")
         .values(
             "codigo_responsavel",
