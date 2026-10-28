@@ -4,7 +4,8 @@ from collections.abc import Sequence
 from datetime import date
 from typing import Any, cast
 
-from django.db.models import F, Q
+from django.db.models import F, Q, Value, Window
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 
 from apps.alunos.enums import (
@@ -16,30 +17,91 @@ from apps.alunos.models import (
     Matricula,
     MatriculaTurma,
 )
-from apps.alunos.repositories import alunos_da_ue
-from apps.alunos.services.responsaveis import responsaveis_do_aluno
+from apps.alunos.repositories import (
+    alunos_da_ue,
+    alunos_indexados,
+    responsaveis_turmas_indexados,
+)
 
 TIPO_TURMA_REGULAR = 1
 TIPO_TURMA_PROGRAMA = 3
+TAMANHO_LOTE = 500
+CAMPOS_ALUNO_TURMA = (
+    "codigo_aluno",
+    "nome",
+    "nome_social",
+    "data_nascimento",
+    "cpf",
+    "data_atualizacao_contato",
+)
+CAMPOS_MATRICULA_TURMA = (
+    "codigo_matricula",
+    "aluno_id",
+    "codigo_ue",
+    "ano_letivo",
+    "codigo_situacao_matricula",
+    "situacao_matricula",
+    "data_situacao_matricula",
+    "data_situacao_matricula_data_hora",
+    "data_situacao_matricula_historica",
+)
 
 
-def _turmas_mais_recentes_por_matricula(
-    codigos_matricula: Sequence[int],
-    historico: bool = False,
-    codigos_turma_programa: Sequence[int] | None = None,
-) -> dict[int, list[dict[str, Any]]]:
-    """Agrupa os vínculos de turma por matrícula.
-
-    Quando o código do tipo da turma é informado, mantém apenas turmas
-    regulares e as turmas de programa contidas nessa lista.
-    """
-    if not codigos_matricula:
-        return {}
-
-    qs = MatriculaTurma.objects.filter(
-        codigo_matricula__in=codigos_matricula,
-        origem_atual=not historico,
+def _consultar_grupos_ordenados(
+    consultas: Sequence[Any],
+) -> list[dict[str, Any]]:
+    """Combina grupos preservando a ordenação individual de cada consulta."""
+    if not consultas:
+        return []
+    if len(consultas) == 1:
+        return list(consultas[0])
+    # Ordenar todos os alunos juntos muda a posição dos empates no PostgreSQL.
+    # Numera cada resultado individual antes de combinar os grupos.
+    grupos = [
+        consulta.annotate(
+            _ordem_grupo=Value(numero),
+            _ordem_linha=Window(
+                RowNumber(), order_by=list(consulta.query.order_by)
+            ),
+        ).order_by()
+        for numero, consulta in enumerate(consultas)
+    ]
+    uniao = (
+        grupos[0]
+        .union(*grupos[1:], all=True)
+        .order_by("_ordem_grupo", "_ordem_linha")
     )
+    return [
+        {
+            chave: valor
+            for chave, valor in linha.items()
+            if chave not in ("_ordem_grupo", "_ordem_linha")
+        }
+        for linha in uniao
+    ]
+
+
+def _vinculos_turma(
+    codigos_matricula: Sequence[int],
+    historico: bool | None,
+    codigos_turma_programa: Sequence[int] | None = None,
+) -> Any:
+    """Seleciona os vínculos de turma com a ordenação de sua origem."""
+    qs = MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
+    ordem: tuple[str, ...] = (
+        "codigo_matricula",
+        "-data_situacao_aluno_data_hora",
+        "-data_situacao_aluno",
+    )
+    if historico is not None:
+        qs = qs.filter(origem_atual=not historico)
+        ordem = (
+            "codigo_matricula",
+            "-data_atualizacao_tabela",
+            "-data_situacao_aluno_data_hora",
+            "-data_situacao_aluno",
+            "-sequencia",
+        )
     if codigos_turma_programa is not None:
         qs = qs.filter(
             Q(codigo_tipo_turma=TIPO_TURMA_REGULAR)
@@ -48,28 +110,45 @@ def _turmas_mais_recentes_por_matricula(
                 codigo_turma__in=list(codigos_turma_programa),
             )
         )
+    return qs.values(
+        "codigo_matricula",
+        "codigo_turma",
+        "numero_chamada",
+        "data_situacao_aluno",
+        "data_situacao_aluno_data_hora",
+        "codigo_situacao_aluno",
+        "codigo_tipo_turma",
+        "data_atualizacao_tabela",
+    ).order_by(*ordem)
 
+
+def _turmas_mais_recentes_por_matricula(
+    codigos_matricula: Sequence[int],
+    historico: bool = False,
+    codigos_turma_programa: Sequence[int] | None = None,
+    *,
+    grupos_matriculas: Sequence[Sequence[int]] | None = None,
+) -> dict[int, list[dict[str, Any]]]:
+    """Agrupa os vínculos de turma por matrícula.
+
+    Quando o código do tipo da turma é informado, mantém apenas turmas
+    regulares e as turmas de programa contidas nessa lista.
+    """
+    grupos = (
+        grupos_matriculas
+        if grupos_matriculas is not None
+        else [codigos_matricula]
+    )
+    linhas = _consultar_grupos_ordenados(
+        [
+            _vinculos_turma(grupo, historico, codigos_turma_programa)
+            for grupo in grupos
+            if grupo
+        ]
+    )
     saida: dict[int, list[dict[str, Any]]] = {}
     turmas_processadas: set[tuple[int, int]] = set()
-    for mt in (
-        qs.values(
-            "codigo_matricula",
-            "codigo_turma",
-            "numero_chamada",
-            "data_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-            "codigo_situacao_aluno",
-            "codigo_tipo_turma",
-            "data_atualizacao_tabela",
-        )
-        .order_by(
-            "codigo_matricula",
-            "-data_atualizacao_tabela",
-            "-data_situacao_aluno_data_hora",
-            "-data_situacao_aluno",
-            "-sequencia",
-        )
-    ):
+    for mt in linhas:
         if not historico:
             chave_turma = (mt["codigo_matricula"], mt["codigo_turma"])
             if chave_turma in turmas_processadas:
@@ -81,28 +160,18 @@ def _turmas_mais_recentes_por_matricula(
 
 def _todas_turmas_por_matricula(
     codigos_matricula: Sequence[int],
+    *,
+    grupos_matriculas: Sequence[Sequence[int]] | None = None,
 ) -> dict[int, list[dict[str, Any]]]:
     """Retorna todas as turmas de cada matrícula."""
-    if not codigos_matricula:
-        return {}
+    grupos = (
+        grupos_matriculas
+        if grupos_matriculas is not None
+        else [codigos_matricula]
+    )
     saida: dict[int, list[dict[str, Any]]] = {}
-    for mt in (
-        MatriculaTurma.objects.filter(codigo_matricula__in=codigos_matricula)
-        .values(
-            "codigo_matricula",
-            "codigo_turma",
-            "numero_chamada",
-            "data_situacao_aluno",
-            "data_situacao_aluno_data_hora",
-            "codigo_situacao_aluno",
-            "codigo_tipo_turma",
-            "data_atualizacao_tabela",
-        )
-        .order_by(
-            "codigo_matricula",
-            "-data_situacao_aluno_data_hora",
-            "-data_situacao_aluno",
-        )
+    for mt in _consultar_grupos_ordenados(
+        [_vinculos_turma(grupo, None) for grupo in grupos if grupo]
     ):
         saida.setdefault(mt["codigo_matricula"], []).append(mt)
     return saida
@@ -200,11 +269,15 @@ def _linhas_turmas_do_aluno(
     filtrar_situacao: bool,
     tipo_turma: bool,
     historico: bool = False,
+    *,
+    incluir_sem_turma: bool = False,
 ) -> list[dict[str, Any]]:
     """Agrupa as linhas de turma do aluno conforme os filtros informados."""
     saida: list[dict[str, Any]] = []
     for matricula in matriculas:
         turmas = turmas_por_matricula.get(matricula["codigo_matricula"], [])
+        if incluir_sem_turma:
+            turmas = turmas or [{}]
         for matricula_turma in turmas:
             codigo_situacao = _codigo_situacao_turma(
                 matricula, matricula_turma
@@ -237,15 +310,25 @@ def _consultar_turmas_do_aluno(
     filtrar_situacao: bool = True,
     tipo_turma: bool = True,
     codigos_turma_programa: Sequence[int] | None = None,
+    *,
+    cadastro: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Consulta turmas e matrículas do aluno."""
     matriculas = _matriculas_do_aluno(codigo_aluno, ano_letivo, historico)
     if not matriculas:
         return []
 
-    aluno = _aluno_basico(codigo_aluno)
-    # Sem responsável vinculado, a turma sai com uma linha de responsável vazio.
-    responsaveis = responsaveis_do_aluno(codigo_aluno) or [{}]
+    if cadastro is None:
+        cadastro = {}
+    if "aluno" not in cadastro:
+        cadastro["aluno"] = _aluno_basico(codigo_aluno)
+    if "responsaveis" not in cadastro:
+        cadastro["responsaveis"] = responsaveis_turmas_indexados(
+            [codigo_aluno]
+        ).get(codigo_aluno) or [{}]
+    aluno = cadastro["aluno"]
+    # Sem responsável, mantém uma linha de contato vazio.
+    responsaveis = cadastro["responsaveis"]
     turmas_por_matricula = _turmas_mais_recentes_por_matricula(
         [m["codigo_matricula"] for m in matriculas],
         historico=historico,
@@ -433,12 +516,14 @@ def buscar_turmas_do_aluno_com_historico(
     tipo_turma: bool = True,
 ) -> list[dict[str, Any]]:
     """Busca turmas do aluno com a origem histórica explícita."""
+    cadastro: dict[str, Any] = {}
     dados = _consultar_turmas_do_aluno(
         codigo_aluno=codigo_aluno,
         ano_letivo=ano_letivo,
         historico=historico,
         filtrar_situacao=filtrar_situacao,
         tipo_turma=tipo_turma,
+        cadastro=cadastro,
     )
     if not dados and not historico:
         dados = _consultar_turmas_do_aluno(
@@ -447,6 +532,7 @@ def buscar_turmas_do_aluno_com_historico(
             historico=True,
             filtrar_situacao=filtrar_situacao,
             tipo_turma=tipo_turma,
+            cadastro=cadastro,
         )
     return dados
 
@@ -481,78 +567,102 @@ def obter_alunos_por_codigos_e_ano(
     codigos_aluno: Sequence[int], ano_letivo: int
 ) -> list[dict[str, Any]]:
     """Lista turmas dos alunos informados por ano letivo."""
-    if not codigos_aluno:
-        return []
-    eh_historico = ano_letivo < timezone.now().year
-    saida: list[dict[str, Any]] = []
-    for codigo in codigos_aluno:
-        saida.extend(
-            _consultar_turmas_do_aluno(
-                codigo_aluno=codigo,
-                ano_letivo=ano_letivo,
-                historico=eh_historico,
-                filtrar_situacao=False,
-                tipo_turma=False,
-            )
+    return _consultar_turmas_em_lote(
+        codigos_aluno, ano_letivo, ano_letivo < timezone.now().year
+    )
+
+
+def _consultar_turmas_em_lote(
+    codigos_aluno: Sequence[int], ano_letivo: int | None, historico: bool
+) -> list[dict[str, Any]]:
+    """Consulta vínculos preservando a ordem e repetição dos alunos."""
+    unicos = list(dict.fromkeys(codigos_aluno))
+    linhas_por_aluno: dict[int, list[dict[str, Any]]] = {}
+    for inicio in range(0, len(unicos), TAMANHO_LOTE):
+        bloco = unicos[inicio : inicio + TAMANHO_LOTE]
+        qs = Matricula.objects.filter(
+            **{"origem_historica" if historico else "origem_atual": True}
         )
-    return saida
+        campos: tuple[str, ...] = CAMPOS_MATRICULA_TURMA
+        ordem: tuple[str, ...] = ("-ano_letivo", "codigo_situacao_matricula")
+        if ano_letivo is not None:
+            qs = qs.filter(ano_letivo=ano_letivo)
+        else:
+            campos = campos[:-1]
+            ordem = (
+                "ano_letivo",
+                "data_situacao_matricula_data_hora",
+                "data_situacao_matricula",
+            )
+        matriculas_por_aluno: dict[int, list[dict[str, Any]]] = {}
+        consultas = [
+            qs.filter(aluno_id=codigo).values(*campos).order_by(*ordem)
+            for codigo in bloco
+        ]
+        for matricula in _consultar_grupos_ordenados(consultas):
+            matriculas_por_aluno.setdefault(matricula["aluno_id"], []).append(
+                matricula
+            )
+        if not matriculas_por_aluno:
+            continue
+        codigos = list(matriculas_por_aluno)
+        alunos = alunos_indexados(codigos, campos=CAMPOS_ALUNO_TURMA)
+        responsaveis = responsaveis_turmas_indexados(codigos)
+        matriculas = [
+            m["codigo_matricula"]
+            for grupo in matriculas_por_aluno.values()
+            for m in grupo
+        ]
+        aluno_por_matricula = {
+            m["codigo_matricula"]: codigo
+            for codigo, grupo in matriculas_por_aluno.items()
+            for m in grupo
+        }
+        turmas: dict[int, list[dict[str, Any]]] = {}
+        for posicao in range(0, len(matriculas), TAMANHO_LOTE):
+            bloco_matriculas = matriculas[posicao : posicao + TAMANHO_LOTE]
+            grupos_matriculas: dict[int, list[int]] = {}
+            for codigo_matricula in bloco_matriculas:
+                grupos_matriculas.setdefault(
+                    aluno_por_matricula[codigo_matricula], []
+                ).append(codigo_matricula)
+            grupos_turmas = list(grupos_matriculas.values())
+            turmas.update(
+                _todas_turmas_por_matricula(
+                    bloco_matriculas, grupos_matriculas=grupos_turmas
+                )
+                if ano_letivo is None
+                else _turmas_mais_recentes_por_matricula(
+                    bloco_matriculas,
+                    historico,
+                    grupos_matriculas=grupos_turmas,
+                )
+            )
+        for codigo, grupo in matriculas_por_aluno.items():
+            linhas_por_aluno[codigo] = _linhas_turmas_do_aluno(
+                grupo,
+                turmas,
+                alunos.get(codigo, {}),
+                responsaveis.get(codigo) or [{}],
+                False,
+                False,
+                historico,
+                incluir_sem_turma=ano_letivo is None,
+            )
+    return [
+        linha
+        for codigo in codigos_aluno
+        for linha in linhas_por_aluno.get(codigo, [])
+    ]
 
 
 def _turmas_atuais_por_aluno(codigo_aluno: int) -> list[dict[str, Any]]:
     """Retorna turmas atuais do aluno."""
-    matriculas = list(
-        Matricula.objects.filter(aluno_id=codigo_aluno, origem_atual=True)
-        .values(
-            "codigo_matricula",
-            "aluno_id",
-            "codigo_ue",
-            "ano_letivo",
-            "codigo_situacao_matricula",
-            "situacao_matricula",
-            "data_situacao_matricula",
-            "data_situacao_matricula_data_hora",
-        )
-        .order_by(
-            "ano_letivo",
-            "data_situacao_matricula_data_hora",
-            "data_situacao_matricula",
-        )
-    )
-    if not matriculas:
-        return []
-
-    aluno = _aluno_basico(codigo_aluno)
-    responsaveis = responsaveis_do_aluno(codigo_aluno) or [{}]
-    mts_all = _todas_turmas_por_matricula(
-        [m["codigo_matricula"] for m in matriculas]
-    )
-
-    saida: list[dict[str, Any]] = []
-    for m in matriculas:
-        turmas = mts_all.get(m["codigo_matricula"]) or [{}]
-        for mt in turmas:
-            codigo_situacao = _codigo_situacao_turma(m, mt)
-            for responsavel in responsaveis:
-                saida.append(
-                    {
-                        "matricula": m,
-                        "matricula_turma": mt,
-                        "aluno": aluno,
-                        "responsavel": responsavel,
-                        "codigo_situacao": codigo_situacao,
-                        "historico": False,
-                    }
-                )
-    return saida
+    return _consultar_turmas_em_lote([codigo_aluno], None, False)
 
 
 def obter_alunos_por_codigos(
     codigos_aluno: Sequence[int],
 ) -> list[dict[str, Any]]:
     """Lista turmas atuais dos alunos informados."""
-    if not codigos_aluno:
-        return []
-    saida: list[dict[str, Any]] = []
-    for codigo in codigos_aluno:
-        saida.extend(_turmas_atuais_por_aluno(codigo))
-    return saida
+    return _consultar_turmas_em_lote(codigos_aluno, None, False)
