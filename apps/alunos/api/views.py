@@ -470,7 +470,15 @@ class AutocompleteAlunosUeView(APIView):
             ),
             OpenApiParameter("nome_aluno", str, OpenApiParameter.QUERY),
             OpenApiParameter("codigo_eol", str, OpenApiParameter.QUERY),
-            OpenApiParameter("somente_ativos", bool, OpenApiParameter.QUERY),
+            OpenApiParameter(
+                "somente_ativos",
+                bool,
+                OpenApiParameter.QUERY,
+                description=(
+                    "Restringe aos vínculos em situação ativa (ativo, "
+                    "pendente de rematrícula e rematriculado)."
+                ),
+            ),
             OpenApiParameter("eh_historico", bool, OpenApiParameter.QUERY),
             OpenApiParameter("limite", int, OpenApiParameter.QUERY),
         ],

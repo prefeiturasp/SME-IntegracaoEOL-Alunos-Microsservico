@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from apps.alunos.constants import MODALIDADE_POR_ETAPA
 from apps.alunos.enums import (
+    SITUACOES_MATRICULA_ATIVAS,
     SITUACOES_MATRICULA_ATIVAS_TURMA,
     SITUACOES_MATRICULA_VALIDAS,
 )
@@ -21,8 +22,13 @@ def _mts_autocomplete_ue(
     ano_letivo: int,
     historico: bool,
     matriculas: QuerySet[Matricula] | None = None,
+    somente_ativos: bool = False,
 ) -> list[dict[str, Any]]:
-    """Lista vínculos de turma regular da UE para o autocomplete."""
+    """Lista vínculos de turma regular da UE para o autocomplete.
+
+    Com ``somente_ativos``, o vínculo corrente precisa estar em situação
+    ativa; no histórico a situação é verificada na matrícula.
+    """
     qs = MatriculaTurma.objects.filter(
         codigo_ue_turma=codigo_ue,
         codigo_tipo_turma=1,
@@ -32,7 +38,11 @@ def _mts_autocomplete_ue(
         qs = qs.filter(ano_letivo_turma=ano_letivo)
     if not historico:
         qs = qs.filter(
-            codigo_situacao_aluno__in=SITUACOES_MATRICULA_VALIDAS,
+            codigo_situacao_aluno__in=(
+                SITUACOES_MATRICULA_ATIVAS
+                if somente_ativos
+                else SITUACOES_MATRICULA_VALIDAS
+            ),
             codigo_etapa_ensino__isnull=False,
         )
     if matriculas is not None:
@@ -67,6 +77,7 @@ def _matriculas_autocomplete_qs(
     historico: bool,
     nome_aluno: str | None,
     codigo_aluno: int | None,
+    somente_ativos: bool = False,
 ) -> QuerySet[Matricula]:
     """Seleciona matrículas pela origem e pelos filtros de aluno.
 
@@ -74,6 +85,7 @@ def _matriculas_autocomplete_qs(
         historico: Indica a consulta a matrículas históricas.
         nome_aluno: Trecho do nome, desconsiderando espaços nas extremidades.
         codigo_aluno: Código do aluno, quando informado.
+        somente_ativos: Restringe o histórico às situações ativas.
 
     Returns:
         Matrículas que atendem aos filtros, sem avaliar a consulta.
@@ -81,7 +93,11 @@ def _matriculas_autocomplete_qs(
     qs = Matricula.objects.filter(origem_atual=not historico)
     if historico:
         qs = qs.filter(
-            codigo_situacao_matricula__in=SITUACOES_MATRICULA_VALIDAS
+            codigo_situacao_matricula__in=(
+                SITUACOES_MATRICULA_ATIVAS
+                if somente_ativos
+                else SITUACOES_MATRICULA_VALIDAS
+            )
         )
     if codigo_aluno is not None:
         qs = qs.filter(aluno_id=codigo_aluno)
@@ -177,11 +193,15 @@ def buscar_alunos_autocomplete(
     codigo_turmas: Sequence[int] | None = None,
     nome_aluno: str | None = None,
     codigo_eol: str | None = None,
-    somente_ativos: bool = False,  # NOSONAR
+    somente_ativos: bool = False,
     eh_historico: bool = False,
     limite: int = 10,
 ) -> list[dict[str, Any]]:
-    """Busca alunos para autocomplete da UE/ano."""
+    """Busca alunos para autocomplete da UE/ano.
+
+    ``somente_ativos`` restringe os vínculos às situações de matrícula ativa
+    (ativo, pendente de rematrícula e rematriculado).
+    """
     try:
         codigo_aluno = int(codigo_eol) if codigo_eol else None
     except (TypeError, ValueError):
@@ -196,7 +216,7 @@ def buscar_alunos_autocomplete(
     vistos: set[tuple[int, int]] = set()
     for historico in ramos:
         matriculas = _matriculas_autocomplete_qs(
-            historico, nome_aluno, codigo_aluno
+            historico, nome_aluno, codigo_aluno, somente_ativos
         )
 
         mts = _mts_autocomplete_ue(
@@ -204,6 +224,7 @@ def buscar_alunos_autocomplete(
             ano_letivo,
             historico,
             matriculas if codigo_aluno is not None else None,
+            somente_ativos,
         )
         matriculas_idx = _matriculas_autocomplete_idx(
             [mt["codigo_matricula"] for mt in mts],
