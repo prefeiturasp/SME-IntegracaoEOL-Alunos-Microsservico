@@ -1857,23 +1857,110 @@ class DadosResponsavelResumidoView(APIView):
         return Response(DadosResponsavelResumidoSerializer(dado).data)
 
 
-class ResponsavelAlunoView(APIView):
-    """Atualiza ou cadastra dados de um responsável."""
+def _atualizar_contatos_responsavel(
+    request: Request, codigo_aluno: str, cpf_responsavel: str
+) -> Response:
+    """Atualiza os contatos do vínculo aluno-responsável.
+
+    Args:
+        request: Requisição com os dados de contato no corpo.
+        codigo_aluno: Código EOL do aluno.
+        cpf_responsavel: CPF do responsável atualizado.
+
+    Returns:
+        Indicador de atualização do vínculo.
+
+    Raises:
+        ValidationError: Quando os dados informados são inválidos.
+    """
+    try:
+        codigo = to_int(codigo_aluno, "codigo_aluno")
+    except ValueError as exc:
+        return _erro_400(str(exc))
+
+    serializer = AtualizarResponsavelBuscaAtivaRequestSerializer(
+        data=request.data
+    )
+    serializer.is_valid(raise_exception=True)
+    body: dict[str, Any] = serializer.validated_data
+
+    atualizado = services.atualizar_dados_responsavel_busca_ativa(
+        codigo_aluno=codigo,
+        cpf_responsavel=cpf_responsavel,
+        email=body.get("email"),
+        ddd_celular=body.get("ddd_celular"),
+        numero_celular=body.get("numero_celular"),
+        ddd_residencial=body.get("ddd_residencial"),
+        numero_residencial=body.get("numero_residencial"),
+        ddd_comercial=body.get("ddd_comercial"),
+        numero_comercial=body.get("numero_comercial"),
+    )
+    return Response(atualizado)
+
+
+def _atualizar_dados_cadastrais_responsavel(
+    request: Request, codigo_aluno: str, cpf_responsavel: str
+) -> Response:
+    """Atualiza os dados cadastrais do vínculo aluno-responsável.
+
+    Args:
+        request: Requisição com os dados cadastrais no corpo.
+        codigo_aluno: Código EOL do aluno.
+        cpf_responsavel: CPF do responsável atualizado.
+
+    Returns:
+        Indicador de atualização do vínculo.
+
+    Raises:
+        ValidationError: Quando os dados informados são inválidos.
+    """
+    try:
+        codigo = to_int(codigo_aluno, "codigo_aluno")
+    except ValueError as exc:
+        return _erro_400(str(exc))
+
+    serializer = AtualizarResponsavelRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    body: dict[str, Any] = serializer.validated_data
+
+    atualizado = services.atualizar_dados_responsavel(
+        codigo_aluno=codigo,
+        cpf_responsavel=cpf_responsavel,
+        email=body.get("email"),
+        data_nascimento=body.get("data_nascimento"),
+        nome_mae=body.get("nome_mae"),
+        ddd_celular=body.get("ddd_celular"),
+        numero_celular=body.get("numero_celular"),
+    )
+    return Response(atualizado)
+
+
+_PARAMETROS_RESPONSAVEL_ALUNO = [
+    OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
+    OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH),
+]
+
+
+class ResponsavelContatosView(APIView):
+    """Atualiza os contatos de um responsável vinculado ao aluno."""
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
-        summary="Atualizar dados do responsável (busca ativa)",
-        parameters=[
-            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
-            OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH),
-        ],
+        summary="Atualizar contatos do responsável",
+        description=(
+            "Substitui e-mail e telefones (celular, residencial e comercial) "
+            "do vínculo. Campos omitidos são limpos. Usado no fluxo de busca "
+            "ativa. Os campos `codigo_aluno` e `cpf` do corpo são ignorados: "
+            "prevalecem os do caminho."
+        ),
+        parameters=_PARAMETROS_RESPONSAVEL_ALUNO,
         request=AtualizarResponsavelBuscaAtivaRequestSerializer,
         responses={200: OpenApiTypes.BOOL},
     )
     def put(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
     ) -> Response:
-        """Atualiza os dados de contato do responsável (busca ativa).
+        """Atualiza os contatos do responsável.
 
         Args:
             request: Requisição com os dados de contato no corpo.
@@ -1882,79 +1969,107 @@ class ResponsavelAlunoView(APIView):
 
         Returns:
             Indicador de atualização do vínculo.
-
-        Raises:
-            ValidationError: Quando os dados informados são inválidos.
         """
-        try:
-            codigo = to_int(codigo_aluno, "codigo_aluno")
-        except ValueError as exc:
-            return _erro_400(str(exc))
-
-        serializer = AtualizarResponsavelBuscaAtivaRequestSerializer(
-            data=request.data
+        return _atualizar_contatos_responsavel(
+            request, codigo_aluno, cpf_responsavel
         )
-        serializer.is_valid(raise_exception=True)
-        body: dict[str, Any] = serializer.validated_data
 
-        atualizado = services.atualizar_dados_responsavel_busca_ativa(
-            codigo_aluno=codigo,
-            cpf_responsavel=cpf_responsavel,
-            email=body.get("email"),
-            ddd_celular=body.get("ddd_celular"),
-            numero_celular=body.get("numero_celular"),
-            ddd_residencial=body.get("ddd_residencial"),
-            numero_residencial=body.get("numero_residencial"),
-            ddd_comercial=body.get("ddd_comercial"),
-            numero_comercial=body.get("numero_comercial"),
+
+class ResponsavelDadosCadastraisView(APIView):
+    """Atualiza os dados cadastrais de um responsável vinculado ao aluno."""
+
+    @extend_schema(
+        tags=_TAG_RESPONSAVEL,
+        summary="Atualizar dados cadastrais do responsável",
+        description=(
+            "Substitui e-mail, data de nascimento, nome da mãe e celular do "
+            "vínculo. Campos omitidos são limpos. Não cria vínculos ausentes."
+        ),
+        parameters=_PARAMETROS_RESPONSAVEL_ALUNO,
+        request=AtualizarResponsavelRequestSerializer,
+        responses={200: OpenApiTypes.BOOL},
+    )
+    def put(
+        self, request: Request, codigo_aluno: str, cpf_responsavel: str
+    ) -> Response:
+        """Atualiza os dados cadastrais do responsável.
+
+        Args:
+            request: Requisição com os dados cadastrais no corpo.
+            codigo_aluno: Código EOL do aluno.
+            cpf_responsavel: CPF do responsável atualizado.
+
+        Returns:
+            Indicador de atualização do vínculo.
+        """
+        return _atualizar_dados_cadastrais_responsavel(
+            request, codigo_aluno, cpf_responsavel
         )
-        return Response(atualizado)
+
+
+class ResponsavelAlunoView(APIView):
+    """Atualiza os dados do responsável do aluno."""
+
+    @extend_schema(
+        tags=_TAG_RESPONSAVEL,
+        summary="Atualizar dados do responsável (busca ativa)",
+        description=(
+            "DEPRECADO — use `PUT .../responsaveis/{cpf_responsavel}/contatos`."
+        ),
+        deprecated=True,
+        parameters=_PARAMETROS_RESPONSAVEL_ALUNO,
+        request=AtualizarResponsavelBuscaAtivaRequestSerializer,
+        responses={200: OpenApiTypes.BOOL},
+    )
+    def put(
+        self, request: Request, codigo_aluno: str, cpf_responsavel: str
+    ) -> Response:
+        """Atualiza os contatos do responsável (depreciado).
+
+        Substituído por ``ResponsavelContatosView``.
+
+        Args:
+            request: Requisição com os dados de contato no corpo.
+            codigo_aluno: Código EOL do aluno.
+            cpf_responsavel: CPF do responsável atualizado.
+
+        Returns:
+            Indicador de atualização do vínculo.
+        """
+        return _atualizar_contatos_responsavel(
+            request, codigo_aluno, cpf_responsavel
+        )
 
     @extend_schema(
         tags=_TAG_RESPONSAVEL,
         summary="Atualizar dados do responsável do aluno",
-        parameters=[
-            OpenApiParameter("codigo_aluno", int, OpenApiParameter.PATH),
-            OpenApiParameter("cpf_responsavel", str, OpenApiParameter.PATH),
-        ],
+        description=(
+            "DEPRECADO — use "
+            "`PUT .../responsaveis/{cpf_responsavel}/dados-cadastrais`."
+        ),
+        deprecated=True,
+        parameters=_PARAMETROS_RESPONSAVEL_ALUNO,
         request=AtualizarResponsavelRequestSerializer,
         responses={200: OpenApiTypes.BOOL},
     )
     def post(
         self, request: Request, codigo_aluno: str, cpf_responsavel: str
     ) -> Response:
-        """Atualiza os dados de um responsável do aluno.
+        """Atualiza os dados cadastrais do responsável (depreciado).
+
+        Substituído por ``ResponsavelDadosCadastraisView``.
 
         Args:
-            request: Requisição com os dados do responsável no corpo.
+            request: Requisição com os dados cadastrais no corpo.
             codigo_aluno: Código EOL do aluno.
-            cpf_responsavel: CPF do responsável cadastrado.
+            cpf_responsavel: CPF do responsável atualizado.
 
         Returns:
             Indicador de atualização do vínculo.
-
-        Raises:
-            ValidationError: Quando os dados informados são inválidos.
         """
-        try:
-            codigo = to_int(codigo_aluno, "codigo_aluno")
-        except ValueError as exc:
-            return _erro_400(str(exc))
-
-        serializer = AtualizarResponsavelRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        body: dict[str, Any] = serializer.validated_data
-
-        atualizado = services.atualizar_dados_responsavel(
-            codigo_aluno=codigo,
-            cpf_responsavel=cpf_responsavel,
-            email=body.get("email"),
-            data_nascimento=body.get("data_nascimento"),
-            nome_mae=body.get("nome_mae"),
-            ddd_celular=body.get("ddd_celular"),
-            numero_celular=body.get("numero_celular"),
+        return _atualizar_dados_cadastrais_responsavel(
+            request, codigo_aluno, cpf_responsavel
         )
-        return Response(atualizado)
 
 
 class ObterNomesAlunosView(APIView):
