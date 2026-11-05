@@ -1159,3 +1159,9 @@ class QuantidadeMatriculasTurmasPeriodoDataISOSerializer(
     """Serializa quantidade de matrículas-turma."""
 
     quantidade = serializers.IntegerField()
+
+
+class RespostaErroPadraoSerializer(serializers.Serializer):
+    """Serializa resposta de erro padrão."""
+
+    detail = serializers.CharField()
