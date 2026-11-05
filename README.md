@@ -73,6 +73,7 @@ microsserviços (Pedagógico, Programas).
 | A05 | GET   | `/api/alunos/ues/{codigo_ue}/anosLetivos/{ano_letivo}/autocomplete`                                                                           | Autocomplete de alunos por UE e ano letivo             |
 | A06 | GET   | `/api/alunos/ues/{ue_codigo}/autocomplete/ativos`                                                                                            | Autocomplete de alunos ativos por UE                   |
 | A07 | GET   | `/api/alunos/ativos/anos/{ano_turma}/anos-letivos/{ano_letivo}/inicio/{data_inicio}/fim/{data_fim}`                                             | Total de alunos ativos em um período                   |
+| A07b | GET  | `/api/alunos/ativos/anos/{ano_turma}/anos-letivos/{ano_letivo}/data-inicio/{data_inicio}/data-fim/{data_fim}`                                   | Total de alunos ativos |
 | A08 | GET   | `/api/alunos/turmas/{codigo_turma}/ativos/{data_referencia_fim}`                                                                               | Alunos ativos na turma até uma data de corte           |
 | A09 | GET   | `/api/alunos/turmas/{codigo_turma}/ativos`                                                                                                   | Alunos ativos na turma                                 |
 | A10 | GET   | `/api/alunos/{codigo_aluno}/necessidades-especiais`                                                                                          | Necessidades especiais (deficiências) do aluno         |
