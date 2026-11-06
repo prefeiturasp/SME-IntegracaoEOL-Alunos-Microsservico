@@ -46,6 +46,7 @@ from apps.alunos.api.views import (
     ResponsavelContatosView,
     ResponsavelDadosCadastraisView,
     TodosAlunosTurmaView,
+    TotalAlunosAtivosPorPeriodoDataView,
     TotalAlunosAtivosPorPeriodoView,
     TotalMatriculasPorTurnoDreView,
     TotalMatriculasPorTurnoUeView,
@@ -103,6 +104,12 @@ urlpatterns = [
         "inicio/<str:data_inicio>/fim/<str:data_fim>",
         TotalAlunosAtivosPorPeriodoView.as_view(),
         name="total-alunos-ativos-por-periodo",
+    ),
+    path(
+        "ativos/anos/<str:ano_turma>/anos-letivos/<str:ano_letivo>/"
+        "data-inicio/<str:data_inicio>/data-fim/<str:data_fim>",
+        TotalAlunosAtivosPorPeriodoDataView.as_view(),
+        name="total-alunos-ativos-por-periodo-data",
     ),
     path(
         "turmas/<str:codigo_turma>/ativos/<str:data_referencia_fim>",

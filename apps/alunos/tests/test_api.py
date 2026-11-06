@@ -132,9 +132,7 @@ class A01TurmasSrmRegularDoAlunoTestCase(TestCase):
         self._criar_turmas_programa()
         resp = self._get()
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            [t["codigo_turma"] for t in resp.json()], [12345]
-        )
+        self.assertEqual([t["codigo_turma"] for t in resp.json()], [12345])
 
     def test_inclui_programa_informado(self) -> None:
         """Verifica que só a turma de programa informada é incluída."""
@@ -251,6 +249,89 @@ class A07A08A09TurmaApiTestCase(TestCase):
         resp = _autenticado().get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()), 1)
+
+
+class AlunosAtivosPeriodoTurmaTestCase(TestCase):
+    """Valida o (A07b) endpoint de alunos ativos por período."""
+
+    def _url(
+        self, ano_letivo: str = "2026", inicio: str = "2026-01-01"
+    ) -> str:
+        """Monta a URL da rota com data-inicio e data-fim."""
+        return reverse(
+            "total-alunos-ativos-por-periodo-data",
+            kwargs={
+                "ano_turma": "5",
+                "ano_letivo": ano_letivo,
+                "data_inicio": inicio,
+                "data_fim": "2026-12-31",
+            },
+        )
+
+    def test_caminho_da_rota(self) -> None:
+        """Verifica o path com data-inicio e data-fim."""
+        self.assertEqual(
+            self._url(),
+            "/api/v1/alunos/ativos/anos/5/anos-letivos/2026/"
+            "data-inicio/2026-01-01/data-fim/2026-12-31",
+        )
+
+    def test_sucesso(self) -> None:
+        """Verifica a contagem de alunos ativos no período."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url() + "?ue_id=100001&modalidades=5")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["quantidade"], 2)
+
+    def test_sem_modalidades_400(self) -> None:
+        """Verifica 400 com texto quando faltam modalidades."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url())
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(
+            resp.json(),
+            {
+                "detail": "Houve um problema na conexão com o banco do EOL. "
+                "Por favor, contate a SME."
+            },
+        )
+
+    def test_resultado_quantidade_0(self) -> None:
+        """Verifica 200 com quantidade com valor 0."""
+        seed_matriculas()
+        resp = _autenticado().get(self._url() + "?modalidades=99")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual({"quantidade": 0}, resp.json())
+
+    def test_parametro_invalido_400(self) -> None:
+        """Verifica 400 com texto para ano letivo inválido."""
+        resp = _autenticado().get(self._url(ano_letivo="xx"))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIsInstance(resp.json(), dict)
+        self.assertEqual(
+            resp.json(),
+            {
+                "detail": (
+                    "Parâmetro 'ano_letivo' deve ser um inteiro válido: "
+                    "recebido 'xx'."
+                )
+            },
+        )
+
+    def test_data_invalida_400(self) -> None:
+        """Verifica 400 com texto para data de início inválida."""
+        resp = _autenticado().get(self._url(inicio="naoEhData"))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIsInstance(resp.json(), dict)
+        self.assertEqual(
+            resp.json(),
+            {
+                "detail": (
+                    "Parâmetro 'data_inicio' deve ser uma data ISO 8601 válida: "
+                    "recebido 'naoEhData'."
+                )
+            },
+        )
 
 
 class AlunosTurmaApiTestCase(TestCase):
