@@ -93,28 +93,68 @@ def alunos_da_ue(codigo_ue: str, ano_letivo: int) -> list[dict[str, Any]]:
 
 def alunos_indexados(
     codigos_alunos: Sequence[int],
+    *,
+    campos: Sequence[str] | None = None,
 ) -> dict[int, dict[str, Any]]:
-    """Indexa dados básicos dos alunos por código EOL."""
+    """Indexa dados básicos dos alunos por código EOL.
+
+    Args:
+        codigos_alunos: Códigos EOL a consultar.
+        campos: Colunas desejadas, incluindo ``codigo_aluno``. Quando
+            omitidas, mantém o conjunto completo de dados básicos.
+
+    Returns:
+        Dados dos alunos encontrados, indexados pelo código EOL.
+    """
     if not codigos_alunos:
         return {}
     return {
         a["codigo_aluno"]: a
         for a in Aluno.objects.filter(codigo_aluno__in=codigos_alunos).values(
-            "codigo_aluno",
-            "nome",
-            "nome_social",
-            "data_nascimento",
-            "cpf",
-            "sexo",
-            "raca_cor",
-            "nome_mae",
-            "nacionalidade",
-            "nis",
-            "cns",
-            "data_atualizacao_contato",
-            "possui_deficiencia",
+            *(
+                campos
+                if campos is not None
+                else (
+                    "codigo_aluno",
+                    "nome",
+                    "nome_social",
+                    "data_nascimento",
+                    "cpf",
+                    "sexo",
+                    "raca_cor",
+                    "nome_mae",
+                    "nacionalidade",
+                    "nis",
+                    "cns",
+                    "data_atualizacao_contato",
+                    "possui_deficiencia",
+                )
+            )
         )
     }
+
+
+def responsaveis_turmas_indexados(
+    codigos_alunos: Sequence[int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Agrupa os contatos dos responsáveis por aluno, na ordem cadastral."""
+    if not codigos_alunos:
+        return {}
+    saida: dict[int, list[dict[str, Any]]] = {}
+    for responsavel in (
+        ResponsavelAluno.objects.filter(aluno_id__in=codigos_alunos)
+        .order_by("codigo_responsavel")
+        .values(
+            "aluno_id",
+            "nome",
+            "tipo_responsavel",
+            "ddd_celular",
+            "numero_celular",
+            "data_atualizacao_tabela",
+        )
+    ):
+        saida.setdefault(responsavel.pop("aluno_id"), []).append(responsavel)
+    return saida
 
 
 def matriculas_por_codigos_turma(
@@ -355,10 +395,9 @@ def detalhes_alunos_por_matricula(
                     "numero_celular": row["responsavel_numero_celular"],
                 },
             )
-        primeiras_alocacoes[row["codigo_matricula"]] = row[
-            "primeira_alocacao"
-        ]
+        primeiras_alocacoes[row["codigo_matricula"]] = row["primeira_alocacao"]
     return alunos_idx, responsaveis_idx, primeiras_alocacoes
+
 
 def turma_considera_inativos_sql(
     codigo_turma: int,

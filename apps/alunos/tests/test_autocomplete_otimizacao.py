@@ -85,14 +85,66 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         self.assertIn("codigo_aluno", queries[0]["sql"])
         self.assertIn("7654321", queries[0]["sql"])
 
-    def test_somente_ativos_continua_sem_efeito(self) -> None:
-        """Mantém o parâmetro de compatibilidade sem alterar a seleção."""
-        Matricula.objects.filter(pk=998877).update(
-            codigo_situacao_matricula=14
+    def test_somente_ativos_exclui_situacoes_nao_ativas(self) -> None:
+        """Retira concluído e sem continuidade apenas quando solicitado."""
+        for situacao in (5, 13):
+            with self.subTest(situacao=situacao):
+                MatriculaTurma.objects.filter(
+                    codigo_matricula=998877
+                ).update(codigo_situacao_aluno=situacao)
+                sem_filtro = buscar_alunos_autocomplete("100001", 2026)
+                ativos = buscar_alunos_autocomplete(
+                    "100001", 2026, somente_ativos=True
+                )
+                self.assertEqual(len(sem_filtro), 2)
+                self.assertEqual(
+                    [d["matricula"]["aluno_id"] for d in ativos], [7654321]
+                )
+
+    def test_somente_ativos_mantem_pendente_e_rematriculado(self) -> None:
+        """Preserva as situações que contam como ativas."""
+        for situacao in (1, 6, 10):
+            with self.subTest(situacao=situacao):
+                MatriculaTurma.objects.update(codigo_situacao_aluno=situacao)
+                self.assertEqual(
+                    len(
+                        buscar_alunos_autocomplete(
+                            "100001", 2026, somente_ativos=True
+                        )
+                    ),
+                    2,
+                )
+
+    def test_somente_ativos_falso_preserva_selecao(self) -> None:
+        """Mantém o conjunto de situações válidas sem o filtro."""
+        MatriculaTurma.objects.filter(codigo_matricula=998877).update(
+            codigo_situacao_aluno=5
         )
         self.assertEqual(
-            buscar_alunos_autocomplete("100001", 2026, somente_ativos=True),
             buscar_alunos_autocomplete("100001", 2026, somente_ativos=False),
+            buscar_alunos_autocomplete("100001", 2026),
+        )
+
+    def test_somente_ativos_aplica_filtro_no_historico(self) -> None:
+        """Usa a situação da matrícula no ramo histórico."""
+        Matricula.objects.update(origem_atual=False)
+        MatriculaTurma.objects.update(origem_atual=False)
+        Matricula.objects.filter(pk=998877).update(
+            codigo_situacao_matricula=5
+        )
+        self.assertEqual(
+            len(
+                buscar_alunos_autocomplete(
+                    "100001", 2026, eh_historico=True
+                )
+            ),
+            2,
+        )
+        dados = buscar_alunos_autocomplete(
+            "100001", 2026, somente_ativos=True, eh_historico=True
+        )
+        self.assertEqual(
+            [d["matricula"]["aluno_id"] for d in dados], [7654321]
         )
 
     def test_nome_sem_codigo_nao_amplia_varredura(self) -> None:

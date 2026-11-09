@@ -1080,6 +1080,202 @@ class A22A23EscritaApiTestCase(TestCase):
         self.assertIs(put.json(), False)
 
 
+class ResponsavelRotasDedicadasApiTestCase(TestCase):
+    """Valida as rotas dedicadas de escrita do responsável."""
+
+    _KWARGS = {"codigo_aluno": "1234567", "cpf_responsavel": "12345678901"}
+    _CONTATOS = {
+        "email": "contato.novo@sme.com.br",
+        "ddd_celular": "11",
+        "numero_celular": "966665555",
+        "ddd_residencial": "11",
+        "numero_residencial": "22223333",
+    }
+    _CADASTRAIS = {
+        "email": "cadastro.novo@sme.com.br",
+        "data_nascimento": "1981-06-21T00:00:00",
+        "nome_mae": "Mae Atualizada",
+        "ddd_celular": "11",
+        "numero_celular": "988887777",
+    }
+
+    @staticmethod
+    def _estado() -> dict[str, object]:
+        """Lê do banco o vínculo do responsável, sem o carimbo de data."""
+        valores = (
+            ResponsavelAluno.objects.filter(
+                cpf="12345678901", aluno_id=1234567
+            )
+            .values()
+            .get()
+        )
+        valores.pop("data_atualizacao_tabela", None)
+        return valores
+
+    def _executar_e_restaurar(
+        self, verbo: str, nome_rota: str, corpo: dict[str, object]
+    ) -> tuple[object, dict[str, object]]:
+        """Chama a rota, devolve resposta e estado, e restaura o vínculo."""
+        inicial = self._estado()
+        resp = getattr(_autenticado(), verbo)(
+            reverse(nome_rota, kwargs=self._KWARGS), data=corpo, format="json"
+        )
+        estado = self._estado()
+        ResponsavelAluno.objects.filter(cpf="12345678901").update(**inicial)
+        return resp.json(), estado
+
+    def test_contatos_atualiza_via_put(self) -> None:
+        """Verifica que a rota de contatos atualiza e devolve true."""
+        seed_alunos()
+        seed_responsaveis()
+        url = reverse("responsavel-aluno-contatos", kwargs=self._KWARGS)
+
+        resp = _autenticado().put(url, data=self._CONTATOS, format="json")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json(), True)
+        vinculo = ResponsavelAluno.objects.get(cpf="12345678901")
+        self.assertEqual(vinculo.email, "contato.novo@sme.com.br")
+        self.assertEqual(vinculo.nr_telefone_fixo, "22223333")
+        self.assertIsNone(vinculo.nr_telefone_comercial)
+
+    def test_dados_cadastrais_atualiza_via_put(self) -> None:
+        """Verifica que a rota cadastral atualiza e devolve true."""
+        seed_alunos()
+        seed_responsaveis()
+        url = reverse(
+            "responsavel-aluno-dados-cadastrais", kwargs=self._KWARGS
+        )
+
+        resp = _autenticado().put(url, data=self._CADASTRAIS, format="json")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json(), True)
+        vinculo = ResponsavelAluno.objects.get(cpf="12345678901")
+        self.assertEqual(vinculo.nome_mae, "Mae Atualizada")
+        self.assertEqual(vinculo.data_nascimento, date(1981, 6, 21))
+        self.assertEqual(vinculo.autoriza_sms, "S")
+
+    def test_rotas_dedicadas_nao_aceitam_post(self) -> None:
+        """Verifica que as rotas dedicadas só aceitam PUT."""
+        for nome in (
+            "responsavel-aluno-contatos",
+            "responsavel-aluno-dados-cadastrais",
+        ):
+            url = reverse(nome, kwargs=self._KWARGS)
+            resp = _autenticado().post(url, data={}, format="json")
+            self.assertEqual(resp.status_code, 405)
+
+    def test_rotas_dedicadas_inexistentes_retornam_falso(self) -> None:
+        """Verifica que as rotas dedicadas não criam vínculos ausentes."""
+        seed_alunos()
+        kwargs = {"codigo_aluno": "1234567", "cpf_responsavel": "55544433322"}
+        for nome in (
+            "responsavel-aluno-contatos",
+            "responsavel-aluno-dados-cadastrais",
+        ):
+            url = reverse(nome, kwargs=kwargs)
+            resp = _autenticado().put(url, data={}, format="json")
+            self.assertEqual(resp.status_code, 200)
+            self.assertIs(resp.json(), False)
+
+    def test_rotas_dedicadas_codigo_aluno_invalido_400(self) -> None:
+        """Verifica que codigo_aluno não numérico retorna 400."""
+        kwargs = {"codigo_aluno": "abc", "cpf_responsavel": "12345678901"}
+        for nome in (
+            "responsavel-aluno-contatos",
+            "responsavel-aluno-dados-cadastrais",
+        ):
+            url = reverse(nome, kwargs=kwargs)
+            resp = _autenticado().put(url, data={}, format="json")
+            self.assertEqual(resp.status_code, 400)
+
+    def test_valores_acima_do_limite_da_coluna_retornam_400(self) -> None:
+        """Verifica que campo maior que a coluna dá 400 e não grava."""
+        seed_alunos()
+        seed_responsaveis()
+        casos = (
+            ("responsavel-aluno-contatos", {"ddd_celular": "string"}),
+            ("responsavel-aluno-contatos", {"ddd_residencial": "12345"}),
+            ("responsavel-aluno-contatos", {"ddd_comercial": "12345"}),
+            ("responsavel-aluno-contatos", {"numero_celular": "1" * 21}),
+            ("responsavel-aluno-contatos", {"email": "a" * 201}),
+            ("responsavel-aluno-dados-cadastrais", {"ddd_celular": "12345"}),
+            ("responsavel-aluno-dados-cadastrais", {"nome_mae": "a" * 201}),
+        )
+        for nome_rota, corpo in casos:
+            with self.subTest(rota=nome_rota, corpo=list(corpo)):
+                inicial = self._estado()
+
+                resp = _autenticado().put(
+                    reverse(nome_rota, kwargs=self._KWARGS),
+                    data=corpo,
+                    format="json",
+                )
+
+                self.assertEqual(resp.status_code, 400)
+                self.assertEqual(inicial, self._estado())
+
+    def test_rotas_depreciadas_tambem_validam_tamanho(self) -> None:
+        """Verifica que PUT e POST antigos recusam valor acima do limite."""
+        seed_alunos()
+        seed_responsaveis()
+        url = reverse("responsavel-aluno", kwargs=self._KWARGS)
+
+        put = _autenticado().put(
+            url, data={"ddd_celular": "string"}, format="json"
+        )
+        post = _autenticado().post(
+            url, data={"ddd_celular": "string"}, format="json"
+        )
+
+        self.assertEqual(put.status_code, 400)
+        self.assertEqual(post.status_code, 400)
+
+    def test_valores_no_limite_da_coluna_sao_aceitos(self) -> None:
+        """Verifica que o tamanho exato da coluna continua válido."""
+        seed_alunos()
+        seed_responsaveis()
+        url = reverse("responsavel-aluno-contatos", kwargs=self._KWARGS)
+
+        resp = _autenticado().put(
+            url,
+            data={"ddd_celular": "1234", "numero_celular": "1" * 20},
+            format="json",
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIs(resp.json(), True)
+
+    def test_contatos_equivale_a_rota_depreciada(self) -> None:
+        """Verifica que a rota nova e o PUT antigo geram o mesmo estado."""
+        seed_alunos()
+        seed_responsaveis()
+
+        antigo = self._executar_e_restaurar(
+            "put", "responsavel-aluno", self._CONTATOS
+        )
+        novo = self._executar_e_restaurar(
+            "put", "responsavel-aluno-contatos", self._CONTATOS
+        )
+
+        self.assertEqual(antigo, novo)
+
+    def test_dados_cadastrais_equivale_a_rota_depreciada(self) -> None:
+        """Verifica que a rota nova e o POST antigo geram o mesmo estado."""
+        seed_alunos()
+        seed_responsaveis()
+
+        antigo = self._executar_e_restaurar(
+            "post", "responsavel-aluno", self._CADASTRAIS
+        )
+        novo = self._executar_e_restaurar(
+            "put", "responsavel-aluno-dados-cadastrais", self._CADASTRAIS
+        )
+
+        self.assertEqual(antigo, novo)
+
+
 class ObterNomesAlunosApiTestCase(TestCase):
     """Valida a consulta de nomes por códigos de alunos."""
 
