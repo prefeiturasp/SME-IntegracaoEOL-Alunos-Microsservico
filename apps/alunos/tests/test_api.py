@@ -132,9 +132,7 @@ class A01TurmasSrmRegularDoAlunoTestCase(TestCase):
         self._criar_turmas_programa()
         resp = self._get()
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(
-            [t["codigo_turma"] for t in resp.json()], [12345]
-        )
+        self.assertEqual([t["codigo_turma"] for t in resp.json()], [12345])
 
     def test_inclui_programa_informado(self) -> None:
         """Verifica que só a turma de programa informada é incluída."""

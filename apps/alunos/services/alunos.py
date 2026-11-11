@@ -897,6 +897,49 @@ def obter_informacoes_aluno(
     }
 
 
+def _chave_vinculo_aluno_turma(
+    row: dict[str, Any],
+) -> tuple[date, datetime, int, int]:
+    """Retorna a chave que prioriza o vinculo mais recente do aluno.
+
+    Args:
+        row: Registro combinado de matricula e matricula-turma.
+
+    Returns:
+        Chave composta pela data de situacao, data e hora de situacao,
+        sequencia e codigo da matricula.
+    """
+    minimo_data_hora = datetime.min.replace(tzinfo=UTC)
+    return (
+        row["data_situacao_aluno"] or date.min,
+        row["data_situacao_aluno_data_hora"] or minimo_data_hora,
+        row["sequencia"] or 0,
+        row["codigo_matricula"] or 0,
+    )
+
+
+def _vinculos_mais_recentes_por_aluno(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Remove alunos repetidos, preservando somente o vinculo mais recente.
+
+    Args:
+        rows: Registros combinados de matricula e matricula-turma.
+
+    Returns:
+        Lista com um unico vinculo, o mais recente, para cada aluno.
+    """
+    linhas_por_aluno: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        aluno_id = row["aluno_id"]
+        atual = linhas_por_aluno.get(aluno_id)
+        if atual is None or _chave_vinculo_aluno_turma(
+            row
+        ) > _chave_vinculo_aluno_turma(atual):
+            linhas_por_aluno[aluno_id] = row
+    return list(linhas_por_aluno.values())
+
+
 def obter_informacoes_alunos_da_turma(
     codigo_turma: int,
 ) -> list[dict[str, Any]]:
@@ -906,25 +949,21 @@ def obter_informacoes_alunos_da_turma(
         codigo_turma: Código EOL da turma.
     """
     rows = matriculas_por_codigos_turma([codigo_turma])
-    rows_validas = [
-        r
-        for r in rows
-        if r["codigo_situacao_matricula"] in SITUACOES_MATRICULA_VALIDAS
-    ]
-    if not rows_validas:
+    if not rows:
         return []
 
-    alunos_idx = alunos_indexados([r["aluno_id"] for r in rows_validas])
+    rows_unicas = _vinculos_mais_recentes_por_aluno(rows)
+    alunos_idx = alunos_indexados([r["aluno_id"] for r in rows_unicas])
     saida = [
         {
-            "row": r,
+            "row": {**r, "numero_chamada": r["numero_chamada"] or "0"},
             "aluno": alunos_idx.get(r["aluno_id"], {}),
-            "numero_chamada": numero_chamada_int(r["numero_chamada"]),
+            "numero_chamada": numero_chamada_int(r["numero_chamada"]) or 0,
             "codigo_raca": codigo_raca(
                 alunos_idx.get(r["aluno_id"], {}).get("raca_cor")
             ),
         }
-        for r in rows_validas
+        for r in rows_unicas
     ]
     return sorted(saida, key=lambda item: item["aluno"].get("nome", ""))
 
