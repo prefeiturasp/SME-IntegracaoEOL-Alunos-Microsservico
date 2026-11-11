@@ -172,7 +172,9 @@ def matriculas_por_codigos_turma(
             "codigo_turma",
             "numero_chamada",
             "data_situacao_aluno",
+            "data_situacao_aluno_data_hora",
             "codigo_situacao_aluno",
+            "sequencia",
         )
     )
     if not mts:

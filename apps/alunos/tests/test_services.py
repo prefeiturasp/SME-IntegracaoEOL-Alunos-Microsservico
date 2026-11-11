@@ -568,6 +568,72 @@ class A13A14InformacoesTestCase(TestCase):
         self.assertEqual(len(dados), 1)
         self.assertEqual(dados[0]["row"]["aluno_id"], 1234567)
 
+    def test_a14_nao_repete_aluno_e_mantem_situacao_mais_recente(
+        self,
+    ) -> None:
+        """Mantem somente o vinculo mais recente do aluno repetido."""
+        seed_matriculas()
+        data_situacao = datetime(2026, 3, 1, 10, tzinfo=UTC)
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=12345,
+            numero_chamada="25",
+            data_situacao_aluno=date(2026, 3, 1),
+            data_situacao_aluno_data_hora=data_situacao,
+            codigo_situacao_aluno=1,
+            sequencia=2,
+        )
+
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]["row"]["numero_chamada"], "25")
+        self.assertEqual(dados[0]["numero_chamada"], 25)
+
+    def test_a14_numero_chamada_nulo_retorna_zero(self) -> None:
+        """Converte numero de chamada nulo para zero nos dois campos."""
+        seed_matriculas()
+        MatriculaTurma.objects.filter(
+            codigo_matricula=998877,
+            codigo_turma=12345,
+        ).update(numero_chamada=None)
+
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
+
+        self.assertEqual(dados[0]["row"]["numero_chamada"], "0")
+        self.assertEqual(dados[0]["numero_chamada"], 0)
+
+    def test_a14_considera_apenas_situacao_aluno_valida(self) -> None:
+        """Ignora vinculos cuja situacao do aluno nao esteja entre as validas."""
+        seed_matriculas()
+        MatriculaTurma.objects.create(
+            codigo_matricula=998877,
+            codigo_turma=12345,
+            numero_chamada="25",
+            data_situacao_aluno=date(2026, 3, 1),
+            codigo_situacao_aluno=2,
+            sequencia=2,
+        )
+
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]["row"]["codigo_situacao_aluno"], 1)
+        self.assertEqual(dados[0]["row"]["numero_chamada"], "12")
+
+    def test_a14_nao_filtra_situacao_geral_da_matricula(self) -> None:
+        """Considera apenas a situacao do vinculo com a turma."""
+        seed_matriculas()
+        Matricula.objects.filter(codigo_matricula=998877).update(
+            codigo_situacao_matricula=2,
+            situacao_matricula="Desistente",
+        )
+
+        dados = services.obter_informacoes_alunos_da_turma(codigo_turma=12345)
+
+        self.assertEqual(len(dados), 1)
+        self.assertEqual(dados[0]["row"]["aluno_id"], 1234567)
+
 
 class A15A16QuantidadeTestCase(TestCase):
     """Valida as agregações de quantidade de matriculados."""
