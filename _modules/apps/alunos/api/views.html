@@ -545,7 +545,15 @@
             <span class="p">),</span>
             <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"nome_aluno"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">),</span>
             <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"codigo_eol"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">),</span>
-            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"somente_ativos"</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">),</span>
+            <span class="n">OpenApiParameter</span><span class="p">(</span>
+                <span class="s2">"somente_ativos"</span><span class="p">,</span>
+                <span class="nb">bool</span><span class="p">,</span>
+                <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">"Restringe aos vínculos em situação ativa (ativo, "</span>
+                    <span class="s2">"pendente de rematrícula e rematriculado)."</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
             <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"eh_historico"</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">),</span>
             <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"limite"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">QUERY</span><span class="p">),</span>
         <span class="p">],</span>
@@ -2102,27 +2110,114 @@
 
 
 
-<div class="viewcode-block" id="ResponsavelAlunoView">
-<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelAlunoView">[documentos]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">ResponsavelAlunoView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Atualiza ou cadastra dados de um responsável."""</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_atualizar_contatos_responsavel</span><span class="p">(</span>
+    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Atualiza os contatos do vínculo aluno-responsável.</span>
 
-<div class="viewcode-block" id="ResponsavelAlunoView.put">
-<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelAlunoView.put">[documentos]</a>
+<span class="sd">    Args:</span>
+<span class="sd">        request: Requisição com os dados de contato no corpo.</span>
+<span class="sd">        codigo_aluno: Código EOL do aluno.</span>
+<span class="sd">        cpf_responsavel: CPF do responsável atualizado.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Indicador de atualização do vínculo.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValidationError: Quando os dados informados são inválidos.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">codigo</span> <span class="o">=</span> <span class="n">to_int</span><span class="p">(</span><span class="n">codigo_aluno</span><span class="p">,</span> <span class="s2">"codigo_aluno"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+
+    <span class="n">serializer</span> <span class="o">=</span> <span class="n">AtualizarResponsavelBuscaAtivaRequestSerializer</span><span class="p">(</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">data</span>
+    <span class="p">)</span>
+    <span class="n">serializer</span><span class="o">.</span><span class="n">is_valid</span><span class="p">(</span><span class="n">raise_exception</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">serializer</span><span class="o">.</span><span class="n">validated_data</span>
+
+    <span class="n">atualizado</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">atualizar_dados_responsavel_busca_ativa</span><span class="p">(</span>
+        <span class="n">codigo_aluno</span><span class="o">=</span><span class="n">codigo</span><span class="p">,</span>
+        <span class="n">cpf_responsavel</span><span class="o">=</span><span class="n">cpf_responsavel</span><span class="p">,</span>
+        <span class="n">email</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"email"</span><span class="p">),</span>
+        <span class="n">ddd_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_celular"</span><span class="p">),</span>
+        <span class="n">numero_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_celular"</span><span class="p">),</span>
+        <span class="n">ddd_residencial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_residencial"</span><span class="p">),</span>
+        <span class="n">numero_residencial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_residencial"</span><span class="p">),</span>
+        <span class="n">ddd_comercial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_comercial"</span><span class="p">),</span>
+        <span class="n">numero_comercial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_comercial"</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">atualizado</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_atualizar_dados_cadastrais_responsavel</span><span class="p">(</span>
+    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Atualiza os dados cadastrais do vínculo aluno-responsável.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: Requisição com os dados cadastrais no corpo.</span>
+<span class="sd">        codigo_aluno: Código EOL do aluno.</span>
+<span class="sd">        cpf_responsavel: CPF do responsável atualizado.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Indicador de atualização do vínculo.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValidationError: Quando os dados informados são inválidos.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">codigo</span> <span class="o">=</span> <span class="n">to_int</span><span class="p">(</span><span class="n">codigo_aluno</span><span class="p">,</span> <span class="s2">"codigo_aluno"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+
+    <span class="n">serializer</span> <span class="o">=</span> <span class="n">AtualizarResponsavelRequestSerializer</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="n">serializer</span><span class="o">.</span><span class="n">is_valid</span><span class="p">(</span><span class="n">raise_exception</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">serializer</span><span class="o">.</span><span class="n">validated_data</span>
+
+    <span class="n">atualizado</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">atualizar_dados_responsavel</span><span class="p">(</span>
+        <span class="n">codigo_aluno</span><span class="o">=</span><span class="n">codigo</span><span class="p">,</span>
+        <span class="n">cpf_responsavel</span><span class="o">=</span><span class="n">cpf_responsavel</span><span class="p">,</span>
+        <span class="n">email</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"email"</span><span class="p">),</span>
+        <span class="n">data_nascimento</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_nascimento"</span><span class="p">),</span>
+        <span class="n">nome_mae</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome_mae"</span><span class="p">),</span>
+        <span class="n">ddd_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_celular"</span><span class="p">),</span>
+        <span class="n">numero_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_celular"</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">atualizado</span><span class="p">)</span>
+
+
+<span class="n">_PARAMETROS_RESPONSAVEL_ALUNO</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"codigo_aluno"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
+    <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"cpf_responsavel"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="ResponsavelContatosView">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelContatosView">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ResponsavelContatosView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Atualiza os contatos de um responsável vinculado ao aluno."""</span>
+
+<div class="viewcode-block" id="ResponsavelContatosView.put">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelContatosView.put">[documentos]</a>
     <span class="nd">@extend_schema</span><span class="p">(</span>
         <span class="n">tags</span><span class="o">=</span><span class="n">_TAG_RESPONSAVEL</span><span class="p">,</span>
-        <span class="n">summary</span><span class="o">=</span><span class="s2">"Atualizar dados do responsável (busca ativa)"</span><span class="p">,</span>
-        <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
-            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"codigo_aluno"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
-            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"cpf_responsavel"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
-        <span class="p">],</span>
+        <span class="n">summary</span><span class="o">=</span><span class="s2">"Atualizar contatos do responsável"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Substitui e-mail e telefones (celular, residencial e comercial) "</span>
+            <span class="s2">"do vínculo. Campos omitidos são limpos. Usado no fluxo de busca "</span>
+            <span class="s2">"ativa. Os campos `codigo_aluno` e `cpf` do corpo são ignorados: "</span>
+            <span class="s2">"prevalecem os do caminho."</span>
+        <span class="p">),</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">_PARAMETROS_RESPONSAVEL_ALUNO</span><span class="p">,</span>
         <span class="n">request</span><span class="o">=</span><span class="n">AtualizarResponsavelBuscaAtivaRequestSerializer</span><span class="p">,</span>
         <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">OpenApiTypes</span><span class="o">.</span><span class="n">BOOL</span><span class="p">},</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">put</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Atualiza os dados de contato do responsável (busca ativa).</span>
+<span class="w">        </span><span class="sd">"""Atualiza os contatos do responsável.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            request: Requisição com os dados de contato no corpo.</span>
@@ -2131,33 +2226,88 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Indicador de atualização do vínculo.</span>
-
-<span class="sd">        Raises:</span>
-<span class="sd">            ValidationError: Quando os dados informados são inválidos.</span>
 <span class="sd">        """</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">codigo</span> <span class="o">=</span> <span class="n">to_int</span><span class="p">(</span><span class="n">codigo_aluno</span><span class="p">,</span> <span class="s2">"codigo_aluno"</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">_atualizar_contatos_responsavel</span><span class="p">(</span>
+            <span class="n">request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">,</span> <span class="n">cpf_responsavel</span>
+        <span class="p">)</span></div>
+</div>
 
-        <span class="n">serializer</span> <span class="o">=</span> <span class="n">AtualizarResponsavelBuscaAtivaRequestSerializer</span><span class="p">(</span>
-            <span class="n">data</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">data</span>
-        <span class="p">)</span>
-        <span class="n">serializer</span><span class="o">.</span><span class="n">is_valid</span><span class="p">(</span><span class="n">raise_exception</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">serializer</span><span class="o">.</span><span class="n">validated_data</span>
 
-        <span class="n">atualizado</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">atualizar_dados_responsavel_busca_ativa</span><span class="p">(</span>
-            <span class="n">codigo_aluno</span><span class="o">=</span><span class="n">codigo</span><span class="p">,</span>
-            <span class="n">cpf_responsavel</span><span class="o">=</span><span class="n">cpf_responsavel</span><span class="p">,</span>
-            <span class="n">email</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"email"</span><span class="p">),</span>
-            <span class="n">ddd_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_celular"</span><span class="p">),</span>
-            <span class="n">numero_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_celular"</span><span class="p">),</span>
-            <span class="n">ddd_residencial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_residencial"</span><span class="p">),</span>
-            <span class="n">numero_residencial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_residencial"</span><span class="p">),</span>
-            <span class="n">ddd_comercial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_comercial"</span><span class="p">),</span>
-            <span class="n">numero_comercial</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_comercial"</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">atualizado</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ResponsavelDadosCadastraisView">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelDadosCadastraisView">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ResponsavelDadosCadastraisView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Atualiza os dados cadastrais de um responsável vinculado ao aluno."""</span>
+
+<div class="viewcode-block" id="ResponsavelDadosCadastraisView.put">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelDadosCadastraisView.put">[documentos]</a>
+    <span class="nd">@extend_schema</span><span class="p">(</span>
+        <span class="n">tags</span><span class="o">=</span><span class="n">_TAG_RESPONSAVEL</span><span class="p">,</span>
+        <span class="n">summary</span><span class="o">=</span><span class="s2">"Atualizar dados cadastrais do responsável"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"Substitui e-mail, data de nascimento, nome da mãe e celular do "</span>
+            <span class="s2">"vínculo. Campos omitidos são limpos. Não cria vínculos ausentes."</span>
+        <span class="p">),</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">_PARAMETROS_RESPONSAVEL_ALUNO</span><span class="p">,</span>
+        <span class="n">request</span><span class="o">=</span><span class="n">AtualizarResponsavelRequestSerializer</span><span class="p">,</span>
+        <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">OpenApiTypes</span><span class="o">.</span><span class="n">BOOL</span><span class="p">},</span>
+    <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">put</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Atualiza os dados cadastrais do responsável.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            request: Requisição com os dados cadastrais no corpo.</span>
+<span class="sd">            codigo_aluno: Código EOL do aluno.</span>
+<span class="sd">            cpf_responsavel: CPF do responsável atualizado.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Indicador de atualização do vínculo.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">_atualizar_dados_cadastrais_responsavel</span><span class="p">(</span>
+            <span class="n">request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">,</span> <span class="n">cpf_responsavel</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ResponsavelAlunoView">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelAlunoView">[documentos]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ResponsavelAlunoView</span><span class="p">(</span><span class="n">APIView</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Atualiza os dados do responsável do aluno."""</span>
+
+<div class="viewcode-block" id="ResponsavelAlunoView.put">
+<a class="viewcode-back" href="../../../../api.html#apps.alunos.api.views.ResponsavelAlunoView.put">[documentos]</a>
+    <span class="nd">@extend_schema</span><span class="p">(</span>
+        <span class="n">tags</span><span class="o">=</span><span class="n">_TAG_RESPONSAVEL</span><span class="p">,</span>
+        <span class="n">summary</span><span class="o">=</span><span class="s2">"Atualizar dados do responsável (busca ativa)"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"DEPRECADO — use `PUT .../responsaveis/</span><span class="si">{cpf_responsavel}</span><span class="s2">/contatos`."</span>
+        <span class="p">),</span>
+        <span class="n">deprecated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">_PARAMETROS_RESPONSAVEL_ALUNO</span><span class="p">,</span>
+        <span class="n">request</span><span class="o">=</span><span class="n">AtualizarResponsavelBuscaAtivaRequestSerializer</span><span class="p">,</span>
+        <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">OpenApiTypes</span><span class="o">.</span><span class="n">BOOL</span><span class="p">},</span>
+    <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">put</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Atualiza os contatos do responsável (depreciado).</span>
+
+<span class="sd">        Substituído por ``ResponsavelContatosView``.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            request: Requisição com os dados de contato no corpo.</span>
+<span class="sd">            codigo_aluno: Código EOL do aluno.</span>
+<span class="sd">            cpf_responsavel: CPF do responsável atualizado.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Indicador de atualização do vínculo.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">_atualizar_contatos_responsavel</span><span class="p">(</span>
+            <span class="n">request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">,</span> <span class="n">cpf_responsavel</span>
+        <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ResponsavelAlunoView.post">
@@ -2165,48 +2315,33 @@
     <span class="nd">@extend_schema</span><span class="p">(</span>
         <span class="n">tags</span><span class="o">=</span><span class="n">_TAG_RESPONSAVEL</span><span class="p">,</span>
         <span class="n">summary</span><span class="o">=</span><span class="s2">"Atualizar dados do responsável do aluno"</span><span class="p">,</span>
-        <span class="n">parameters</span><span class="o">=</span><span class="p">[</span>
-            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"codigo_aluno"</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
-            <span class="n">OpenApiParameter</span><span class="p">(</span><span class="s2">"cpf_responsavel"</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">OpenApiParameter</span><span class="o">.</span><span class="n">PATH</span><span class="p">),</span>
-        <span class="p">],</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"DEPRECADO — use "</span>
+            <span class="s2">"`PUT .../responsaveis/</span><span class="si">{cpf_responsavel}</span><span class="s2">/dados-cadastrais`."</span>
+        <span class="p">),</span>
+        <span class="n">deprecated</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">parameters</span><span class="o">=</span><span class="n">_PARAMETROS_RESPONSAVEL_ALUNO</span><span class="p">,</span>
         <span class="n">request</span><span class="o">=</span><span class="n">AtualizarResponsavelRequestSerializer</span><span class="p">,</span>
         <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">OpenApiTypes</span><span class="o">.</span><span class="n">BOOL</span><span class="p">},</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">post</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cpf_responsavel</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Atualiza os dados de um responsável do aluno.</span>
+<span class="w">        </span><span class="sd">"""Atualiza os dados cadastrais do responsável (depreciado).</span>
+
+<span class="sd">        Substituído por ``ResponsavelDadosCadastraisView``.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            request: Requisição com os dados do responsável no corpo.</span>
+<span class="sd">            request: Requisição com os dados cadastrais no corpo.</span>
 <span class="sd">            codigo_aluno: Código EOL do aluno.</span>
-<span class="sd">            cpf_responsavel: CPF do responsável cadastrado.</span>
+<span class="sd">            cpf_responsavel: CPF do responsável atualizado.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Indicador de atualização do vínculo.</span>
-
-<span class="sd">        Raises:</span>
-<span class="sd">            ValidationError: Quando os dados informados são inválidos.</span>
 <span class="sd">        """</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">codigo</span> <span class="o">=</span> <span class="n">to_int</span><span class="p">(</span><span class="n">codigo_aluno</span><span class="p">,</span> <span class="s2">"codigo_aluno"</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_erro_400</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
-
-        <span class="n">serializer</span> <span class="o">=</span> <span class="n">AtualizarResponsavelRequestSerializer</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-        <span class="n">serializer</span><span class="o">.</span><span class="n">is_valid</span><span class="p">(</span><span class="n">raise_exception</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">serializer</span><span class="o">.</span><span class="n">validated_data</span>
-
-        <span class="n">atualizado</span> <span class="o">=</span> <span class="n">services</span><span class="o">.</span><span class="n">atualizar_dados_responsavel</span><span class="p">(</span>
-            <span class="n">codigo_aluno</span><span class="o">=</span><span class="n">codigo</span><span class="p">,</span>
-            <span class="n">cpf_responsavel</span><span class="o">=</span><span class="n">cpf_responsavel</span><span class="p">,</span>
-            <span class="n">email</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"email"</span><span class="p">),</span>
-            <span class="n">data_nascimento</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"data_nascimento"</span><span class="p">),</span>
-            <span class="n">nome_mae</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"nome_mae"</span><span class="p">),</span>
-            <span class="n">ddd_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ddd_celular"</span><span class="p">),</span>
-            <span class="n">numero_celular</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"numero_celular"</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">atualizado</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">_atualizar_dados_cadastrais_responsavel</span><span class="p">(</span>
+            <span class="n">request</span><span class="p">,</span> <span class="n">codigo_aluno</span><span class="p">,</span> <span class="n">cpf_responsavel</span>
+        <span class="p">)</span></div>
 </div>
 
 

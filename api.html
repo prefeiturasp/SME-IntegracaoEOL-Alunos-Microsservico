@@ -3328,14 +3328,14 @@ encontrado.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelAlunoView">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">ResponsavelAlunoView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelAlunoView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelAlunoView" title="Link para esta definição">¶</a></dt>
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelContatosView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">ResponsavelContatosView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelContatosView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelContatosView" title="Link para esta definição">¶</a></dt>
 <dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
-<p>Atualiza ou cadastra dados de um responsável.</p>
+<p>Atualiza os contatos de um responsável vinculado ao aluno.</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelAlunoView.put">
-<span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpf_responsavel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelAlunoView.put"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelAlunoView.put" title="Link para esta definição">¶</a></dt>
-<dd><p>Atualiza os dados de contato do responsável (busca ativa).</p>
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelContatosView.put">
+<span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpf_responsavel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelContatosView.put"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelContatosView.put" title="Link para esta definição">¶</a></dt>
+<dd><p>Atualiza os contatos do responsável.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -3347,18 +3347,86 @@ encontrado.</p>
 <dt class="field-even">Retorna<span class="colon">:</span></dt>
 <dd class="field-even"><p>Indicador de atualização do vínculo.</p>
 </dd>
-<dt class="field-odd">Levanta<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ValidationError</strong> – Quando os dados informados são inválidos.</p>
-</dd>
-<dt class="field-even">Parâmetros<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>request</strong> (<em>Request</em>)</p></li>
 <li><p><strong>codigo_aluno</strong> (<em>str</em>)</p></li>
 <li><p><strong>cpf_responsavel</strong> (<em>str</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Tipo de retorno<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Response</em></p>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelDadosCadastraisView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">ResponsavelDadosCadastraisView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelDadosCadastraisView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelDadosCadastraisView" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
+<p>Atualiza os dados cadastrais de um responsável vinculado ao aluno.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelDadosCadastraisView.put">
+<span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpf_responsavel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelDadosCadastraisView.put"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelDadosCadastraisView.put" title="Link para esta definição">¶</a></dt>
+<dd><p>Atualiza os dados cadastrais do responsável.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> – Requisição com os dados cadastrais no corpo.</p></li>
+<li><p><strong>codigo_aluno</strong> – Código EOL do aluno.</p></li>
+<li><p><strong>cpf_responsavel</strong> – CPF do responsável atualizado.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Retorna<span class="colon">:</span></dt>
+<dd class="field-even"><p>Indicador de atualização do vínculo.</p>
+</dd>
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<em>Request</em>)</p></li>
+<li><p><strong>codigo_aluno</strong> (<em>str</em>)</p></li>
+<li><p><strong>cpf_responsavel</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelAlunoView">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">apps.alunos.api.views.</span></span><span class="sig-name descname"><span class="pre">ResponsavelAlunoView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelAlunoView"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelAlunoView" title="Link para esta definição">¶</a></dt>
+<dd><p>Base: <code class="xref py py-class docutils literal notranslate"><span class="pre">APIView</span></code></p>
+<p>Atualiza os dados do responsável do aluno.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelAlunoView.put">
+<span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpf_responsavel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelAlunoView.put"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelAlunoView.put" title="Link para esta definição">¶</a></dt>
+<dd><p>Atualiza os contatos do responsável (depreciado).</p>
+<p>Substituído por <code class="docutils literal notranslate"><span class="pre">ResponsavelContatosView</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> – Requisição com os dados de contato no corpo.</p></li>
+<li><p><strong>codigo_aluno</strong> – Código EOL do aluno.</p></li>
+<li><p><strong>cpf_responsavel</strong> – CPF do responsável atualizado.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Retorna<span class="colon">:</span></dt>
+<dd class="field-even"><p>Indicador de atualização do vínculo.</p>
+</dd>
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>request</strong> (<em>Request</em>)</p></li>
+<li><p><strong>codigo_aluno</strong> (<em>str</em>)</p></li>
+<li><p><strong>cpf_responsavel</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
 </dd>
 </dl>
 </dd></dl>
@@ -3366,30 +3434,28 @@ encontrado.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="apps.alunos.api.views.ResponsavelAlunoView.post">
 <span class="sig-name descname"><span class="pre">post</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">codigo_aluno</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cpf_responsavel</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/apps/alunos/api/views.html#ResponsavelAlunoView.post"><span class="viewcode-link"><span class="pre">[código-fonte]</span></span></a><a class="headerlink" href="#apps.alunos.api.views.ResponsavelAlunoView.post" title="Link para esta definição">¶</a></dt>
-<dd><p>Atualiza os dados de um responsável do aluno.</p>
+<dd><p>Atualiza os dados cadastrais do responsável (depreciado).</p>
+<p>Substituído por <code class="docutils literal notranslate"><span class="pre">ResponsavelDadosCadastraisView</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>request</strong> – Requisição com os dados do responsável no corpo.</p></li>
+<li><p><strong>request</strong> – Requisição com os dados cadastrais no corpo.</p></li>
 <li><p><strong>codigo_aluno</strong> – Código EOL do aluno.</p></li>
-<li><p><strong>cpf_responsavel</strong> – CPF do responsável cadastrado.</p></li>
+<li><p><strong>cpf_responsavel</strong> – CPF do responsável atualizado.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Retorna<span class="colon">:</span></dt>
 <dd class="field-even"><p>Indicador de atualização do vínculo.</p>
 </dd>
-<dt class="field-odd">Levanta<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ValidationError</strong> – Quando os dados informados são inválidos.</p>
-</dd>
-<dt class="field-even">Parâmetros<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
+<dt class="field-odd">Parâmetros<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>request</strong> (<em>Request</em>)</p></li>
 <li><p><strong>codigo_aluno</strong> (<em>str</em>)</p></li>
 <li><p><strong>cpf_responsavel</strong> (<em>str</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Tipo de retorno<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Response</em></p>
+<dt class="field-even">Tipo de retorno<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Response</em></p>
 </dd>
 </dl>
 </dd></dl>
