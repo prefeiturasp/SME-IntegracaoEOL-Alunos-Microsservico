@@ -676,8 +676,8 @@ class InformacoesAlunoSerializer(serializers.Serializer):
 class InformacoesAlunoTurmaSerializer(serializers.Serializer):
     """Serializa resumo de aluno em turma."""
 
-    numero_aluno_chamada = serializers.CharField(allow_null=True)
-    numero_chamada = serializers.IntegerField(allow_null=True)
+    numero_aluno_chamada = serializers.CharField()
+    numero_chamada = serializers.IntegerField()
     codigo_aluno = serializers.IntegerField()
     nome_aluno = serializers.CharField()
     nome_social_aluno = serializers.CharField(allow_null=True)
