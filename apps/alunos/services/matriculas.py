@@ -30,11 +30,11 @@ def _consolidacao_por_turma(
     ano_letivo: int, ue_codigo: str
 ) -> list[dict[str, Any]]:
     """Conta matrículas válidas por turma.
-    
+
     Args:
         ano_letivo: Ano letivo a filtrar.
         ue_codigo: Código da unidade escolar.
-    
+
     Returns:
         Lista de dicionários com codigo_turma e quantidade.
     """
@@ -226,7 +226,7 @@ def _matriculas_ativas_ultimo_ano_ue(ue_codigo: str) -> dict[str, Any]:
     )
     if ultimo_ano is None:
         return {"codigos_matricula": [], "matricula_para_aluno": {}}
-    
+
     rows = list(
         Matricula.objects.filter(
             codigo_ue=ue_codigo,
@@ -236,12 +236,12 @@ def _matriculas_ativas_ultimo_ano_ue(ue_codigo: str) -> dict[str, Any]:
         .values("codigo_matricula", "aluno_id")
         .distinct()
     )
-    
+
     codigos_matricula = [int(row["codigo_matricula"]) for row in rows]
     matricula_para_aluno = {
         int(row["codigo_matricula"]): int(row["aluno_id"]) for row in rows
     }
-    
+
     return {
         "codigos_matricula": codigos_matricula,
         "matricula_para_aluno": matricula_para_aluno,
@@ -267,20 +267,19 @@ def _matriculas_ativas_ultimo_ano_dre(dre_codigo: str) -> dict[str, Any]:
     )
     if ultimo_ano is None:
         return {"rows": [], "matricula_para_aluno": {}}
-    
+
     rows = list(
         Matricula.objects.filter(
             codigo_dre=dre_codigo,
             ano_letivo=ultimo_ano,
             codigo_situacao_matricula=1,
-        )
-        .values("codigo_ue", "codigo_matricula", "aluno_id")
+        ).values("codigo_ue", "codigo_matricula", "aluno_id")
     )
-    
+
     matricula_para_aluno = {
         int(row["codigo_matricula"]): int(row["aluno_id"]) for row in rows
     }
-    
+
     return {
         "rows": rows,
         "matricula_para_aluno": matricula_para_aluno,
@@ -300,22 +299,22 @@ def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> dict[str, Any]:
     dados = _matriculas_ativas_ultimo_ano_ue(ue_codigo)
     codigos_matricula = dados["codigos_matricula"]
     matricula_para_aluno = dados["matricula_para_aluno"]
-    
+
     alocacoes = _ultimas_alocacoes_por_matricula(codigos_matricula)
 
     ue_canonico = _codigo_ue_canonico(ue_codigo)
     # Usar sets para contar alunos únicos por turno
     alunos_por_turno: dict[int, set[int]] = {}
-    
+
     for codigo_matricula, row in alocacoes.items():
         ue_turma = _codigo_ue_canonico(row.get("codigo_ue_turma"))
         if ue_turma and ue_turma != ue_canonico:
             continue
-        
+
         codigo_aluno = matricula_para_aluno.get(codigo_matricula)
         if not codigo_aluno:
             continue
-        
+
         tipo_turno = int(row["tipo_turno"])
         if tipo_turno not in alunos_por_turno:
             alunos_por_turno[tipo_turno] = set()
@@ -340,7 +339,9 @@ def obter_total_matriculas_por_turno_ue(ue_codigo: str) -> dict[str, Any]:
     }
 
 
-def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]]:
+def obter_total_matriculas_por_turno_dre(
+    dre_codigo: str,
+) -> list[dict[str, Any]]:
     """Retorna total de alunos únicos por turno da DRE.
 
     Args:
@@ -352,7 +353,7 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]
     dados = _matriculas_ativas_ultimo_ano_dre(dre_codigo)
     rows = dados["rows"]
     matricula_para_aluno = dados["matricula_para_aluno"]
-    
+
     if not rows:
         return []
 
@@ -368,15 +369,17 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]
     alocacoes = _ultimas_alocacoes_por_matricula(codigos_matricula)
     # Usar sets para contar alunos únicos por escola e turno
     por_escola_turno: dict[str, dict[int, set[int]]] = {}
-    
+
     for codigo_matricula, row in alocacoes.items():
-        codigo_ue = _codigo_ue_canonico(row.get("codigo_ue_turma")) or codigo_ue_por_matricula.get(
+        codigo_ue = _codigo_ue_canonico(
+            row.get("codigo_ue_turma")
+        ) or codigo_ue_por_matricula.get(
             codigo_matricula,
             "",
         )
         if not codigo_ue:
             continue
-        
+
         codigo_aluno = matricula_para_aluno.get(codigo_matricula)
         if not codigo_aluno:
             continue
@@ -389,10 +392,14 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]
 
     resposta: list[dict[str, Any]] = []
     # Ordenar numericamente pelo código da escola (sem zeros à esquerda)
-    for codigo_ue in sorted(por_escola_turno, key=lambda x: int(x) if x.isdigit() else 0):
+    for codigo_ue in sorted(
+        por_escola_turno, key=lambda x: int(x) if x.isdigit() else 0
+    ):
         turnos = [
             {
-                "turno": _TIPO_TURNO_DESCRICAO.get(tipo_turno, str(tipo_turno)),
+                "turno": _TIPO_TURNO_DESCRICAO.get(
+                    tipo_turno, str(tipo_turno)
+                ),
                 "tipoTurno": tipo_turno,
                 "quantidade": len(alunos),  # Conta alunos únicos por turno
             }
@@ -403,7 +410,9 @@ def obter_total_matriculas_por_turno_dre(dre_codigo: str) -> list[dict[str, Any]
         resposta.append(
             {
                 "totalMatriculas": sum(item["quantidade"] for item in turnos),
-                "codigoEolEscola": codigo_ue.zfill(6) if codigo_ue.isdigit() else codigo_ue,
+                "codigoEolEscola": (
+                    codigo_ue.zfill(6) if codigo_ue.isdigit() else codigo_ue
+                ),
                 "turnos": turnos,
             }
         )
