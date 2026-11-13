@@ -89,9 +89,9 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Retira concluído e sem continuidade apenas quando solicitado."""
         for situacao in (5, 13):
             with self.subTest(situacao=situacao):
-                MatriculaTurma.objects.filter(codigo_matricula=998877).update(
-                    codigo_situacao_aluno=situacao
-                )
+                MatriculaTurma.objects.filter(
+                    codigo_matricula=998877
+                ).update(codigo_situacao_aluno=situacao)
                 sem_filtro = buscar_alunos_autocomplete("100001", 2026)
                 ativos = buscar_alunos_autocomplete(
                     "100001", 2026, somente_ativos=True
@@ -129,9 +129,15 @@ class AutocompleteOtimizacaoTestCase(TestCase):
         """Usa a situação da matrícula no ramo histórico."""
         Matricula.objects.update(origem_atual=False)
         MatriculaTurma.objects.update(origem_atual=False)
-        Matricula.objects.filter(pk=998877).update(codigo_situacao_matricula=5)
+        Matricula.objects.filter(pk=998877).update(
+            codigo_situacao_matricula=5
+        )
         self.assertEqual(
-            len(buscar_alunos_autocomplete("100001", 2026, eh_historico=True)),
+            len(
+                buscar_alunos_autocomplete(
+                    "100001", 2026, eh_historico=True
+                )
+            ),
             2,
         )
         dados = buscar_alunos_autocomplete(

@@ -14,6 +14,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.alunos import services
+from apps.alunos.api.responses_erros import (
+    _erro,
+    _erro_400,
+    _erro_legado,
+    _erro_negocio_legado,
+)
 from apps.alunos.api.serializers import (
     AlunoAcompanhamentoEscolarSerializer,
     AlunoAtivoDataAulaSerializer,
@@ -42,6 +48,7 @@ from apps.alunos.api.serializers import (
     QuantidadeMatriculasTurmasPeriodoDataISORequestSerializer,
     QuantidadeMatriculasTurmasPeriodoDataISOSerializer,
     ResponsavelTurmaSerializer,
+    RespostaErroPadraoSerializer,
     TotalAlunosAtivosPeriodoSerializer,
     TurmaDoAlunoSerializer,
 )
@@ -65,12 +72,6 @@ CODIGO_UE_E_ANO_LETIVO_OBRIGATORIOS = (
     "Código da UE e ano letivo são obrigatórios."
 )
 
-
-def _erro_400(detalhe: str) -> Response:
-    """Constrói uma resposta 400 com a mensagem informada."""
-    return Response({"detail": detalhe}, status=status.HTTP_400_BAD_REQUEST)
-
-
 ERRO_LEGADO_SEM_MODALIDADES = (
     "Houve um problema na conexão com o banco do EOL. "
     "Por favor, contate a SME."
@@ -88,24 +89,6 @@ ERRO_LEGADO_CODIGOS_ALUNOS_NOMES = "Os códigos dos alunos são obrigatórios."
 ERRO_LEGADO_COMPONENTES_CURRICULARES = (
     "Os códigos dos componentes curriculares são obrigatórios."
 )
-
-
-def _erro_legado(mensagem: str) -> Response:
-    """Replica a resposta de erro do legado com a mensagem informada."""
-    return Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
-
-
-# Código de status usado pelo legado nos erros de negócio.
-_STATUS_NEGOCIO_LEGADO = 601
-
-
-def _erro_negocio_legado(mensagem: str) -> Response:
-    """Replica o erro de negócio do legado (status 601, corpo string)."""
-    resposta = Response(mensagem, status=status.HTTP_400_BAD_REQUEST)
-    # O construtor do Django limita o status a 100-599; o legado usa 601,
-    # então o código é atribuído após a construção.
-    resposta.status_code = _STATUS_NEGOCIO_LEGADO
-    return resposta
 
 
 class BuscaTurmasDoAlunoView(APIView):
@@ -603,6 +586,12 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
     @extend_schema(
         tags=_TAG_ALUNO,
         summary="Total de alunos ativos por período",
+        deprecated=True,
+        description=(
+            "DEPRECIADO — use `GET /api/v1/alunos/ativos/anos/{ano_turma}/"
+            "anos-letivos/{ano_letivo}/data-inicio/{data_inicio}/"
+            "data-fim/{data_fim}`."
+        ),
         parameters=[
             OpenApiParameter("ano_turma", str, OpenApiParameter.PATH),
             OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
@@ -660,6 +649,76 @@ class TotalAlunosAtivosPorPeriodoView(APIView):
         # Replica o erro do legado quando não há resultado.
         if dados["quantidade"] == 0:
             return _erro_legado(ERRO_LEGADO_SEM_RESULTADO)
+
+        return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
+
+
+class TotalAlunosAtivosPorPeriodoDataView(APIView):
+    """Lista o total de alunos ativos por período."""
+
+    @extend_schema(
+        tags=_TAG_ALUNO,
+        summary="Total de alunos ativos por período",
+        parameters=[
+            OpenApiParameter("ano_turma", str, OpenApiParameter.PATH),
+            OpenApiParameter("ano_letivo", int, OpenApiParameter.PATH),
+            OpenApiParameter("data_inicio", str, OpenApiParameter.PATH),
+            OpenApiParameter("data_fim", str, OpenApiParameter.PATH),
+            OpenApiParameter("ue_id", str, OpenApiParameter.QUERY),
+            OpenApiParameter("dre_id", str, OpenApiParameter.QUERY),
+            OpenApiParameter(
+                "modalidades",
+                int,
+                OpenApiParameter.QUERY,
+                many=True,
+            ),
+        ],
+        responses={
+            200: TotalAlunosAtivosPeriodoSerializer,
+            400: RespostaErroPadraoSerializer,
+        },
+    )
+    def get(
+        self,
+        request: Request,
+        ano_turma: str,
+        ano_letivo: str,
+        data_inicio: str,
+        data_fim: str,
+    ) -> Response:
+        """Retorna o total de alunos ativos no período informado.
+
+        Args:
+            request: Requisição com os filtros de UE, DRE e modalidades.
+            ano_turma: Ano da turma consultado.
+            ano_letivo: Ano letivo consultado.
+            data_inicio: Início do período de referência.
+            data_fim: Fim do período de referência.
+
+        Returns:
+            Total de alunos ativos no período.
+        """
+        try:
+            ano = to_int(ano_letivo, "ano_letivo")
+            inicio = to_datetime(data_inicio, "data_inicio")
+            fim = to_datetime(data_fim, "data_fim")
+            modalidades = query_int_list(request, "modalidades")
+        except ValueError as exc:
+            return _erro(str(exc))
+
+        # Replica a mensagem de erro do legado quando não há modalidades.
+        if not modalidades:
+            return _erro(ERRO_LEGADO_SEM_MODALIDADES)
+
+        dados = services.obter_total_alunos_ativos_periodo(
+            ano_turma=ano_turma,
+            ano_letivo=ano,
+            data_inicio=inicio,
+            data_fim=fim,
+            ue_id=request.query_params.get("ue_id"),
+            dre_id=request.query_params.get("dre_id"),
+            modalidades=modalidades,
+        )
 
         return Response(TotalAlunosAtivosPeriodoSerializer(dados).data)
 
